@@ -1,0 +1,51 @@
+name: Build and Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build & Deploy (Dockerfile in backend/)
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ${{ github.workspace }}/backend
+          dockerfilePath: Dockerfile
+
+          acrName: ${{ secrets.ACR_NAME }}
+          acrUsername: ${{ secrets.ACR_USERNAME }}
+          acrPassword: ${{ secrets.ACR_PASSWORD }}
+
+          resourceGroup: ${{ secrets.RESOURCE_GROUP }}
+          containerAppName: ${{ secrets.CONTAINER_APP_NAME }}
+          containerAppEnvironment: ${{ secrets.CONTAINER_APP_ENV }}
+          location: ${{ secrets.LOCATION }}
+
+          imageToBuild: ${{ secrets.ACR_NAME }}.azurecr.io/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+
+          ingress: external
+          targetPort: 8000
+
+          environmentVariables: >
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            STORAGE_PROVIDER=azure
+            AZURE_STORAGE_CONNECTION_STRING=${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+            STORAGE_BUCKET_NAME=${{ secrets.STORAGE_BUCKET_NAME }}
+            EMBEDDINGS_ENABLED=true
