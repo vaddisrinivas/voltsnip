@@ -16,10 +16,6 @@
 
 <br/>
 
-[![LinkedIn](https://img.shields.io/badge/Connect-LinkedIn-blue.svg?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/vaddisrinivas/)
-<br/>
-**Open to new job opportunities and collaborators!**
-
 </div>
 
 ---
@@ -229,9 +225,9 @@ Fork, experiment, and send a PR.
 ---
 
 <div align="center">
-  <sub>
-    Built with ❤️ by <a href="https://thetechcruise.com">TheTechCruise</a>
-    <br/>
-    <i>(Note: This entire project was 100% vibecoded with AI agents)</i>
-  </sub>
+
+Liked this project? Connect with me on [LinkedIn](https://www.linkedin.com/in/srinivasvaddi)! Open to new job opportunities and collaborators!
+
+*(Note: Good chunk of this project was vibecoded with AI agents)*
+
 </div>
