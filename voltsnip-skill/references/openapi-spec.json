@@ -1,0 +1,1097 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "VoltSnip HTTP API",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/api/v1/feeds/trending": {
+            "get": {
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Trending Feed",
+                "description": "Get the trending snippets feed.",
+                "operationId": "trending_feed_api_v1_feeds_trending_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Trending Feed Api V1 Feeds Trending Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/feeds/hot": {
+            "get": {
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Hot Feed",
+                "description": "Get the hot snippets feed (high engagement recently).",
+                "operationId": "hot_feed_api_v1_feeds_hot_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Hot Feed Api V1 Feeds Hot Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/feeds/top": {
+            "get": {
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Top Feed",
+                "description": "Get the top-rated snippets of all time.",
+                "operationId": "top_feed_api_v1_feeds_top_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Top Feed Api V1 Feeds Top Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/feeds/most-used": {
+            "get": {
+                "tags": [
+                    "feeds"
+                ],
+                "summary": "Most Used Feed",
+                "description": "Get the most referenced/used snippets.",
+                "operationId": "most_used_feed_api_v1_feeds_most_used_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Most Used Feed Api V1 Feeds Most Used Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/search/": {
+            "get": {
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search",
+                "description": "Search snippets by tag or language.",
+                "operationId": "search_api_v1_search__get",
+                "parameters": [
+                    {
+                        "name": "tag",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Tag"
+                        }
+                    },
+                    {
+                        "name": "language",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Language"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Search Api V1 Search  Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/search/semantic": {
+            "get": {
+                "tags": [
+                    "search"
+                ],
+                "summary": "Semantic Search",
+                "description": "Search snippets semantically using vector embeddings.",
+                "operationId": "semantic_search_api_v1_search_semantic_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "title": "Q"
+                        }
+                    },
+                    {
+                        "name": "k",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "default": 20,
+                            "title": "K"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SnippetMetaResponse"
+                                    },
+                                    "title": "Response Semantic Search Api V1 Search Semantic Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/snippets/": {
+            "post": {
+                "tags": [
+                    "snippets"
+                ],
+                "summary": "Create Snippet",
+                "description": "Create a new code snippet.",
+                "operationId": "create_snippet_api_v1_snippets__post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SnippetCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SnippetDetailResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/snippets/{snippet_id}": {
+            "get": {
+                "tags": [
+                    "snippets"
+                ],
+                "summary": "Read Snippet",
+                "description": "Retrieve a snippet by ID.",
+                "operationId": "read_snippet_api_v1_snippets__snippet_id__get",
+                "parameters": [
+                    {
+                        "name": "snippet_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "title": "Snippet Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SnippetDetailResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/snippets/{snippet_id}/view": {
+            "post": {
+                "tags": [
+                    "snippets"
+                ],
+                "summary": "View Snippet",
+                "description": "Increment the view count for a snippet.",
+                "operationId": "view_snippet_api_v1_snippets__snippet_id__view_post",
+                "parameters": [
+                    {
+                        "name": "snippet_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "title": "Snippet Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SnippetMetaResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/snippets/{snippet_id}/vote": {
+            "post": {
+                "tags": [
+                    "snippets"
+                ],
+                "summary": "Vote Snippet",
+                "description": "Vote on a snippet (upvote or downvote).",
+                "operationId": "vote_snippet_api_v1_snippets__snippet_id__vote_post",
+                "parameters": [
+                    {
+                        "name": "snippet_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid",
+                            "title": "Snippet Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Vote"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SnippetMetaResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "SnippetCreate": {
+                "properties": {
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Title",
+                        "description": "Human-friendly title for the snippet"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 1000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description",
+                        "description": "Context or explanation for the snippet"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language",
+                        "description": "Programming language or format of the snippet"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string",
+                            "maxLength": 50
+                        },
+                        "type": "array",
+                        "title": "Tags",
+                        "description": "List of normalized tags associated with this snippet"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/SnippetKind",
+                        "description": "The type of snippet (e.g., snippet, skill, prompt, utility, config)",
+                        "default": "snippet"
+                    },
+                    "canonical_key": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Canonical Key",
+                        "description": "Stable string used to identify the same intent over time (e.g., slug)"
+                    },
+                    "code": {
+                        "type": "string",
+                        "maxLength": 1000000,
+                        "title": "Code",
+                        "description": "The actual code or text content"
+                    },
+                    "source": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source",
+                        "description": "Source of the snippet (e.g. 'human' or bot name)"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "code"
+                ],
+                "title": "SnippetCreate"
+            },
+            "SnippetDetailResponse": {
+                "properties": {
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Title",
+                        "description": "Human-friendly title for the snippet"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 1000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description",
+                        "description": "Context or explanation for the snippet"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language",
+                        "description": "Programming language or format of the snippet"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string",
+                            "maxLength": 50
+                        },
+                        "type": "array",
+                        "title": "Tags",
+                        "description": "List of normalized tags associated with this snippet"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/SnippetKind",
+                        "description": "The type of snippet (e.g., snippet, skill, prompt, utility, config)",
+                        "default": "snippet"
+                    },
+                    "canonical_key": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Canonical Key",
+                        "description": "Stable string used to identify the same intent over time (e.g., slug)"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Id"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    },
+                    "view_count": {
+                        "type": "integer",
+                        "title": "View Count",
+                        "default": 0
+                    },
+                    "upvote_count": {
+                        "type": "integer",
+                        "title": "Upvote Count",
+                        "default": 0
+                    },
+                    "downvote_count": {
+                        "type": "integer",
+                        "title": "Downvote Count",
+                        "default": 0
+                    },
+                    "reference_count": {
+                        "type": "integer",
+                        "title": "Reference Count",
+                        "default": 0
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "expired",
+                            "survived"
+                        ],
+                        "title": "Status",
+                        "default": "active"
+                    },
+                    "highlighted_url": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2083,
+                                "minLength": 1,
+                                "format": "uri"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Highlighted Url"
+                    },
+                    "is_hidden": {
+                        "type": "boolean",
+                        "title": "Is Hidden",
+                        "default": false
+                    },
+                    "hidden_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Hidden Reason"
+                    },
+                    "source": {
+                        "type": "string",
+                        "title": "Source",
+                        "default": "human"
+                    },
+                    "blob_key": {
+                        "type": "string",
+                        "title": "Blob Key"
+                    },
+                    "code": {
+                        "type": "string",
+                        "title": "Code"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "id",
+                    "created_at",
+                    "updated_at",
+                    "blob_key",
+                    "code"
+                ],
+                "title": "SnippetDetailResponse"
+            },
+            "SnippetKind": {
+                "type": "string",
+                "enum": [
+                    "snippet",
+                    "skill",
+                    "prompt",
+                    "utility",
+                    "config"
+                ],
+                "title": "SnippetKind"
+            },
+            "SnippetMetaResponse": {
+                "properties": {
+                    "title": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Title",
+                        "description": "Human-friendly title for the snippet"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 1000
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description",
+                        "description": "Context or explanation for the snippet"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language",
+                        "description": "Programming language or format of the snippet"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string",
+                            "maxLength": 50
+                        },
+                        "type": "array",
+                        "title": "Tags",
+                        "description": "List of normalized tags associated with this snippet"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/SnippetKind",
+                        "description": "The type of snippet (e.g., snippet, skill, prompt, utility, config)",
+                        "default": "snippet"
+                    },
+                    "canonical_key": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Canonical Key",
+                        "description": "Stable string used to identify the same intent over time (e.g., slug)"
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Id"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Updated At"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    },
+                    "view_count": {
+                        "type": "integer",
+                        "title": "View Count",
+                        "default": 0
+                    },
+                    "upvote_count": {
+                        "type": "integer",
+                        "title": "Upvote Count",
+                        "default": 0
+                    },
+                    "downvote_count": {
+                        "type": "integer",
+                        "title": "Downvote Count",
+                        "default": 0
+                    },
+                    "reference_count": {
+                        "type": "integer",
+                        "title": "Reference Count",
+                        "default": 0
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "expired",
+                            "survived"
+                        ],
+                        "title": "Status",
+                        "default": "active"
+                    },
+                    "highlighted_url": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 2083,
+                                "minLength": 1,
+                                "format": "uri"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Highlighted Url"
+                    },
+                    "is_hidden": {
+                        "type": "boolean",
+                        "title": "Is Hidden",
+                        "default": false
+                    },
+                    "hidden_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Hidden Reason"
+                    },
+                    "source": {
+                        "type": "string",
+                        "title": "Source",
+                        "default": "human"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "SnippetMetaResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "Vote": {
+                "properties": {
+                    "value": {
+                        "type": "integer",
+                        "enum": [
+                            -1,
+                            1
+                        ],
+                        "title": "Value"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "value"
+                ],
+                "title": "Vote"
+            }
+        }
+    }
+}
