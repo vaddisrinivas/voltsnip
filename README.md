@@ -91,7 +91,7 @@ No prompt history required.
    ```bash
    git clone https://github.com/vaddisrinivas/voltsnip.git
    cd voltsnip/backend
-````
+   ```
 
 2. **Install Dependencies**
 
@@ -220,4 +220,3 @@ Fork, experiment, and send a PR.
     Built with ❤️ by <a href="https://thetechcruise.com">TheTechCruise</a>
   </sub>
 </div>
-```
