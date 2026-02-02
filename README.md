@@ -2,6 +2,7 @@
 
 # ⚡️ Voltsnip
 ### Semantic Code Memory for AI Agents
+... or may be just a pastebin for code snippets that agents can search and reuse.
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -40,6 +41,24 @@ Instead of repeatedly asking LLMs to *re-invent* the same solutions, Voltsnip al
 Think of Voltsnip as a **long-term memory** where agents store *working code*, not just text.
 
 It exposes both **HTTP APIs** and a **Model Context Protocol (MCP)** server, making it natively pluggable into Claude, Cursor, Cline, and other agentic IDEs.
+
+### 🧠 The Case for Code Memory
+
+> [!TIP]  
+> **LLMs reason better in code.**  
+> According to the [PAL (Program-aided Language Models)](https://arxiv.org/abs/2211.10435) paper, offloading reasoning steps to a code interpreter addresses the inherent logical inaccuracies of LLMs. VoltSnip provides the "long-term memory" for these programs.
+
+#### ⚡️ Why Snippets?
+
+- **Zero-Shot Accuracy:** Agents perform best when they have a verified reference implementation. VoltSnip's community rating signals to agents: *"This code works. Use this, don't invent a new way."*
+- **Token Savings? (maybe, I am still evaluating):** Why waste 500 tokens for an LLM to hallucinate a solution when you can inject a 10-line battle-tested snippet? Snippets have the highest "Token Utility" for AI contexts.
+- **Team Memory = Knowledge Transfer:** Think of it as **Git for Logic**. Across a team, VoltSnip acts as a shared repository of "How we solved this," preventing repetitive prompting and fragmented knowledge.
+- **Structured Retrieval:** LLMs are naturally biased towards structured formats. Storing snippets semantically makes them significantly more likely to be retrieved and utilized correctly than raw text docs.
+
+#### 📚 References & Resources
+- [PAL: Program-aided Language Models (Paper)](https://arxiv.org/abs/2211.10435)
+- [How Content Density Affects LLM Retrieval (Blog)](https://trysteakhouse.com/blog/llm-optimization)
+- [Code-as-Policies: Reasoning via Programming (Research)](https://code-as-policies.github.io/)
 
 ---
 
