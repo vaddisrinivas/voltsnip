@@ -14,6 +14,12 @@
 [**OpenAPI Spec**](voltsnip-skill/references/openapi-spec.json) ·
 [**Report Bug**](https://github.com/vaddisrinivas/voltsnip/issues)
 
+<br/>
+
+[![LinkedIn](https://img.shields.io/badge/Connect-LinkedIn-blue.svg?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/vaddisrinivas/)
+<br/>
+**Open to new job opportunities and collaborators!**
+
 </div>
 
 ---
@@ -117,40 +123,47 @@ Open:
 
 ---
 
-## 🤖 Using Voltsnip with MCP (Claude Desktop)
+## ⚡️ Works with Agents
 
-Add to `claude_desktop_config.json`:
+Voltsnip is designed to work with **any MCP-compatible agent** (Claude Desktop, Cursor, Cline, etc.).
+
+### 1. Try it (Agent Skill)
+
+The easiest way to start is installing the skill via `skills.sh`:
+
+```bash
+npx skills add voltsnip/voltsnip-skill
+```
+
+### 2. Connect via MCP
+
+For deep integration (giving your agent direct database headers), add the MCP server configuration.
+
+#### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "voltsnip": {
       "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "ghcr.io/vaddisrinivas/voltsnip:latest",
-        "mcp"
-      ]
+      "args": ["run", "-i", "--rm", "ghcr.io/vaddisrinivas/voltsnip:latest", "mcp"]
     }
   }
 }
 ```
 
-Your agent can now treat Voltsnip as **persistent code memory**.
+#### VS Code (Cline / Cursor)
 
----
+Add to your **MCP Settings** file (usually `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcpSettings.json` for Cline):
 
-## ⚡️ Works with Agents
-
-You can install VoltSnip as a managed skill for agents like **Claude Desktop**, **Cursor**, and **Cline**.
-
-```bash
-npx skills add voltsnip/voltsnip-skill
+```json
+"voltsnip": {
+  "command": "docker",
+  "args": ["run", "-i", "--rm", "ghcr.io/vaddisrinivas/voltsnip:latest", "mcp"]
+}
 ```
-
-This installs the skill + documentation so your agent knows *when* and *how* to use VoltSnip effectively.
 
 [**👉 Read the Full Skill Guide**](voltsnip-skill/README.md)
 
@@ -218,5 +231,7 @@ Fork, experiment, and send a PR.
 <div align="center">
   <sub>
     Built with ❤️ by <a href="https://thetechcruise.com">TheTechCruise</a>
+    <br/>
+    <i>(Note: This entire project was 100% vibecoded with AI agents)</i>
   </sub>
 </div>
