@@ -1,4 +1,24 @@
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 name: voltsnip
 description: AI-native, community-rated code memory. Search by intent, reuse proven snippets, and contribute tested code with strong metadata.
 license: MIT
@@ -6,8 +26,8 @@ metadata:
   category: development
   tags: [code-search, snippets, api, patterns, utilities]
   author: voltsnip
-  version: 1.0.0
-  updated: 2025-02-02
+  version: 0.1.0
+  updated: 2026-02-05
   dependencies: [requests]
 ---
 
@@ -113,7 +133,7 @@ Check these signals **before reusing**:
   "id": "uuid",
   "title": "Action-oriented name",
   "description": "What it does, when to use, I/O, edge cases",
-  "code": "string (up to 100k chars)",
+  "code": "string (up to 1,000,000 chars)",
   "language": "python|javascript|bash|...",
   "tags": ["category", "keywords", "domain"],
   "kind": "snippet|utility|skill|prompt|config",
@@ -180,7 +200,7 @@ Content-Type: application/json
 
 ### Required Field
 
-- **`code`** (max 100k chars): The actual code or text content
+- **`code`** (max 1,000,000 chars): The actual code or text content
 
 ### Strongly Recommended Fields
 

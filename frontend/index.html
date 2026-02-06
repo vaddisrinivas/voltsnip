@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="ember">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoltSnip Explorer - Semantic Code Memory</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css">
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/themes.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-docker.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+
+    <script defer src="js/state.js"></script>
+    <script defer src="js/api.js"></script>
+    <script defer src="js/ui.js"></script>
+    <script defer src="js/events.js"></script>
+    <script defer src="js/app.js"></script>
+</head>
+
+<body class="app">
+    <div class="banner">
+        <div class="banner__track">
+            <span>Vibe-coded for fun & learning • All data is public • No legal warranties • Use at your own risk</span>
+        </div>
+    </div>
+    <div id="toastContainer" class=" toast-stack"></div>
+
+    <header class="nav">
+        <div class="container nav__inner">
+            <div class="nav__left">
+                <a class="brand" href="/">VoltSnip</a>
+                <span class="kbd-hint mono">⌘K to search</span>
+            </div>
+            <div class="nav__center">
+                <div class="segmented" role="tablist" aria-label="Feeds">
+                    <button class="segmented__item" data-feed="trending"
+                        onclick="switchFeed('trending')">Trending</button>
+                    <button class="segmented__item" data-feed="hot" onclick="switchFeed('hot')">Hot</button>
+                    <button class="segmented__item" data-feed="top" onclick="switchFeed('top')">Top Rated</button>
+                    <button class="segmented__item" data-feed="most-used" onclick="switchFeed('most-used')">Most
+                        Used</button>
+                </div>
+            </div>
+            <div class="nav__right">
+                <nav class="nav__links">
+                    <a href="#how-to-use">How to Use</a>
+                    <a href="#about">About</a>
+                    <a href="https://github.com/vaddisrinivas/voltsnip" target="_blank" rel="noopener">GitHub</a>
+                    <a href="https://www.linkedin.com/in/srinivasvaddi/" target="_blank" rel="noopener">LinkedIn</a>
+                </nav>
+                <label class="theme-toggle">
+                    <input type="checkbox" id="theme-toggle" aria-label="Toggle theme">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1 class="hero__title hero__title--home"> <span id="apiIndicator" class="api-indicator"
+                    data-state="ready">VoltSnip</span></h1>
+            <h4 class="hero__subtitle hero__subtitle--home">The Single Source of Truth for Agents</h4>
+
+
+            <div class="search">
+                <span class="search__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </span>
+                <input type="text" id="searchInput" class="search__input"
+                    placeholder="Describe what you need (e.g., 'parse json to csv')" autocomplete="off">
+            </div>
+
+        </section>
+
+        <section id="how-to-use" class="section">
+            <h2 class="section__title">How to Use VoltSnip</h2>
+            <div class="steps">
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">1. Search</h3>
+                    <p class="card__text">Describe what you need in plain English. Semantic search understands the
+                        intent.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">2. Explore</h3>
+                    <p class="card__text">Browse feeds and filters to reach the right implementation fast.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">3. Reuse</h3>
+                    <p class="card__text">Preview, copy, and ship faster with reusable code patterns.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="section">
+            <h2 class="section__title">About VoltSnip</h2>
+            <div class="steps">
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Approved by Teams</h3>
+                    <p class="card__text">Curate and approve snippets so every agent shares the same vetted baseline for
+                        delivery.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Design Language & Preferences</h3>
+                    <p class="card__text">Encode design language, org conventions, and preferred patterns so responses
+                        stay consistent.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v8m4-4H8m4-9a9 9 0 100 18 9 9 0 000-18z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Not Just Code</h3>
+                    <p class="card__text">Store prompts, configs, checklists, runbooks, and templates alongside code.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="snippets">
+            <div id="snippetGrid" class="grid">
+                <div class="card skeleton"></div>
+                <div class="card skeleton"></div>
+                <div class="card skeleton"></div>
+            </div>
+
+            <div id="emptyState" class="empty visually-hidden">
+                <h3>Nothing here yet</h3>
+                <p>Try a different search or reset filters.</p>
+                <button class="btn btn--outline" onclick="resetSearch()">Clear Filters</button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer__inner">
+            <span>I'm looking for job opportunities, comments, and your thoughts about this project and its usecases.
+                Connect on LinkedIn!</span>
+        </div>
+    </footer>
+
+    <dialog id="snippetModal" class="modal">
+        <div class="modal__box">
+            <header class="modal__header">
+                <div>
+                    <h3 id="modalTitle">Snippet Title</h3>
+                    <div class="tag-list">
+                        <span id="modalLang" class="badge"></span>
+                        <div id="modalTags" class="tag-list"></div>
+                    </div>
+                </div>
+                <button class="btn btn--ghost btn--icon" onclick="closeModal()">✕</button>
+            </header>
+
+            <div class="modal__content">
+                <div id="modalErrorState" class="visually-hidden"></div>
+                <div id="modalContentArea">
+                    <div id="modalDate" class="modal__meta">Creating…</div>
+                    <p id="modalDescription" class="card__text"></p>
+
+                    <div class="code-block">
+                        <div class="code-block__actions">
+                            <button class="btn btn--outline" onclick="toggleEdit()">Edit</button>
+                            <button class="btn btn--outline" onclick="shareSnippet()">Share</button>
+                            <button class="btn btn--primary copy-btn" onclick="copyCode()">Copy</button>
+                        </div>
+                        <textarea id="modalCodeEditor" class="code-editor visually-hidden"
+                            spellcheck="false"></textarea>
+                        <pre><code id="modalCode" class="language-python"></code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal__footer">
+                <div class="modal__stat">
+                    <span>↑</span>
+                    <span id="modalUpvotes" class="mono">0</span>
+                </div>
+                <div class="modal__stat">
+                    <span>👁</span>
+                    <span id="modalViews" class="mono">0</span>
+                </div>
+                <div class="modal__stat">
+                    <span>↗</span>
+                    <span id="modalRefs" class="mono">0</span>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="visually-hidden">
+            <button>close</button>
+        </form>
+    </dialog>
+</body>
+
+</html>

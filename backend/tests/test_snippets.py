@@ -5,22 +5,6 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 
 @pytest.fixture(autouse=True)
-def mock_storage():
-    with patch("app.views.storage_service") as mock:
-        mock.upload_snippet = AsyncMock(return_value=True)
-        mock.get_snippet_content = AsyncMock(return_value="mocked code content")
-        yield mock
-
-
-@pytest.fixture(autouse=True)
-def mock_services():
-    with patch("app.views.embeddings_service") as mock_emb:
-        mock_emb.generate_embedding = AsyncMock(return_value=[0.1] * 384)
-        mock_emb.model_name = "test-model"
-        yield mock_emb
-
-
-@pytest.fixture(autouse=True)
 def mock_crud(monkeypatch):
     mock = MagicMock()
     
@@ -181,8 +165,8 @@ async def test_view(client, mock_crud, mock_snippet):
 
 @pytest.mark.asyncio
 async def test_create_snippet_large_payload(client, mock_crud):
-    from app.config import settings
-    # Testing MAX_CODE_SIZE (1MB default)
+    from app.globals import settings
+    # Testing MAX_CODE_SIZE (1,000,000 bytes default)
     large_code = "A" * (settings.MAX_CODE_SIZE + 1)
     response = await client.post(
         "/api/v1/snippets/",
@@ -194,7 +178,7 @@ async def test_create_snippet_large_payload(client, mock_crud):
 
 @pytest.mark.asyncio
 async def test_gateway_secret_enforcement(client, mock_crud):
-    from app.config import settings
+    from app.globals import settings
     # Temporarily set secret
     original_secret = settings.VOLTSNIP_GATEWAY_SECRET
     settings.VOLTSNIP_GATEWAY_SECRET = "top-secret"

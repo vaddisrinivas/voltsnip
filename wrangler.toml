@@ -1,0 +1,5 @@
+name = "voltsnip-frontend"
+main = "frontend/worker.js"
+compatibility_date = "2026-02-06"
+
+assets = { directory = "./dist", binding = "ASSETS" }
