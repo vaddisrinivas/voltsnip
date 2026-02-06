@@ -15,6 +15,8 @@
 
 
 
+
+
 name: voltsnip
 description: AI-native, community-rated code memory. Search by intent, reuse proven snippets, and contribute tested code with strong metadata.
 license: MIT

@@ -59,7 +59,7 @@
                 <nav class="nav__links">
                     <a href="#how-to-use">How to Use</a>
                     <a href="#about">About</a>
-                    <a href="https://github.com/VoltSnip" target="_blank" rel="noopener">GitHub</a>
+                    <a href="https://github.com/vaddisrinivas/voltsnip" target="_blank" rel="noopener">GitHub</a>
                     <a href="https://www.linkedin.com/in/srinivasvaddi/" target="_blank" rel="noopener">LinkedIn</a>
                 </nav>
                 <label class="theme-toggle">
@@ -71,10 +71,12 @@
 
     <main class="container">
         <section class="hero">
-            <h1 class="hero__title">Discover <span id="apiIndicator" class="api-indicator" title="API ready"
-                    data-tooltip="API ready" data-state="ready">Code</span> Snippets </h1>
-            <p class="hero__subtitle">...<span>Intelligently!</span> Stop rewriting. Start reusing. Semantic search for
-                your code memory.</p>
+            <h1 class="hero__title">VoltSnip - The Single Source of Truth for Agents <span id="apiIndicator"
+                    class="api-indicator" data-state="ready">API Ready</span>
+            </h1>
+            <p class="hero__subtitle">Approved snippets for teams, plus organizational knowledge: design language,
+                conventions, and preferences. Store code, prompts, configs, runbooks—anything your agents should reuse.
+            </p>
 
             <div class="search">
                 <span class="search__icon">
@@ -132,6 +134,48 @@
             </div>
         </section>
 
+        <section id="about" class="section">
+            <h2 class="section__title">About VoltSnip</h2>
+            <div class="steps">
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Approved by Teams</h3>
+                    <p class="card__text">Curate and approve snippets so every agent shares the same vetted baseline for
+                        delivery.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Design Language & Preferences</h3>
+                    <p class="card__text">Encode design language, org conventions, and preferred patterns so responses
+                        stay consistent.</p>
+                </div>
+                <div class="card">
+                    <div class="card__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v8m4-4H8m4-9a9 9 0 100 18 9 9 0 000-18z" />
+                        </svg>
+                    </div>
+                    <h3 class="card__title">Not Just Code</h3>
+                    <p class="card__text">Store prompts, configs, checklists, runbooks, and templates alongside code.
+                    </p>
+                </div>
+            </div>
+        </section>
+
         <section class="section">
             <div id="snippetGrid" class="grid">
                 <div class="card skeleton"></div>
@@ -161,6 +205,13 @@
             </div>
         </section>
     </main>
+
+    <footer class="footer">
+        <div class="container footer__inner">
+            <span>I'm looking for job opportunities, comments, and your thoughts about this project and its usecases.
+                Connect on LinkedIn!</span>
+        </div>
+    </footer>
 
     <dialog id="snippetModal" class="modal">
         <div class="modal__box">
