@@ -1,6 +1,8 @@
 # Voltsnip
 
-A searchable code snippet repository with semantic search, built for developers and AI agents who want to reuse proven solutions instead of reinventing them.
+**VoltSnip - The Single Source of Truth for Agents.** A searchable repository of approved snippets and organizational
+knowledge, curated by teams to keep agent output consistent. Store code, prompts, configs, runbooks, checklists, and
+templates alongside your design language and preferences.
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org) [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com) [![MCP Ready](https://img.shields.io/badge/MCP-Ready-purple.svg)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -13,10 +15,15 @@ A searchable code snippet repository with semantic search, built for developers 
 
 ## What It Does
 
-Voltsnip stores code snippets with semantic search capabilities. Instead of rewriting common utilities or asking an LLM to generate the same pattern repeatedly, you can search for existing implementations that have been tested and refined by others.
+Voltsnip stores team-approved snippets and organizational knowledge with semantic search. Instead of rewriting common
+utilities or asking an LLM to generate the same pattern repeatedly, you can search for existing implementations and
+standards that have been tested, reviewed, and refined by others.
 
 **Core features:**
-- **Semantic search** – Find snippets by describing what you need, not just keyword matching
+- **Semantic search** – Find snippets and knowledge by describing what you need, not just keyword matching
+- **Approved snippets** – Curate vetted patterns so every agent uses the same baseline
+- **Design language & preferences** – Encode conventions, architecture decisions, and style rules
+- **Not just code** – Store prompts, configs, runbooks, checklists, and templates
 - **Community ratings** – Vote on snippets to surface the most useful solutions
 - **Multi-language support** – Store and search across Python, JavaScript, Go, and more
 - **MCP integration** – Native support for AI agents via Model Context Protocol
@@ -25,13 +32,13 @@ Voltsnip stores code snippets with semantic search capabilities. Instead of rewr
 ## Why Use This
 
 **For developers:**
-- Quickly find working implementations of common patterns (retry logic, data validation, parsing utilities)
-- Build a personal or team knowledge base of proven solutions
+- Quickly find approved implementations of common patterns (retry logic, data validation, parsing utilities)
+- Build a team knowledge base that encodes design language and preferences
 - Reduce time spent searching Stack Overflow or reading documentation
 
 **For AI agents:**
-- Retrieve tested code instead of generating potentially flawed solutions from scratch
-- Save tokens by injecting compact, working snippets into context
+- Retrieve approved snippets and org standards instead of generating from scratch
+- Save tokens by injecting compact, vetted snippets and references into context
 - Enable knowledge sharing between agent sessions or across a team
 
 Research like the [PAL (Program-aided Language Models)](https://arxiv.org/abs/2211.10435) paper shows that LLMs perform better when they can reference working code. Voltsnip provides a practical memory layer for this approach.

@@ -1,6 +1,7 @@
 # VoltSnip Skill
 
-> Search, reuse, and share code snippets with semantic AI-native memory.
+> VoltSnip - The Single Source of Truth for Agents. Search, reuse, and share approved snippets and organizational
+> knowledge with semantic AI-native memory.
 
 ## Install (Skills CLI)
 
@@ -49,7 +50,7 @@ https://voltsnip-api.thetechcruise.com/mcp
 ## What This Skill Does
 
 - Search VoltSnip by intent (semantic search)
-- Find, evaluate, and reuse proven code patterns
+- Find, evaluate, and reuse approved patterns and org standards
 - Contribute new snippets and improve existing ones
 - Vote on quality and track usage
 
