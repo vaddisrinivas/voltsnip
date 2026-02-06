@@ -1,11 +1,29 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+import httpx
+from httpx import AsyncClient
 from app.main import app
 from app.database import get_db
 from typing import AsyncGenerator
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime, timezone
 import uuid
+from faker import Faker
+
+
+@pytest.fixture(autouse=True)
+def mock_storage():
+    with patch("app.views.storage_service") as mock:
+        mock.upload_snippet = AsyncMock(return_value=True)
+        mock.get_snippet_content = AsyncMock(return_value="mocked code content")
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def mock_services():
+    with patch("app.views.embeddings_service") as mock_emb:
+        mock_emb.generate_embedding = AsyncMock(return_value=[0.1] * 384)
+        mock_emb.model_name = "test-model"
+        yield mock_emb
 
 
 @pytest.fixture
@@ -37,10 +55,22 @@ def mock_snippet():
     )
 
 
+@pytest.fixture(scope="session")
+def fake():
+    faker = Faker()
+    faker.seed_instance(1234)
+    return faker
+
+
 @pytest.fixture
-async def client(mock_snippet) -> AsyncGenerator[AsyncClient, None]:
+async def client(mock_snippet, monkeypatch) -> AsyncGenerator[AsyncClient, None]:
     # Override get_db to prevent real DB connection attempts
     mock_session = MagicMock()
+
+    # Mock SessionLocal to prevent background tasks from connecting to real DB
+    mock_session_factory = MagicMock()
+    mock_session_factory.return_value.__aenter__.return_value = mock_session
+    monkeypatch.setattr("app.views.SessionLocal", mock_session_factory)
 
     # Configure execute to be awaitable
     mock_result = MagicMock()
@@ -54,9 +84,9 @@ async def client(mock_snippet) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = lambda: mock_session
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        yield ac
-
-    app.dependency_overrides = {}
+    transport = httpx.ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        try:
+            yield ac
+        finally:
+            app.dependency_overrides = {}

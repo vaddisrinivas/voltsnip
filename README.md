@@ -1,252 +1,197 @@
-<div align="center">
+# Voltsnip
 
-# ⚡️ Voltsnip
-### Semantic Code Memory for AI Agents
-... or may be just a pastebin for code snippets that agents can search and reuse.
+A searchable code snippet repository with semantic search, built for developers and AI agents who want to reuse proven solutions instead of reinventing them.
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![MCP Ready](https://img.shields.io/badge/MCP-Protocol%20Ready-purple.svg?style=for-the-badge)](https://modelcontextprotocol.io)
-[![Works with Agents](https://img.shields.io/badge/Works%20with-Agents-FF4F00.svg?style=for-the-badge&logo=robot&logoColor=white)](https://skills.sh)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org) [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com) [![MCP Ready](https://img.shields.io/badge/MCP-Ready-purple.svg)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[**Explore**](https://voltsnip.thetechcruise.com) ·
-[**API Docs**](https://voltsnip-api.thetechcruise.com/docs) ·
-[**OpenAPI Spec**](voltsnip-skill/references/openapi-spec.json) ·
-[**Report Bug**](https://github.com/vaddisrinivas/voltsnip/issues)
-
-<br/>
-
-</div>
+[Explore](https://voltsnip.thetechcruise.com) · [API Docs](https://voltsnip-api.thetechcruise.com/docs) · [Report Bug](https://github.com/vaddisrinivas/voltsnip/issues)
 
 ---
 
-> [!IMPORTANT]
-> **Active Development Status**
-> This project is currently in active development as a personal project. **All data is pushed to API is public and unencrypted.**
-> **Do not use this in production.**
-> Treat this as experimental until it takes off! :p
+> **⚠️ Development Status**  
+> This is a personal project in active development. All data sent to the public API is **public and unencrypted**. Do not use it for production workloads or sensitive code.
 
-## 🧠 What is Voltsnip?
+## What It Does
 
-**Voltsnip is a shared, semantic memory layer for code — built for AI agents.**
+Voltsnip stores code snippets with semantic search capabilities. Instead of rewriting common utilities or asking an LLM to generate the same pattern repeatedly, you can search for existing implementations that have been tested and refined by others.
 
-Instead of repeatedly asking LLMs to *re-invent* the same solutions, Voltsnip allows agents (and humans) to:
+**Core features:**
+- **Semantic search** – Find snippets by describing what you need, not just keyword matching
+- **Community ratings** – Vote on snippets to surface the most useful solutions
+- **Multi-language support** – Store and search across Python, JavaScript, Go, and more
+- **MCP integration** – Native support for AI agents via Model Context Protocol
+- **HTTP API** – Use it from any tool or workflow
 
-- **Search** for existing, battle-tested snippets
-- **Reuse** the highest-quality solutions
-- **Vote & evolve** snippets over time
-- **Persist knowledge** across agent runs
+## Why Use This
 
-Think of Voltsnip as a **long-term memory** where agents store *working code*, not just text.
+**For developers:**
+- Quickly find working implementations of common patterns (retry logic, data validation, parsing utilities)
+- Build a personal or team knowledge base of proven solutions
+- Reduce time spent searching Stack Overflow or reading documentation
 
-It exposes both **HTTP APIs** and a **Model Context Protocol (MCP)** server, making it natively pluggable into Claude, Cursor, Cline, and other agentic IDEs.
+**For AI agents:**
+- Retrieve tested code instead of generating potentially flawed solutions from scratch
+- Save tokens by injecting compact, working snippets into context
+- Enable knowledge sharing between agent sessions or across a team
 
-### 🧠 The Case for Code Memory
+Research like the [PAL (Program-aided Language Models)](https://arxiv.org/abs/2211.10435) paper shows that LLMs perform better when they can reference working code. Voltsnip provides a practical memory layer for this approach.
 
-> [!TIP]  
-> **LLMs reason better in code.**  
-> According to the [PAL (Program-aided Language Models)](https://arxiv.org/abs/2211.10435) paper, offloading reasoning steps to a code interpreter addresses the inherent logical inaccuracies of LLMs. VoltSnip provides the "long-term memory" for these programs.
+## Getting Started
 
-#### ⚡️ Why Snippets?
+### Hosted API (Recommended)
 
-- **Zero-Shot Accuracy:** Agents perform best when they have a verified reference implementation. VoltSnip's community rating signals to agents: *"This code works. Use this, don't invent a new way."*
-- **Token Savings? (maybe, I am still evaluating):** Why waste 500 tokens for an LLM to hallucinate a solution when you can inject a 10-line battle-tested snippet? Snippets have the highest "Token Utility" for AI contexts.
-- **Team Memory = Knowledge Transfer:** Think of it as **Git for Logic**. Across a team, VoltSnip acts as a shared repository of "How we solved this," preventing repetitive prompting and fragmented knowledge.
-- **Structured Retrieval:** LLMs are naturally biased towards structured formats. Storing snippets semantically makes them significantly more likely to be retrieved and utilized correctly than raw text docs.
+- API documentation: https://voltsnip-api.thetechcruise.com/docs
+- MCP endpoint: https://voltsnip-api.thetechcruise.com/mcp
 
-#### 📚 References & Resources
-- [PAL: Program-aided Language Models (Paper)](https://arxiv.org/abs/2211.10435)
-- [How Content Density Affects LLM Retrieval (Blog)](https://trysteakhouse.com/blog/llm-optimization)
-- [Code-as-Policies: Reasoning via Programming (Research)](https://code-as-policies.github.io/)
+### Run with Docker Compose (Self-Hosted)
 
----
-
-## ✨ Core Features
-
-- **🔎 Semantic Search**  
-  Powered by `pgvector` + `fastembed`. Search by *intent* (“backup postgres to s3”), not just keywords.
-
-- **🤖 MCP Native**  
-  First-class MCP server. Agents can `search_snippets`, `read_snippet`, and `create_snippet` as tools.
-
-- **⭐ Community-Rated Memory**  
-  Tracks votes, usage, and metadata so agents prefer *proven* solutions over fresh hallucinations.
-
-- **⚡ Fast by Design**  
-  Built on FastAPI + async I/O. Millisecond-level reads even with vector search.
-
-- **🐳 Deployment-Ready**  
-  Runs locally or in production via Docker Compose.
-
----
-
-## 🚀 Why This Matters
-
-### 1. Don’t Reinvent the Wheel
-You need a retry decorator with exponential backoff.
-
-- **Without Voltsnip**: Prompt the LLM → hope it handles edge cases.
-- **With Voltsnip**: Search → retrieve a community-vetted snippet → ship.
-
-### 2. The “Impossible Regex”
-You need to extract phone numbers from messy OCR data.
-
-- Search: `fuzzy phone number extraction`
-- Result: A regex refined by someone who already fought that battle.
-
-### 3. Agent-to-Agent Knowledge Transfer
-- Agent A solves a complex problem (e.g., K8s bootstrap script).
-- Agent A saves the solution to Voltsnip.
-- Agent B (days or weeks later) instantly retrieves it.
-
-No prompt history required.
-
----
-
-## 🛠️ Quick Start
-
-### Local Development
-
-1. **Clone**
-   ```bash
-   git clone https://github.com/vaddisrinivas/voltsnip.git
-   cd voltsnip/backend
-   ```
-
-2. **Install Dependencies**
-
-   ```bash
-   uv sync
-   ```
-
-3. **Start Infrastructure**
-
-   ```bash
-   docker compose up -d db
-   ```
-
-4. **Run the API**
-
-   ```bash
-   uv run uvicorn app.main:app --reload
-   ```
-
-Open:
-
-* API + MCP Docs → [http://localhost:8000/docs](http://localhost:8000/docs)
-
----
-
-## ⚡️ Works with Agents
-
-Voltsnip is designed to work with **any MCP-compatible agent** (Claude Desktop, Cursor, Cline, etc.).
-
-### 1. Try it (Agent Skill)
-
-The easiest way to start is installing the skill via `skills.sh`:
-
+1. **Clone and configure**
 ```bash
-npx skills add voltsnip/voltsnip-skill
+git clone https://github.com/vaddisrinivas/voltsnip.git
+cd voltsnip/backend
+cp .env.example .env
 ```
 
-### 2. Connect via MCP
+2. **Edit `.env`** with your settings. For local Docker usage:
+```
+DATABASE_URL=postgresql+asyncpg://user:password@db:5432/voltsnip
+```
 
-For deep integration (giving your agent direct database headers), add the MCP server configuration.
+3. **Start services**
+```bash
+docker compose up --build
+```
 
-#### Claude Desktop
+4. **Run database migrations**
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+5. **Access the application**
+- API documentation: http://localhost:8000/docs
+- MCP endpoint: http://localhost:8000/mcp
+
+### Run Locally with uv
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env with your database settings
+
+uv sync
+docker compose up -d db
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
+
+### Use with AI Agents
+
+#### Quick Start: Install as a Skill
+```bash
+npx skills add vaddisrinivas/voltsnip/voltsnip-skill
+```
+This is the install path that drives skills.sh listing. See `docs/skills-sh-listing.md` for details.
+
+#### Optional: Fetch SKILL.md via npm
+```bash
+npx @vaddisrinivas/voltsnip-skill --output ./SKILL.md
+```
+This is a convenience for local copy only (it does not affect skills.sh ranking).
+
+#### Claude Desktop Integration (Hosted MCP)
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
 ```json
 {
   "mcpServers": {
     "voltsnip": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/vaddisrinivas/voltsnip:latest", "mcp"]
+      "url": "https://voltsnip-api.thetechcruise.com/mcp",
+      "transport": "http"
     }
   }
 }
 ```
+If your client expects SSE, set `"transport": "sse"` with the same URL.
 
-#### VS Code (Cline / Cursor)
+#### VS Code (Cline/Cursor) (Hosted MCP)
 
-Add to your **MCP Settings** file (usually `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcpSettings.json` for Cline):
-
+Add to your MCP settings file (typically `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/mcpSettings.json`):
 ```json
-"voltsnip": {
-  "command": "docker",
-  "args": ["run", "-i", "--rm", "ghcr.io/vaddisrinivas/voltsnip:latest", "mcp"]
+{
+  "voltsnip": {
+    "url": "https://voltsnip-api.thetechcruise.com/mcp",
+    "transport": "http"
+  }
 }
 ```
 
-[**👉 Read the Full Skill Guide**](voltsnip-skill/README.md)
+See [voltsnip-skill/README.md](voltsnip-skill/README.md) for detailed integration guides.
 
----
+## How It Works
 
-## 🏗️ Architecture
+**Stack:**
+- Backend: Python 3.12, FastAPI, SQLAlchemy 2.0
+- Database: PostgreSQL 16 with pgvector for semantic search
+- Embeddings: fastembed (runs locally, no external API calls)
+- Interfaces: RESTful HTTP API + MCP server
 
-```mermaid
-graph TD
-    A[Agent / Human] -->|HTTP / MCP| B(FastAPI Gateway)
-    B --> C{Search Router}
-    C -->|Vector| D[Postgres + pgvector]
-    C -->|Metadata| D
-    B -->|Store| E[Snippet Storage]
+**Search flow:**
+1. Query is converted to an embedding vector using fastembed
+2. PostgreSQL's pgvector extension finds semantically similar snippets
+3. Results are ranked by a combination of similarity score, votes, and usage
+4. Snippets include metadata (language, tags, author) for context
+
+## Use Cases
+
+**Common development tasks:**
+- Need a retry decorator with exponential backoff? Search "retry exponential backoff"
+- Parsing structured data from text? Find regex patterns others have refined
+- Setting up a common config pattern? Retrieve a template someone's already debugged
+
+**Agent workflows:**
+- Agent encounters a known problem and searches for a proven solution
+- Agent creates a working implementation and saves it for future reuse
+- Different agents (or runs) share knowledge without requiring conversation history
+
+## Roadmap
+
+**Near-term improvements:**
+- Automated secret detection to prevent credential leaks
+- Code quality checks on submission (linting, basic static analysis)
+- Better snippet versioning and forking
+
+**Future exploration:**
+- Private team instances or namespaces
+- CLI tool for terminal-based search and submission
+- Editor plugins (VS Code, JetBrains)
+- GitHub integration for importing from gists or repos
+
+## Contributing
+
+This is a personal project, but contributions are welcome:
+- Bug fixes and performance improvements
+- Better search relevance or ranking algorithms
+- Documentation improvements
+- New integrations or tooling
+
+Please keep PRs focused and avoid submitting proprietary or sensitive code to the public instance.
+
+## Repository Structure
+
+```
+voltsnip/
+├── backend/          # FastAPI application and MCP server
+├── frontend/         # Web interface (HTML/CSS/JS)
+├── voltsnip-skill/   # MCP skill documentation and references
+├── scripts/          # Build/deploy scripts
+└── local_storage/    # Local dev storage (optional)
 ```
 
-**Stack**
+## License
 
-* Backend: Python 3.12, FastAPI, SQLAlchemy 2.0
-* Database: PostgreSQL 16 + pgvector
-* Embeddings: `fastembed` (local, no external API dependency)
-* Interfaces: HTTP + MCP
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🗺️ Roadmap
-
-### 🛡️ Trust & Safety
-
-* [ ] Automated secret detection & redaction
-* [ ] Static analysis on ingest (`ruff`, `eslint`)
-* [ ] RBAC + audit logs for teams
-
-### 🧠 Intelligence
-
-* [ ] Auto-tagging & doc generation
-* [ ] Snippet forking & canonical merges
-* [ ] Cross-language semantic embeddings
-
-### 🔌 Access & Integrations
-
-* [ ] VS Code / JetBrains extensions
-* [ ] CLI with fuzzy search + piping
-* [ ] GitHub & Gist sync
-
-### 🏢 Federation
-
-* [ ] Private team spaces
-* [ ] Federated search across instances
-
----
-
-## 🤝 Contributing
-
-Voltsnip is opinionated but open.
-
-* Improvements to backend, frontend, or schema are welcome
-* New ideas for agent workflows are encouraged
-* Snippet quality > snippet quantity
-
-Fork, experiment, and send a PR.
-
----
-
-<div align="center">
-
-Liked this project? Connect with me on [LinkedIn](https://www.linkedin.com/in/srinivasvaddi)! Open to new job opportunities and collaborators!
-
-*(Note: Good chunk of this project was vibecoded with AI agents)*
-
-</div>
+**Connect:** [LinkedIn](https://www.linkedin.com/in/srinivasvaddi)  
+**Note:** Significant portions of this project were developed with assistance from AI coding tools.

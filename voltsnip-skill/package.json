@@ -1,0 +1,36 @@
+{
+  "name": "@vaddisrinivas/voltsnip-skill",
+  "version": "0.1.0",
+  "description": "VoltSnip skill for AI agents (MCP).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vaddisrinivas/voltsnip.git",
+    "directory": "voltsnip-skill"
+  },
+  "homepage": "https://github.com/vaddisrinivas/voltsnip/tree/main/voltsnip-skill",
+  "bugs": {
+    "url": "https://github.com/vaddisrinivas/voltsnip/issues"
+  },
+  "keywords": [
+    "voltsnip",
+    "skill",
+    "mcp",
+    "agents",
+    "snippets"
+  ],
+  "bin": {
+    "voltsnip-skill": "bin/voltsnip-skill.js"
+  },
+  "files": [
+    "bin/",
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "references/",
+    "scripts/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
