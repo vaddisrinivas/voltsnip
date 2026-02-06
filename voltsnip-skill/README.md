@@ -2,10 +2,48 @@
 
 > Search, reuse, and share code snippets with semantic AI-native memory.
 
-## Install
+## Install (Skills CLI)
 
 ```bash
-npx skills add voltsnip/voltsnip-skill
+npx skills add vaddisrinivas/voltsnip/voltsnip-skill
+```
+
+If you want the skill to show up on skills.sh, install it using the Skills CLI command above. The directory listing is driven by Skills CLI install telemetry.
+
+Alternative install command (monorepo + explicit skill folder):
+```bash
+npx skills add https://github.com/vaddisrinivas/voltsnip --skill voltsnip-skill
+```
+
+## Install (npx skill package)
+
+If you want a quick local copy of `SKILL.md` via npm:
+
+```bash
+npx @vaddisrinivas/voltsnip-skill --output ./SKILL.md
+```
+
+This does **not** affect skills.sh listing. For listing details, see `../docs/skills-sh-listing.md`.
+
+## Install (npm, optional)
+
+```bash
+npm install @vaddisrinivas/voltsnip-skill
+```
+
+This only installs the skill files locally. To make the skill appear on skills.sh, use the Skills CLI install instead.
+
+## Publish (Maintainers)
+
+```bash
+cd voltsnip-skill
+npm publish --access public
+```
+
+## Hosted MCP Endpoint
+
+```
+https://voltsnip-api.thetechcruise.com/mcp
 ```
 
 ## What This Skill Does

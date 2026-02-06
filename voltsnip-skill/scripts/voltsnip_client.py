@@ -92,7 +92,7 @@ def create_snippet(
     Create a new snippet in VoltSnip.
     
     Args:
-        code: Snippet code (required, max 100k chars)
+        code: Snippet code (required, max 1,000,000 chars)
         title: Human-friendly name (max 200 chars)
         description: What/when/I/O/edge cases (max 1000 chars)
         language: Programming language (max 50 chars)
@@ -104,7 +104,7 @@ def create_snippet(
         SnippetDetailResponse on success, None on failure
     """
     if not code or len(code) > 1_000_000:
-        print("❌ Code required and must be ≤ 1M chars", file=sys.stderr)
+        print("❌ Code required and must be ≤ 1,000,000 chars", file=sys.stderr)
         return None
     
     payload = {"code": code}

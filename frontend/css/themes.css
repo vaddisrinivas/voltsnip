@@ -1,0 +1,71 @@
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #cfcfcf;
+  --border-strong: #bdbdbd;
+  --text: #0a0a0a;
+  --text-muted: #5c5c5c;
+  --accent-light: #1d4ed8;
+  --accent-dark: #60a5fa;
+  --accent-light-contrast: #ffffff;
+  --accent-dark-contrast: #0a0a0a;
+  --accent: var(--accent-light);
+  --accent-2: var(--accent);
+  --accent-contrast: var(--accent-light-contrast);
+  --overlay: rgba(10, 10, 10, 0.35);
+  --glow-light: 0 0 0 3px rgba(29, 78, 216, 0.15);
+  --glow-dark: 0 0 0 3px rgba(96, 165, 250, 0.18);
+  --glow: var(--glow-light);
+  --shadow-1: 0 6px 16px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 10px 26px rgba(0, 0, 0, 0.12);
+  --code-bg: #0b0b0b;
+  --code-text: #f5f5f5;
+  --code-muted: #9c9c9c;
+  --code-accent: var(--accent);
+  color-scheme: light;
+}
+
+:root[data-theme="ember"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #cfcfcf;
+  --border-strong: #bdbdbd;
+  --text: #0a0a0a;
+  --text-muted: #5c5c5c;
+  --accent: var(--accent-light);
+  --accent-2: var(--accent);
+  --accent-contrast: var(--accent-light-contrast);
+  --overlay: rgba(10, 10, 10, 0.35);
+  --glow: var(--glow-light);
+  --shadow-1: 0 6px 16px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 10px 26px rgba(0, 0, 0, 0.12);
+  --code-bg: #0b0b0b;
+  --code-text: #f5f5f5;
+  --code-muted: #9c9c9c;
+  --code-accent: var(--accent);
+  color-scheme: light;
+}
+
+:root[data-theme="noir"] {
+  --bg: #0a0a0a;
+  --surface: #0f0f0f;
+  --surface-elevated: #121212;
+  --border: #2b2b2b;
+  --border-strong: #3a3a3a;
+  --text: #f5f5f5;
+  --text-muted: #9c9c9c;
+  --accent: var(--accent-dark);
+  --accent-2: var(--accent);
+  --accent-contrast: var(--accent-dark-contrast);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --glow: var(--glow-dark);
+  --shadow-1: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 12px 28px rgba(0, 0, 0, 0.55);
+  --code-bg: #050505;
+  --code-text: #f5f5f5;
+  --code-muted: #9c9c9c;
+  --code-accent: var(--accent);
+  color-scheme: dark;
+}

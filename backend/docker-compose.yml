@@ -12,3 +12,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    image: ${BACKEND_IMAGE:-voltsnip-backend:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/voltsnip}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      STORAGE_URI: ${STORAGE_URI:-/app/local_storage}
+      EMBEDDINGS_ENABLED: ${EMBEDDINGS_ENABLED:-true}
+      STATS_ENABLED: ${STATS_ENABLED:-true}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./local_storage:/app/local_storage
+
+volumes:
+  postgres_data:

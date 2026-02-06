@@ -13,10 +13,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image to GHCR
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository }}-backend
+          IMAGE_TAG: ${{ github.sha }}
+          PUSH_IMAGE: "1"
+        run: ./scripts/build_backend_image.sh
 
       - name: Azure Login
         uses: azure/login@v2
@@ -45,4 +60,3 @@ jobs:
 
           environmentVariables: >-
             DATABASE_URL='${{ secrets.DATABASE_URL }}' STORAGE_PROVIDER=azure AZURE_STORAGE_CONNECTION_STRING='${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}' STORAGE_BUCKET_NAME='${{ secrets.STORAGE_BUCKET_NAME }}' EMBEDDINGS_ENABLED=true VOLTSNIP_GATEWAY_SECRET='${{ secrets.VOLTSNIP_GATEWAY_SECRET }}'
-

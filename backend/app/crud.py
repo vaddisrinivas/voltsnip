@@ -1,19 +1,25 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, func, or_
+from sqlalchemy.dialects.postgresql import insert
 from typing import List
 from datetime import datetime, timezone, timedelta
 import uuid
 
-from app.models import Snippet, SnippetEmbedding
+from app.models import Snippet, SnippetEmbedding, Stats, SnippetReference
 from app.schemas import SnippetCreate
-from app.config import settings
-
-ACTIVE_STATUS = "active"
-SURVIVED_STATUS = "survived"
-SURVIVAL_UPVOTES = 5
-SURVIVAL_VIEWS = 50
-SURVIVAL_REFERENCES = 3
+from app.globals import settings
+from app.constants import (
+    ACTIVE_STATUS,
+    SNIPPET_SOURCE_DEFAULT,
+    SURVIVED_STATUS,
+    SURVIVAL_UPVOTES,
+    SURVIVAL_VIEWS,
+    SURVIVAL_REFERENCES,
+    EMBEDDING_MODEL_UNKNOWN,
+    EPOCH_EXTRACT_KEY,
+    DEFAULT_STATS_ID,
+)
 
 
 def active_snippets_filter():
@@ -32,7 +38,7 @@ async def create_snippet(
     id: uuid.UUID,
     vector: List[float] | None = None,
     embedding_model: str | None = None,
-    source: str = "human",
+    source: str = SNIPPET_SOURCE_DEFAULT,
     source_hash: str | None = None,
 ) -> Snippet:
     now = datetime.now(timezone.utc)
@@ -58,18 +64,45 @@ async def create_snippet(
         is_hidden=False,
         source=source,
         source_hash=source_hash,
+        view_count=0,
+        upvote_count=0,
+        downvote_count=0,
+        reference_count=0,
     )
     db.add(db_snippet)
 
     if vector:
         db_embedding = SnippetEmbedding(
-            snippet_id=id, vector=vector, embedding_model=embedding_model or "unknown"
+            snippet_id=id,
+            vector=vector,
+            embedding_model=embedding_model or EMBEDDING_MODEL_UNKNOWN,
         )
         db.add(db_embedding)
 
     await db.commit()
     await db.refresh(db_snippet)
     return db_snippet
+
+
+async def get_next_reference_version(
+    db: AsyncSession, parent_id: uuid.UUID
+) -> int:
+    query = select(func.coalesce(func.max(SnippetReference.version), 0) + 1).where(
+        SnippetReference.parent_id == parent_id
+    )
+    result = await db.execute(query)
+    return int(result.scalar_one())
+
+
+async def create_snippet_reference(
+    db: AsyncSession, parent_id: uuid.UUID, child_id: uuid.UUID
+) -> SnippetReference:
+    version = await get_next_reference_version(db, parent_id)
+    ref = SnippetReference(parent_id=parent_id, child_id=child_id, version=version)
+    db.add(ref)
+    await db.commit()
+    await db.refresh(ref)
+    return ref
 
 
 async def get_snippet(db: AsyncSession, snippet_id: uuid.UUID) -> Snippet | None:
@@ -106,15 +139,15 @@ async def vote_snippet(
 ) -> Snippet | None:
     values_to_update = {}
     if value > 0:
-        values_to_update = {"upvote_count": Snippet.upvote_count + 1}
+        values_to_update = {Snippet.upvote_count: Snippet.upvote_count + 1}
     else:
-        values_to_update = {"downvote_count": Snippet.downvote_count + 1}
+        values_to_update = {Snippet.downvote_count: Snippet.downvote_count + 1}
 
     stmt = (
         update(Snippet)
         .where(Snippet.id == snippet_id)
         .where(active_snippets_filter())
-        .values(**values_to_update)
+        .values(values_to_update)
         .returning(Snippet)
     )
     result = await db.execute(stmt)
@@ -130,7 +163,7 @@ async def vote_snippet(
 
 
 async def check_survival(db: AsyncSession, snippet: Snippet):
-    if snippet.status == "active":
+    if snippet.status == ACTIVE_STATUS:
         should_survive = (
             snippet.upvote_count >= SURVIVAL_UPVOTES
             or snippet.view_count >= SURVIVAL_VIEWS
@@ -138,7 +171,7 @@ async def check_survival(db: AsyncSession, snippet: Snippet):
         )
 
         if should_survive:
-            snippet.status = "survived"
+            snippet.status = SURVIVED_STATUS
             snippet.expires_at = datetime.now(timezone.utc) + timedelta(days=365 * 10)
             db.add(snippet)
 
@@ -148,7 +181,7 @@ async def get_trending_feed(
 ) -> List[Snippet]:
     limit = min(limit, settings.MAX_SEARCH_K)
     now_expr = func.now()
-    age_in_hours = func.extract("EPOCH", now_expr - Snippet.created_at) / 3600.0
+    age_in_hours = func.extract(EPOCH_EXTRACT_KEY, now_expr - Snippet.created_at) / 3600.0
     score = (Snippet.upvote_count * 2 + Snippet.view_count * 0.5) - age_in_hours
 
     query = (
@@ -159,6 +192,21 @@ async def get_trending_feed(
             > now_expr - timedelta(hours=settings.TRENDING_WINDOW_HOURS)
         )
         .order_by(score.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_recent_snippets(
+    db: AsyncSession, limit: int = 50, offset: int = 0
+) -> List[Snippet]:
+    limit = min(limit, settings.MAX_SEARCH_K)
+    query = (
+        select(Snippet)
+        .where(active_snippets_filter())
+        .order_by(Snippet.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
@@ -191,7 +239,7 @@ async def get_top_feed(
     limit = min(limit, 100)
     query = (
         select(Snippet)
-        .where(Snippet.status == "survived")
+        .where(Snippet.status == SURVIVED_STATUS)
         .where(Snippet.is_hidden.is_(False))
         .order_by(Snippet.upvote_count.desc())
         .limit(limit)
@@ -220,6 +268,7 @@ async def search_snippets(
     db: AsyncSession,
     tag: str | None = None,
     language: str | None = None,
+    title: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> List[Snippet]:
@@ -232,6 +281,46 @@ async def search_snippets(
     if language:
         query = query.where(Snippet.language == language)
 
+    if title:
+        query = query.where(Snippet.title.ilike(f"%{title}%"))
+
+    query = query.limit(limit).offset(offset)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def search_snippets_by_title(
+    db: AsyncSession,
+    title: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Snippet]:
+    if not title:
+        return []
+    limit = min(limit, 100)
+    query = (
+        select(Snippet)
+        .where(active_snippets_filter())
+        .where(Snippet.title.ilike(f"%{title}%"))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def search_snippets_by_tags(
+    db: AsyncSession,
+    tags: List[str],
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Snippet]:
+    if not tags:
+        return []
+    limit = min(limit, 100)
+    query = select(Snippet).where(active_snippets_filter())
+    for tag in tags:
+        query = query.where(Snippet.tags.contains([tag]))
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     return result.scalars().all()
@@ -282,3 +371,53 @@ async def semantic_search_snippets(
     )
     result = await db.execute(query)
     return result.scalars().all()
+
+
+async def get_stats(db: AsyncSession) -> Stats:
+    query = select(Stats).where(Stats.id == DEFAULT_STATS_ID)
+    result = await db.execute(query)
+    stats = result.scalar_one_or_none()
+    if not stats:
+        stats = Stats(
+            id=DEFAULT_STATS_ID,
+            total_snippets=0,
+            total_views=0,
+            total_upvotes=0,
+            total_downvotes=0,
+        )
+        db.add(stats)
+        await db.commit()
+        await db.refresh(stats)
+    return stats
+
+
+async def update_stats(
+    db: AsyncSession,
+    snippets: int = 0,
+    views: int = 0,
+    upvotes: int = 0,
+    downvotes: int = 0,
+):
+    stmt = (
+        insert(Stats)
+        .values(
+            {
+                Stats.id: DEFAULT_STATS_ID,
+                Stats.total_snippets: snippets,
+                Stats.total_views: views,
+                Stats.total_upvotes: upvotes,
+                Stats.total_downvotes: downvotes,
+            }
+        )
+        .on_conflict_do_update(
+            index_elements=[Stats.id],
+            set_={
+                Stats.total_snippets: Stats.total_snippets + snippets,
+                Stats.total_views: Stats.total_views + views,
+                Stats.total_upvotes: Stats.total_upvotes + upvotes,
+                Stats.total_downvotes: Stats.total_downvotes + downvotes,
+            },
+        )
+    )
+    await db.execute(stmt)
+    await db.commit()
