@@ -112,8 +112,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Tuning
     p.add_argument("--voltsnip-url", default=None,
-                   help="VoltSnip API URL (default: $VOLTSNIP_BASE_URL or http://localhost:8001)")
-    p.add_argument("--scoring-mode", default="hybrid", choices=["lexical", "hybrid", "llm"])
+                   help="VoltSnip API URL (default: $VOLTSNIP_BASE_URL or http://localhost:8011)")
+    p.add_argument("--scoring-mode", default="llm", choices=["llm", "hybrid"])
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
 
     # Safety

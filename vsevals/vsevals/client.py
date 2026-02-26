@@ -3,7 +3,7 @@
 Thin wrapper around the VoltSnip REST API (httpx, with retry).
 
 Usage:
-    client = VoltSnipClient(base_url="http://localhost:8001")
+    client = VoltSnipClient(base_url="http://localhost:8011")
     snippets = client.get_by_canonical_keys(["voltsnip/bug22/..."], limit=6, max_chars=1200)
     snippets = client.semantic_search(q="retry policy", k=4, max_chars=1200)
 """

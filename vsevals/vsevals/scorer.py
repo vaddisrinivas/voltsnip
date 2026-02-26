@@ -1,6 +1,6 @@
 """Scoring pipeline.
 
-Two modes (selected automatically or via RunConfig.scoring_primary_endpoint):
+Two endpoints (selected automatically or via RunConfig.scoring_primary_endpoint):
 
 1. Constraint binary (default when task has constraints):
    - Each OracleConstraint is judged pass/fail by an LLM judge.
@@ -10,17 +10,17 @@ Two modes (selected automatically or via RunConfig.scoring_primary_endpoint):
 2. Legacy weighted (fallback when no constraints defined):
    - Weighted sum: 40% hidden_requirements + 30% success_indicators
                     + 20% failure_modes + 10% evaluation_criteria
-   - Each dimension: lexical or LLM-judged matching.
+   - Each dimension: LLM-judged matching.
    - Pass if overall >= 0.70 AND hidden >= 0.5 AND failure >= 0.6.
 
-Scoring match modes:
-  lexical  — simple substring / keyword matching only
-  hybrid   — lexical OR LLM judge (either passing = pass)
-  llm      — LLM judge only (overrides lexical result)
+All scoring is LLM-judge-only — no lexical / substring matching.
+String matching is too brittle for code semantics: a model that writes
+`if code >= 500 or code == 429` is equally correct as one that writes
+`- {404}`, but a keyword check would treat them differently.
 
 Ensemble judges:
   scoring_judge_model may contain '+'-separated models, e.g.
-  "openai:gpt-5-mini+anthropic:claude-sonnet-4-6".
+  "openai:gpt-5.2+anthropic:claude-opus-4-6".
   All judges are called in parallel.  Verdicts are merged per dimension:
     - expected=True constraints / hidden,success,criteria: LENIENT (any True → True)
     - expected=False constraints / failure_modes:          STRICT  (all True → True)
@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -47,9 +46,6 @@ from vsevals.models import (
 )
 
 LOGGER = logging.getLogger(__name__)
-
-# Keys referenced in generated code (used for "snippet hit" checks)
-_KEY_RE = re.compile(r"\bvoltsnip/[a-z0-9][a-z0-9_./-]*", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -80,27 +76,36 @@ def _call_judge_raw(
 
 
 def _merge_constraint_verdicts(
-    verdict_lists: list[list[bool]],
+    verdict_lists: list[list[dict]],
     constraints: list[OracleConstraint],
-) -> list[bool]:
+) -> list[dict]:
     """Merge parallel judge verdicts with constraint-type-aware voting.
 
     expected=True  → LENIENT: matched=True if ANY judge says True
                      (don't penalise the model if one judge misses a satisfied check)
     expected=False → STRICT:  matched=True only if ALL judges say True
                      (don't falsely claim a failure is present due to one noisy judge)
+
+    Reason: taken from first judge whose verdict agrees with the merged verdict.
     """
     n = len(constraints)
-    result: list[bool] = []
+    result: list[dict] = []
     for i in range(n):
-        votes = [bl[i] for bl in verdict_lists if i < len(bl)]
-        if not votes:
-            result.append(False)
+        items = [bl[i] for bl in verdict_lists if i < len(bl)]
+        if not items:
+            result.append({"verdict": False, "reason": None})
             continue
+        votes = [item["verdict"] for item in items]
         if constraints[i].expected:
-            result.append(any(votes))    # LENIENT
+            merged_verdict = any(votes)   # LENIENT
         else:
-            result.append(all(votes))    # STRICT
+            merged_verdict = all(votes)   # STRICT
+        # Pick first reason from a judge that agrees with the merged verdict
+        reason = next(
+            (item["reason"] for item in items if item["verdict"] == merged_verdict and item.get("reason")),
+            None,
+        )
+        result.append({"verdict": merged_verdict, "reason": reason})
     return result
 
 
@@ -153,9 +158,8 @@ def score_one(
     cfg: RunConfig,
     provider_keys: dict[str, str],
 ) -> ScoreResult:
-    """Score a completed run against its oracle definition."""
-    available_keys = _snippet_keys_from_result(run_result)
-    scoring_mode = (cfg.scoring_match_mode or "hybrid").lower()
+    """Score a completed run against its oracle definition (LLM judge only)."""
+    scoring_mode = (cfg.scoring_match_mode or "llm").lower()
     endpoint = (cfg.scoring_primary_endpoint or "auto").lower()
 
     constraints = _select_constraints(oracle, endpoint, cfg)
@@ -164,7 +168,6 @@ def score_one(
         return _score_constraints(
             run_result=run_result,
             constraints=constraints,
-            available_keys=available_keys,
             scoring_mode=scoring_mode,
             cfg=cfg,
             provider_keys=provider_keys,
@@ -173,7 +176,6 @@ def score_one(
     return _score_legacy(
         run_result=run_result,
         oracle=oracle,
-        available_keys=available_keys,
         scoring_mode=scoring_mode,
         cfg=cfg,
         provider_keys=provider_keys,
@@ -189,18 +191,15 @@ def _score_constraints(
     *,
     run_result: RunResult,
     constraints: list[OracleConstraint],
-    available_keys: set[str],
     scoring_mode: str,
     cfg: RunConfig,
     provider_keys: dict[str, str],
 ) -> ScoreResult:
-    output_text = _output_text(run_result)
     threshold = float(cfg.constraint_pass_threshold)
 
     llm_verdicts = _judge_constraints(
         run_result=run_result,
         constraints=constraints,
-        scoring_mode=scoring_mode,
         cfg=cfg,
         provider_keys=provider_keys,
     )
@@ -210,17 +209,13 @@ def _score_constraints(
     constraint_results: list[dict] = []
 
     for idx, constraint in enumerate(constraints):
-        lexical = _text_matches(constraint.check, output_text, available_keys)
-        judged = (llm_verdicts[idx] if llm_verdicts is not None and idx < len(llm_verdicts) else None)
+        judged_item = (llm_verdicts[idx] if llm_verdicts is not None and idx < len(llm_verdicts) else None)
+        # LLM verdict only — no lexical fallback.
+        # False when judge is unavailable (no API key); surface this as a run error.
+        verdict = bool(judged_item["verdict"]) if isinstance(judged_item, dict) else bool(judged_item)
+        reason = judged_item.get("reason") if isinstance(judged_item, dict) else None
 
-        if scoring_mode == "llm" and judged is not None:
-            matched = judged
-        elif scoring_mode == "hybrid":
-            matched = lexical or (judged is True)
-        else:
-            matched = lexical
-
-        satisfied = matched if constraint.expected else not matched
+        satisfied = verdict if constraint.expected else not verdict
         if satisfied:
             passed_count += 1
         else:
@@ -229,8 +224,8 @@ def _score_constraints(
         constraint_results.append({
             "id": constraint.id,
             "passed": satisfied,
-            "lexical_hit": lexical,
-            "llm_verdict": judged,
+            "llm_verdict": verdict,
+            "judge_reason": reason,
             "expected": constraint.expected,
             "voltsnip_key": constraint.voltsnip_key,
         })
@@ -260,11 +255,11 @@ def _judge_constraints(
     *,
     run_result: RunResult,
     constraints: list[OracleConstraint],
-    scoring_mode: str,
     cfg: RunConfig,
     provider_keys: dict[str, str],
-) -> list[bool] | None:
-    if scoring_mode == "lexical" or not constraints:
+) -> list[dict] | None:
+    """Return list of {"verdict": bool, "reason": str|None} — one entry per constraint."""
+    if not constraints:
         return None
 
     judge_specs = _parse_ensemble(cfg.scoring_judge_model)
@@ -279,7 +274,8 @@ def _judge_constraints(
     instructions = (
         "Judge each constraint independently as pass/fail for this candidate output. "
         "Use judge_prompt as the primary decision rule. "
-        'Return ONLY JSON: {"results":[true|false,...]} in the same order as input constraints.'
+        'Return ONLY JSON: {"results":[{"verdict":true,"reason":"1-sentence explanation"},...]} '
+        "in the same order as input constraints."
     )
     user_json = json.dumps(payload, ensure_ascii=False)
 
@@ -296,10 +292,10 @@ def _judge_constraints(
         parsed = _parse_json(raw)
         if parsed is None:
             return None
-        return _coerce_bool_list(parsed.get("results"), len(constraints))
+        return _coerce_verdict_list(parsed.get("results"), len(constraints))
 
     # Ensemble: call all judges in parallel
-    verdict_lists: list[list[bool]] = []
+    verdict_lists: list[list[dict]] = []
     with ThreadPoolExecutor(max_workers=len(usable_specs)) as executor:
         futures = {
             executor.submit(_call_judge_raw, spec, instructions, user_json, cfg, provider_keys): spec
@@ -310,10 +306,14 @@ def _judge_constraints(
             if raw:
                 parsed = _parse_json(raw)
                 if parsed:
-                    bl = _coerce_bool_list(parsed.get("results"), len(constraints))
-                    if bl is not None:
-                        verdict_lists.append(bl)
-                        LOGGER.debug("ensemble constraint judge=%s verdicts=%s", futures[future], bl)
+                    vl = _coerce_verdict_list(parsed.get("results"), len(constraints))
+                    if vl is not None:
+                        verdict_lists.append(vl)
+                        LOGGER.debug(
+                            "ensemble constraint judge=%s verdicts=%s",
+                            futures[future],
+                            [v["verdict"] for v in vl],
+                        )
 
     if not verdict_lists:
         return None
@@ -331,18 +331,14 @@ def _score_legacy(
     *,
     run_result: RunResult,
     oracle: TaskOracle,
-    available_keys: set[str],
     scoring_mode: str,
     cfg: RunConfig,
     provider_keys: dict[str, str],
 ) -> ScoreResult:
     """Fallback when no constraints are defined."""
-    output_text = _output_text(run_result)
-
     llm_results = _judge_requirements(
         run_result=run_result,
         oracle=oracle,
-        scoring_mode=scoring_mode,
         cfg=cfg,
         provider_keys=provider_keys,
     )
@@ -352,14 +348,8 @@ def _score_legacy(
             return ScoreDimension(matched=0, total=0, score=1.0, notes=[])
         hits, notes = 0, []
         for i, line in enumerate(lines):
-            lex = _text_matches(line, output_text, available_keys)
             judged = (llm_hits[i] if llm_hits and i < len(llm_hits) else None)
-            if scoring_mode == "llm" and judged is not None:
-                matched = judged
-            elif scoring_mode == "hybrid":
-                matched = lex or (judged is True)
-            else:
-                matched = lex
+            matched = bool(judged)   # LLM verdict only
             if invert:
                 matched = not matched
             if matched:
@@ -403,13 +393,10 @@ def _judge_requirements(
     *,
     run_result: RunResult,
     oracle: TaskOracle,
-    scoring_mode: str,
     cfg: RunConfig,
     provider_keys: dict[str, str],
 ) -> dict[str, list[bool] | None]:
     empty: dict[str, list[bool] | None] = {"hidden": None, "success": None, "failure_modes": None, "evaluation_criteria": None}
-    if scoring_mode == "lexical":
-        return empty
 
     judge_specs = _parse_ensemble(cfg.scoring_judge_model)
     usable_specs = [s for s in judge_specs if _judge_has_key(s, cfg, provider_keys)]
@@ -505,36 +492,6 @@ def _synthetic_constraints(oracle: TaskOracle) -> list[OracleConstraint]:
     return constraints
 
 
-def _snippet_keys_from_result(run_result: RunResult) -> set[str]:
-    keys: set[str] = set()
-    for s in run_result.retrieved_snippets:
-        if s.canonical_key:
-            keys.add(s.canonical_key)
-        keys.add(s.id)
-    # Also extract from raw output
-    keys.update(_KEY_RE.findall(run_result.raw_model_output))
-    return keys
-
-
-def _output_text(run_result: RunResult) -> str:
-    return f"{run_result.parsed_output.code}\n\n{run_result.parsed_output.comments}".lower()
-
-
-def _text_matches(requirement: str, text: str, available_keys: set[str]) -> bool:
-    req = requirement.strip().lower()
-    if not req:
-        return True
-
-    # Check if requirement mentions a snippet key that wasn't retrieved
-    key_refs = set(_KEY_RE.findall(req))
-    if key_refs and not key_refs.intersection({k.lower() for k in available_keys}):
-        return False
-
-    # Keyword matching: all words with len >= 4 must appear in text
-    words = [w for w in re.findall(r"\w+", req) if len(w) >= 4]
-    if not words:
-        return req in text
-    return all(w in text for w in words)
 
 
 def _has_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> bool:
@@ -605,4 +562,30 @@ def _coerce_bool_list(raw: Any, expected_len: int) -> list[bool] | None:
     result = [bool(v) if isinstance(v, (bool, int)) else False for v in raw]
     if len(result) < expected_len:
         result.extend([False] * (expected_len - len(result)))
+    return result[:expected_len]
+
+
+def _coerce_verdict_list(raw: Any, expected_len: int) -> list[dict] | None:
+    """Parse judge output into list of {"verdict": bool, "reason": str|None}.
+
+    Handles both the new rich format  [{"verdict": true, "reason": "…"}, ...]
+    and the legacy bare-boolean format [true, false, ...] for backward compat.
+    """
+    if not isinstance(raw, list):
+        return None
+    result: list[dict] = []
+    for v in raw:
+        if isinstance(v, dict):
+            verdict = bool(v.get("verdict", False))
+            reason_raw = v.get("reason")
+            reason = str(reason_raw).strip() if reason_raw else None
+        elif isinstance(v, (bool, int)):
+            verdict = bool(v)
+            reason = None
+        else:
+            verdict = False
+            reason = None
+        result.append({"verdict": verdict, "reason": reason})
+    while len(result) < expected_len:
+        result.append({"verdict": False, "reason": None})
     return result[:expected_len]

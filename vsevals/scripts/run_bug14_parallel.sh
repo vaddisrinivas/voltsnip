@@ -16,7 +16,7 @@
 #   VARIANTS=P0,P1,P2,P3,P4,P5b,P5a,P6b,P6a
 #   CLAUDE_MODEL=claudecode:claude-sonnet-4-6
 #   CODEX_MODEL=codex:gpt-5.3-codex
-#   (no judge during run — scoring-mode=lexical; judge separately)
+#   (LLM judge runs inline; use rescore_scoring.py to re-judge with a different model)
 #   OUTPUT_DIR=/Users/srinivasvaddi/moltsnip/vsevals_runs
 #   RUN_PYTEST=1
 
@@ -34,7 +34,7 @@ VOLTSNIP_URL="${VOLTSNIP_URL:-http://127.0.0.1:8011}"
 
 CLAUDE_MODEL="${CLAUDE_MODEL:-claudecode:claude-sonnet-4-6}"
 CODEX_MODEL="${CODEX_MODEL:-codex:gpt-5.3-codex}"
-SCORING_MODE="${SCORING_MODE:-lexical}"  # no LLM judge during matrix run; judge separately
+SCORING_MODE="${SCORING_MODE:-llm}"
 SPACING="${SPACING:-0.5}"
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 

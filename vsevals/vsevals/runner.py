@@ -70,7 +70,7 @@ from vsevals.scorer import score_one
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
-DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8001"
+DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8011"
 
 HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a"]
 HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a")
@@ -114,6 +114,7 @@ _VARIANT_DOCS: dict[str, str] = {
     "P5a": "Skill docs + specific keys + tools — knows exactly which keys to fetch.",
     "P6b": "Agents.md sidecar + keys + tools — richer context, no pre-fetched snippets.",
     "P6a": "Full: agents.md sidecar + pre-fetched snippets + tools.",
+    "P6c": "Agents.md sidecar + explicit MUST-call-tools instruction — forces at least one VoltSnip MCP call before output.",
 }
 for _vid, _doc in _VARIANT_DOCS.items():
     def _f(*, task_id: str, model_name: str, suite_path: str, output_dir: str, _v: str = _vid, **kw: Any) -> RunResult:
@@ -233,6 +234,11 @@ def run_one(
     latency_ms = int((time.perf_counter() - t0) * 1000)
     finished_at = datetime.now(timezone.utc)
     llm_result = llm_result or _empty_llm_result()
+
+    # Write raw subprocess / API artifacts immediately — before scoring + pytest —
+    # so they are on disk even when later stages fail.
+    _write_raw_llm_artifacts(llm_result=llm_result, run_dir=artifacts.run_dir)
+
     provider, model_id = _parse_provider(model_name)
 
     sys_chars = len(prompt.system_prompt)
@@ -857,6 +863,30 @@ def _classify_error(exc: Exception) -> str:
     return "UNKNOWN_ERROR"
 
 
+def _write_raw_llm_artifacts(*, llm_result: LLMResult, run_dir: str) -> None:
+    """Write raw subprocess / API response artifacts immediately after the LLM call.
+
+    Written before scoring and pytest so these files survive even if later
+    pipeline stages fail.  Files only created when content is non-empty.
+
+    Produced files (provider-dependent):
+      subprocess.stdout.jsonl  — full JSONL event stream from claudecode/codex
+      subprocess.stderr.txt    — stderr from claudecode/codex subprocess
+      llm_response.json        — raw API response JSON from openai/anthropic
+    """
+    rd = Path(run_dir)
+    stdout = getattr(llm_result, "subprocess_stdout", "") or ""
+    stderr = getattr(llm_result, "subprocess_stderr", "") or ""
+    api_raw = getattr(llm_result, "api_response_raw", "") or ""
+
+    if stdout:
+        (rd / "subprocess.stdout.jsonl").write_text(stdout, encoding="utf-8")
+    if stderr:
+        (rd / "subprocess.stderr.txt").write_text(stderr, encoding="utf-8")
+    if api_raw:
+        (rd / "llm_response.json").write_text(api_raw, encoding="utf-8")
+
+
 def _make_artifact_paths(*, output_root: str, task_id: str, variant_id: str, model_name: str) -> RunArtifactPaths:
     root = Path(output_root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -900,9 +930,24 @@ def _write_artifacts(*, run_result: RunResult, score: ScoreResult | None) -> Non
     Path(run_result.artifacts.code_output).write_text(run_result.parsed_output.code, encoding="utf-8")
     Path(run_result.artifacts.comments_output).write_text(run_result.parsed_output.comments, encoding="utf-8")
     Path(run_result.artifacts.rewrite_output).write_text(run_result.parsed_output.code, encoding="utf-8")
+
+    # Standalone prompt file — convenient for offline replay / re-scoring without
+    # parsing the full full_dump.json.
+    run_dir = Path(run_result.artifacts.run_dir)
+    prompt_data: dict = {
+        "system": run_result.prompt.system_prompt,
+        "user": run_result.prompt.user_prompt,
+        "context_surface": run_result.prompt.context_surface,
+    }
+    if run_result.prompt_after_tools:
+        prompt_data["system_after_tools"] = run_result.prompt_after_tools.system_prompt
+        prompt_data["user_after_tools"] = run_result.prompt_after_tools.user_prompt
+    (run_dir / "prompt.json").write_text(
+        json.dumps(prompt_data, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
     # Pytest stdout/stderr as separate files (mirrors old harness layout)
     if run_result.pytest_result and run_result.pytest_result.ran:
-        run_dir = Path(run_result.artifacts.run_dir)
         (run_dir / "pytest.stdout.txt").write_text(run_result.pytest_result.stdout, encoding="utf-8")
         (run_dir / "pytest.stderr.txt").write_text(run_result.pytest_result.stderr, encoding="utf-8")
 

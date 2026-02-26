@@ -121,7 +121,10 @@ class LLMResult:
         "request_latency_ms",
         "request_id",
         "finish_reason",
-        "tool_traces",   # populated by claudecode/codex MCP paths
+        "tool_traces",          # populated by claudecode/codex MCP paths
+        "subprocess_stdout",    # raw proc.stdout for claudecode/codex (full JSONL event stream)
+        "subprocess_stderr",    # raw proc.stderr for claudecode/codex
+        "api_response_raw",     # serialised raw API response for openai/anthropic; "" for subprocess/mock
     )
 
     def __init__(
@@ -139,6 +142,9 @@ class LLMResult:
         request_id: str | None,
         finish_reason: str | None,
         tool_traces: list[ToolTrace] | None = None,
+        subprocess_stdout: str = "",
+        subprocess_stderr: str = "",
+        api_response_raw: str = "",
     ) -> None:
         self.raw_output = raw_output
         self.parsed_output = parsed_output
@@ -152,6 +158,9 @@ class LLMResult:
         self.request_id = request_id
         self.finish_reason = finish_reason
         self.tool_traces: list[ToolTrace] = tool_traces or []
+        self.subprocess_stdout: str = subprocess_stdout
+        self.subprocess_stderr: str = subprocess_stderr
+        self.api_response_raw: str = api_response_raw
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +490,8 @@ def _call_claudecode_single_shot(
             request_latency_ms=int((time.perf_counter() - perf0) * 1000),
             request_id=session_id, finish_reason="stop",
             tool_traces=tool_traces,
+            subprocess_stdout=proc.stdout,
+            subprocess_stderr=proc.stderr,
         )
     finally:
         if sidecar_dir:
@@ -509,7 +520,7 @@ def _call_claudecode_with_mcp(
     t0 = datetime.now(timezone.utc)
     perf0 = time.perf_counter()
 
-    base_url = (cfg.voltsnip_base_url or "http://localhost:8001").rstrip("/")
+    base_url = (cfg.voltsnip_base_url or "http://localhost:8011").rstrip("/")
     # Use trailing slash to avoid FastAPI 307 redirect /mcp -> /mcp/.
     mcp_url = f"{base_url}/mcp/"
 
@@ -547,6 +558,13 @@ def _call_claudecode_with_mcp(
             "--strict-mcp-config",
             "--no-session-persistence",
             "--max-turns", str(max(1, max_tool_turns)),
+            # Pre-approve all VoltSnip MCP tools so claude doesn't prompt for permission
+            # in non-interactive -p mode.  Read/Grep/Glob are also pre-approved so the
+            # agent can inspect the codebase before making VoltSnip calls.
+            "--allowedTools", "mcp__voltsnip__*,Read,Grep,Glob",
+            # Block destructive built-in tools.  Bash/Write/Edit are disallowed to prevent
+            # accidental writes to the eval host during the experiment.
+            "--disallowed-tools", "Bash,Write,Edit,NotebookEdit,WebSearch,WebFetch",
         ]
         mcp_timeout = max(600, cfg.llm_timeout_seconds * 2)
         LOGGER.debug("claudecode mcp-tool-loop model=%s mcp_cfg=%s sidecar=%s timeout=%ds",
@@ -558,6 +576,21 @@ def _call_claudecode_with_mcp(
         )
         if proc.returncode != 0:
             raise _claudecode_error(proc.stdout, proc.stderr, "claude subprocess (mcp) failed")
+
+        # Debug: log raw stdout event types so format changes are visible in DEBUG logs.
+        # Collect distinct event type set for one-line summary; full stdout at TRACE level.
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            evt_types: set[str] = set()
+            for _line in proc.stdout.splitlines():
+                _line = _line.strip()
+                if _line.startswith("{"):
+                    try:
+                        _evt = json.loads(_line).get("type", "?")
+                        evt_types.add(_evt)
+                    except Exception:
+                        pass
+            LOGGER.debug("claudecode mcp stdout event_types=%s lines=%d chars=%d",
+                         sorted(evt_types), proc.stdout.count("\n"), len(proc.stdout))
     finally:
         if tmp_cfg_path:
             try:
@@ -585,6 +618,8 @@ def _call_claudecode_with_mcp(
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=session_id, finish_reason="stop",
         tool_traces=tool_traces,
+        subprocess_stdout=proc.stdout,
+        subprocess_stderr=proc.stderr,
     )
 
 
@@ -595,10 +630,21 @@ def _parse_claudecode_stream_json(
 
     Returns (raw_output, prompt_tokens, completion_tokens, thinking_tokens, session_id, tool_traces).
 
-    The stream-json format emits one JSON object per line:
+    The stream-json format emits one JSON object per line.  Two layouts are
+    observed in the wild (varies by claude-code version and tool type):
+
+    Layout A — flat tool events (legacy / MCP external tools):
       {"type":"assistant","message":{"content":[{"type":"tool_use","id":"...","name":"...","input":{}}]}}
-      {"type":"tool","tool_use_id":"...","content":"..."}   (MCP tool result)
+      {"type":"tool","tool_use_id":"...","content":"..."}
       {"type":"result","result":"...","session_id":"...","usage":{...}}
+
+    Layout B — messages-API-style user turns (claude-code ≥ 2.x built-in + MCP tools):
+      {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"...","name":"...","input":{}}]}}
+      {"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"...","content":"...","is_error":false}]}}
+      {"type":"result","result":"...","session_id":"...","usage":{...}}
+
+    Both layouts are handled here.  The ``pending`` dict tracks open tool calls
+    so each tool_use id can be matched to its result event regardless of layout.
     """
     raw = ""
     input_tok = 0
@@ -661,7 +707,57 @@ def _parse_claudecode_stream_json(
                     raw = raw or (block.get("text") or "")
             continue
 
-        # Tool result — pair with pending call by id
+        # Layout B: user-turn tool results (claude-code ≥ 2.x, built-in + MCP tools)
+        # {"type":"user","message":{"role":"user","content":[{"type":"tool_result",...}]}}
+        if evt_type == "user":
+            msg = obj.get("message") or {}
+            content = msg.get("content") or []
+            for block in (content if isinstance(content, list) else []):
+                if not isinstance(block, dict) or block.get("type") != "tool_result":
+                    continue
+                tid = block.get("tool_use_id", "") or block.get("id", "")
+                pending_call = pending.pop(tid, None)
+
+                # content can be a string or list of content blocks
+                result_content = block.get("content") or ""
+                if isinstance(result_content, list):
+                    text_parts = [
+                        rb.get("text", "")
+                        for rb in result_content
+                        if isinstance(rb, dict) and rb.get("type") == "text"
+                    ]
+                    result_content = "\n".join(text_parts) if text_parts else json.dumps(result_content)
+
+                is_error = bool(block.get("is_error"))
+                started_at = (pending_call or {}).get("started_at", datetime.now(timezone.utc))
+                t0_call = (pending_call or {}).get("t0", time.perf_counter())
+                duration_ms = int((time.perf_counter() - t0_call) * 1000)
+                tool_name = (pending_call or {}).get("name", "") if pending_call else f"unknown(tid={tid})"
+                tool_args = (pending_call or {}).get("input", {})
+
+                # Parse result for snippet count (VoltSnip tools return JSON lists)
+                try:
+                    result_obj = json.loads(result_content) if isinstance(result_content, str) else result_content
+                except Exception:
+                    result_obj = None
+                snippet_count = len(result_obj) if isinstance(result_obj, list) else None
+
+                tool_traces.append(ToolTrace(
+                    roundtrip=len(tool_traces) + 1,
+                    tool_name=tool_name,
+                    tool_args=tool_args,
+                    tool_result=(
+                        {"retrieved": snippet_count} if snippet_count is not None
+                        else {"raw": str(result_content)[:200]}
+                    ) if not is_error else None,
+                    error=str(result_content)[:200] if is_error else None,
+                    started_at=started_at,
+                    finished_at=datetime.now(timezone.utc),
+                    duration_ms=duration_ms,
+                ))
+            continue
+
+        # Layout A: flat tool result events (legacy / external MCP)
         if evt_type in ("tool", "tool_result"):
             tid = obj.get("tool_use_id", "") or obj.get("id", "")
             pending_call = pending.pop(tid, None)
@@ -694,8 +790,16 @@ def _parse_claudecode_stream_json(
             ))
             continue
 
-    # Flush any tool calls with no matching result (shouldn't happen, but be safe)
+        # Unknown event types — debug-log for future format changes
+        if evt_type not in ("system", ""):
+            LOGGER.debug("_parse_claudecode_stream_json: unhandled evt_type=%r line=%s", evt_type, line[:120])
+
+    # Flush any tool calls with no matching result
+    # These are genuine failures: the tool was called but we never received a result event.
+    # After the Layout B fix above, remaining entries here are true anomalies
+    # (e.g. model hallucinated a tool call to a non-existent tool, or MCP error).
     for tid, call in pending.items():
+        LOGGER.debug("_parse_claudecode_stream_json: flushing unmatched tool call tool=%s tid=%s", call.get("name"), tid)
         tool_traces.append(ToolTrace(
             roundtrip=len(tool_traces) + 1,
             tool_name=call.get("name", ""),
@@ -782,8 +886,13 @@ def _call_codex_with_mcp(
     Injects the VoltSnip MCP server per-run via -c flags so the Codex CLI can
     connect to the local backend at {voltsnip_base_url}/mcp without modifying
     ~/.codex/config.toml permanently. Codex handles the tool loop natively.
+
+    --dangerously-bypass-approvals-and-sandbox is required in non-interactive
+    subprocess mode so codex does not pause waiting for user approval when it
+    attempts to call MCP tools.  The eval harness already restricts what can
+    happen (read-only sidecar cwd, no write tools configured).
     """
-    base_url = (cfg.voltsnip_base_url or "http://localhost:8001").rstrip("/")
+    base_url = (cfg.voltsnip_base_url or "http://localhost:8011").rstrip("/")
     # Use trailing slash to avoid FastAPI 307 redirect /mcp -> /mcp/.
     mcp_url = f"{base_url}/mcp/"
     mcp_timeout = max(600, cfg.llm_timeout_seconds * 2)
@@ -794,6 +903,9 @@ def _call_codex_with_mcp(
         user_prompt=user_prompt,
         cfg=cfg,
         extra_args=[
+            # Bypass approval prompts — required for non-interactive subprocess MCP use.
+            "--dangerously-bypass-approvals-and-sandbox",
+            # Inject VoltSnip MCP server for this run only (no permanent config change).
             "-c", "mcp_servers={}",
             "-c", f'mcp_servers.voltsnip.url="{mcp_url}"',
             "-c", "mcp_servers.voltsnip.enabled=true",
@@ -900,19 +1012,37 @@ def _run_codex_subprocess(
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=None, finish_reason="stop",
         tool_traces=tool_traces,
+        subprocess_stdout=proc.stdout,
+        subprocess_stderr=proc.stderr,
     )
 
 
 def _extract_codex_tokens(jsonl_text: str) -> tuple[int, int, int | None]:
     """Parse JSONL event stream from codex exec --json for token usage.
 
-    Codex emits events as JSONL. We scan all lines defensively for any dict
-    containing input_tokens / output_tokens (or prompt_tokens / completion_tokens).
-    Returns (prompt_tokens, completion_tokens, thinking_tokens), defaulting to 0/None if not found.
+    Two event formats seen in the wild:
+
+    A) Chat-Completions style — one full response object per API call:
+         {"id":"chatcmpl-X","usage":{"prompt_tokens":1234,"completion_tokens":456}}
+       Each tool roundtrip emits its own object; prompt_tokens grows each turn
+       because the full conversation context is re-sent.
+
+    B) Realtime / Responses API style — streaming events, final summary last:
+         {"type":"response.done","response":{"usage":{"input_tokens":1234,"output_tokens":456}}}
+       One response.done per API call. Multi-turn tool loops emit multiple.
+
+    Correct accounting: SUM completion_tokens across ALL turns (true output cost).
+    For prompt_tokens, also SUM — this represents the total billed input tokens
+    including context repetition across roundtrips, which is the real API cost.
+
+    The old code did `break` on the first hit, which underreported multi-turn runs
+    (only counted the first roundtrip) and also missed format B entirely because
+    it looked for obj["usage"] but format-B nests it at obj["response"]["usage"].
     """
-    prompt_tokens = 0
-    completion_tokens = 0
-    thinking_tokens: int | None = None
+    total_pt = 0
+    total_ct = 0
+    last_thinking: int | None = None  # take last seen — not additive across turns
+
     for line in jsonl_text.splitlines():
         line = line.strip()
         if not line or not line.startswith("{"):
@@ -923,51 +1053,73 @@ def _extract_codex_tokens(jsonl_text: str) -> tuple[int, int, int | None]:
             continue
         if not isinstance(obj, dict):
             continue
-        usage = obj.get("usage") or {}
-        # Try various key names used by different codex / OpenAI SDK versions
+
+        # Format B: Realtime / Responses API  →  obj["response"]["usage"]
+        resp_obj = obj.get("response") if obj.get("type") in (
+            "response.done", "response.completed", "response.usage"
+        ) else None
+        nested_usage: dict = (resp_obj or {}).get("usage") or {} if resp_obj else {}
+
+        # Format A: Chat Completions  →  obj["usage"]
+        flat_usage: dict = obj.get("usage") or {}
+
+        usage = nested_usage or flat_usage
+
         pt = (
-            obj.get("input_tokens")
-            or obj.get("prompt_tokens")
-            or usage.get("input_tokens")
+            usage.get("input_tokens")
             or usage.get("prompt_tokens")
+            or obj.get("input_tokens")
+            or obj.get("prompt_tokens")
             or 0
         )
         ct = (
-            obj.get("output_tokens")
-            or obj.get("completion_tokens")
-            or usage.get("output_tokens")
+            usage.get("output_tokens")
             or usage.get("completion_tokens")
+            or obj.get("output_tokens")
+            or obj.get("completion_tokens")
             or 0
         )
+
         if pt or ct:
-            prompt_tokens = int(pt or 0)
-            completion_tokens = int(ct or 0)
-            # Reasoning / thinking tokens (o-series and future reasoning models)
+            total_pt += int(pt or 0)
+            total_ct += int(ct or 0)
             ct_details = (
-                obj.get("completion_tokens_details")
+                usage.get("output_tokens_details")
                 or usage.get("completion_tokens_details")
+                or obj.get("completion_tokens_details")
                 or {}
             )
-            thinking_tokens = _int_or_none(
+            tt = _int_or_none(
                 ct_details.get("reasoning_tokens")
-                or obj.get("thinking_tokens")
-                or obj.get("reasoning_tokens")
                 or usage.get("thinking_tokens")
                 or usage.get("reasoning_tokens")
+                or obj.get("thinking_tokens")
+                or obj.get("reasoning_tokens")
             )
-            break  # Take first usage event found
-    return prompt_tokens, completion_tokens, thinking_tokens
+            if tt is not None:
+                last_thinking = (last_thinking or 0) + tt
+
+    return total_pt, total_ct, last_thinking if last_thinking else None
 
 
 def _extract_codex_tool_traces(jsonl_text: str) -> list[ToolTrace]:
     """Parse codex exec --json JSONL event stream for tool call traces.
 
-    Codex emits OpenAI-style events. Tool calls appear as:
-      {"type":"function_call","call_id":"...","name":"...","arguments":"..."}
-      {"type":"function_call_output","call_id":"...","output":"..."}
-    Or in newer codex versions:
-      {"type":"response.output_item.added","item":{"type":"function_call","call_id":"...","name":"...","arguments":"..."}}
-      {"type":"response.output_item.added","item":{"type":"function_call_output","call_id":"...","output":"..."}}
+    Three event formats supported:
+
+    A) Flat function_call events (classic codex):
+         {"type":"function_call","call_id":"...","name":"...","arguments":"..."}
+         {"type":"function_call_output","call_id":"...","output":"..."}
+
+    B) Nested response.output_item.added (newer codex Responses API):
+         {"type":"response.output_item.added","item":{"type":"function_call",...}}
+         {"type":"response.output_item.added","item":{"type":"function_call_output",...}}
+
+    C) item.completed / mcp_tool_call (codex with --dangerously-bypass-approvals-and-sandbox):
+         {"type":"item.completed","item":{"type":"mcp_tool_call","server":"voltsnip",
+          "tool":"get_snippet_by_canonical_key","arguments":{...},"result":{...}}}
+         These carry both the call and result inline (no separate output event).
+
     Parsed defensively — unknown formats produce an empty list.
     """
     traces: list[ToolTrace] = []
@@ -1032,6 +1184,44 @@ def _extract_codex_tool_traces(jsonl_text: str) -> list[ToolTrace]:
             elif item.get("type") == "function_call_output":
                 _record_result(item.get("call_id", ""), item.get("output", ""))
 
+        # item.completed / mcp_tool_call — codex with --dangerously-bypass-approvals-and-sandbox.
+        # These events carry the full MCP call AND result inline (no separate output event).
+        # Format: {"type":"item.completed","item":{"type":"mcp_tool_call","server":"...","tool":"...",
+        #           "arguments":{...},"result":{...},"status":"completed"}}
+        elif evt == "item.completed":
+            item = obj.get("item") or {}
+            if item.get("type") == "mcp_tool_call":
+                server = item.get("server", "unknown")
+                tool = item.get("tool", "unknown")
+                tool_name = f"{server}.{tool}"
+                raw_args = item.get("arguments") or {}
+                if isinstance(raw_args, str):
+                    try:
+                        raw_args = json.loads(raw_args)
+                    except Exception:
+                        raw_args = {}
+                raw_result = item.get("result")
+                result_str = json.dumps(raw_result) if raw_result is not None else ""
+                # MCP result shape: {"content":[{"type":"text","text":"..."},...]}
+                # Try to surface snippet count if result is a list, else store truncated raw.
+                snippet_count: int | None = None
+                if isinstance(raw_result, list):
+                    snippet_count = len(raw_result)
+                tool_result_payload = (
+                    {"retrieved": snippet_count} if snippet_count is not None
+                    else {"raw": result_str[:200]}
+                )
+                traces.append(ToolTrace(
+                    roundtrip=len(traces) + 1,
+                    tool_name=tool_name,
+                    tool_args=raw_args,
+                    tool_result=tool_result_payload,
+                    error=None,
+                    started_at=datetime.now(timezone.utc),
+                    finished_at=datetime.now(timezone.utc),
+                    duration_ms=0,
+                ))
+
         # Generic: any dict with name + arguments that looks like a tool call
         elif "name" in obj and "arguments" in obj and "call_id" in obj:
             _record_call(obj["call_id"], obj["name"], obj["arguments"])
@@ -1088,7 +1278,7 @@ def _call_openai_with_mcp(
     t0 = datetime.now(timezone.utc)
     perf0 = time.perf_counter()
 
-    base_url = (cfg.voltsnip_base_url or "http://localhost:8001").rstrip("/")
+    base_url = (cfg.voltsnip_base_url or "http://localhost:8011").rstrip("/")
     # Use trailing slash to avoid FastAPI 307 redirect /mcp -> /mcp/.
     mcp_url = f"{base_url}/mcp/"
 
@@ -1141,6 +1331,7 @@ def _call_openai_with_mcp(
         request_started_at=t0, request_finished_at=datetime.now(timezone.utc),
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=str(request_id) if request_id else None, finish_reason="stop",
+        api_response_raw=_safe_response_json(resp),
     )
 
 
@@ -1233,6 +1424,7 @@ def _call_openai_chat(
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=str(request_id) if request_id else None,
         finish_reason=str(finish_reason) if finish_reason else None,
+        api_response_raw=_safe_response_json(resp),
     )
 
 
@@ -1279,6 +1471,7 @@ def _call_anthropic(
     final_content = ""
     finish_reason = None
     request_id = None
+    api_response_parts: list[str] = []   # one serialised response per turn
 
     for _turn in range(max(1, max_tool_turns)):
         LOGGER.debug("anthropic call model=%s turn=%d messages=%d", model_id, _turn, len(messages))
@@ -1287,6 +1480,7 @@ def _call_anthropic(
         except Exception as exc:
             raise RuntimeError(f"anthropic call failed: {exc}") from exc
 
+        api_response_parts.append(_safe_response_json(resp))
         request_id = getattr(resp, "id", None)
         usage = getattr(resp, "usage", None)
         if usage:
@@ -1336,6 +1530,14 @@ def _call_anthropic(
         final_content = "\n".join(getattr(b, "text", "") for b in text_blocks if hasattr(b, "text")).strip()
         break
 
+    # Collapse per-turn response parts: single-turn → bare object JSON; multi-turn → array
+    if len(api_response_parts) == 1:
+        api_response_raw_val = api_response_parts[0]
+    elif api_response_parts:
+        api_response_raw_val = "[" + ",".join(api_response_parts) + "]"
+    else:
+        api_response_raw_val = ""
+
     parsed, fallback = _parse_payload(final_content, cfg.structured_output)
     return LLMResult(
         raw_output=final_content, parsed_output=parsed,
@@ -1352,12 +1554,40 @@ def _call_anthropic(
         request_started_at=t0, request_finished_at=datetime.now(timezone.utc),
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=str(request_id) if request_id else None, finish_reason=finish_reason,
+        api_response_raw=api_response_raw_val,
     )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _safe_response_json(resp: object) -> str:
+    """Serialise an API response object to a JSON string for artifact storage.
+
+    Tries (in order):
+      1. resp.model_dump_json()   — pydantic v2 style (openai / anthropic SDK objects)
+      2. json.dumps(vars(resp))   — plain dataclass / object with __dict__
+      3. str(resp)                — last-resort string representation
+    Returns "" on total failure.
+    """
+    try:
+        fn = getattr(resp, "model_dump_json", None)
+        if callable(fn):
+            result = fn()
+            if isinstance(result, str):
+                return result
+    except Exception:
+        pass
+    try:
+        return json.dumps(vars(resp), default=str, ensure_ascii=False)
+    except Exception:
+        pass
+    try:
+        return str(resp)
+    except Exception:
+        return ""
 
 
 def _int_or_none(val: object) -> int | None:

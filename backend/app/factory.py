@@ -7,6 +7,7 @@ import os
 import sys
 
 from fastmcp import FastMCP
+from fastmcp.resources.resource import ResourceContent
 from app.globals import settings
 import app.globals as app_globals
 import app.crud as crud
@@ -236,51 +237,51 @@ def create_app() -> FastAPI:
     async def mcp_snippets():
         async with app_globals.SessionLocal() as session:
             snippets = await crud.get_recent_snippets(session, limit=50, offset=0)
-            return [SnippetMetaResponse.model_validate(s).model_dump() for s in snippets]
+            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_TAG_RESOURCE)
     async def mcp_snippets_by_tag(tag: str):
         tag = (tag or "").strip().lower()
         if not tag:
-            return {"error": MCP_INVALID_FILTER}
+            return ResourceContent({"error": MCP_INVALID_FILTER})
         tags = [t.strip().lower() for t in tag.split(",") if t.strip()]
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets_by_tags(session, tags=tags, limit=50, offset=0)
-            return [SnippetMetaResponse.model_validate(s).model_dump() for s in snippets]
+            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_TITLE_RESOURCE)
     async def mcp_snippets_by_title(title: str):
         title = (title or "").strip()
         if not title:
-            return {"error": MCP_INVALID_FILTER}
+            return ResourceContent({"error": MCP_INVALID_FILTER})
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets_by_title(session, title=title, limit=50, offset=0)
-            return [SnippetMetaResponse.model_validate(s).model_dump() for s in snippets]
+            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_LANGUAGE_RESOURCE)
     async def mcp_snippets_by_language(language: str):
         language = (language or "").strip().lower()
         if not language:
-            return {"error": MCP_INVALID_FILTER}
+            return ResourceContent({"error": MCP_INVALID_FILTER})
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets(session, tag=None, language=language, limit=50, offset=0)
-            return [SnippetMetaResponse.model_validate(s).model_dump() for s in snippets]
+            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPET_RESOURCE)
     async def mcp_snippet(snippet_id: str):
         try:
             snippet_uuid = uuid.UUID(snippet_id)
         except ValueError:
-            return {"error": MCP_SNIPPET_INVALID_ID}
+            return ResourceContent({"error": MCP_SNIPPET_INVALID_ID})
 
         cached = await get_cached_snippet(snippet_uuid)
         if cached is not None:
-            return cached
+            return ResourceContent(cached)
 
         async with app_globals.SessionLocal() as session:
             snippet = await crud.get_snippet(session, snippet_uuid)
             if not snippet:
-                return {"error": MCP_SNIPPET_NOT_FOUND}
+                return ResourceContent({"error": MCP_SNIPPET_NOT_FOUND})
             content = await app_globals.storage_service.get_snippet_content(snippet.blob_key)
             snippet.code = content
             payload = SnippetDetailResponse.model_validate(snippet).model_dump()
@@ -289,7 +290,7 @@ def create_app() -> FastAPI:
                 payload,
                 app_globals.settings.SNIPPET_CACHE_TTL_SECONDS,
             )
-            return payload
+            return ResourceContent(payload)
 
     @mcp.tool
     async def search_memory(query: str, k: int = 5) -> list[dict[str, Any]] | dict[str, str]:

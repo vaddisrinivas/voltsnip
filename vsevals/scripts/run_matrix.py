@@ -37,6 +37,8 @@ import logging
 import re
 import subprocess
 import sys
+import queue as _queue
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -83,6 +85,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Filters
     p.add_argument("--variants", default=None, help="Comma-separated variant IDs to run (default: all in suite)")
+    p.add_argument(
+        "--priority-variants", default=None,
+        help=(
+            "Comma-separated variant IDs to run first (default: suite order). "
+            "Variants listed here are moved to the front of the queue; the rest follow in original order. "
+            "e.g. --priority-variants P6a,P6b,P5a,P5b,P4,P3 runs tool/memory variants before baselines."
+        ),
+    )
     p.add_argument("--tasks", default=None, help="Comma-separated task IDs to run (default: all in suite)")
 
     # Output
@@ -99,23 +109,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--judge-model",
         default="openai:gpt-5.2+anthropic:claude-opus-4-6",
         help=(
-            "Scoring judge model(s). Use '+' for a cross-provider ensemble. "
-            "Default 'openai:gpt-5.2+anthropic:claude-opus-4-6' eliminates self-judging bias: "
-            "claudecode cells judged by OpenAI, codex cells by Anthropic. "
-            "Requires OPENAI_API_KEY + ANTHROPIC_API_KEY when --scoring-mode is 'hybrid' or 'llm'. "
+            "Judge model(s) for scoring. Use '+' for a cross-provider ensemble. "
+            "Default 'openai:gpt-5.2+anthropic:claude-opus-4-6'. "
+            "Requires OPENAI_API_KEY + ANTHROPIC_API_KEY. "
             "For a key-free fallback use '--judge-model claudecode:claude-sonnet-4-6' (stored OAuth). "
-            "Ensemble verdicts merged: LENIENT for positive checks, STRICT for failure checks. "
-            "Ignored entirely when --scoring-mode is 'lexical'."
+            "Ensemble verdicts merged: LENIENT for positive checks, STRICT for failure checks."
         ),
     )
-    p.add_argument("--scoring-mode", default="lexical", choices=["lexical", "hybrid", "llm"],
-                   help="Scoring mode during matrix run. Default is 'lexical' — no LLM judge calls. "
-                        "Use 'hybrid' or 'llm' only for post-hoc re-scoring; judgement is a separate step.")
+    p.add_argument("--scoring-mode", default="llm", choices=["llm", "hybrid"],
+                   help=(
+                       "Scoring mode — always LLM judge, no substring matching. "
+                       "DEFAULT 'llm': call judge for every constraint inline during generation. "
+                       "'hybrid' is an alias kept for backward compat. "
+                       "To defer all judge calls to Pass 2, run rescore_scoring.py after generation completes."
+                   ))
     p.add_argument("--constraint-threshold", type=float, default=0.7)
 
     # Runtime
     p.add_argument("--repo-root", default=None, help="Override repo root for all tasks")
-    p.add_argument("--voltsnip-url", default=None, help="VoltSnip base URL (default: $VOLTSNIP_BASE_URL or http://localhost:8001)")
+    p.add_argument("--voltsnip-url", default=None, help="VoltSnip base URL (default: $VOLTSNIP_BASE_URL or http://localhost:8011)")
     p.add_argument("--spacing", type=float, default=0.35, help="Seconds to wait between same-provider calls")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
 
@@ -141,6 +153,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override variant max_tool_roundtrips for tool-enabled variants (default: from suite).",
     )
 
+    # Parallelism
+    p.add_argument(
+        "--workers", type=int, default=1,
+        help=(
+            "Number of parallel worker threads (default: 1 = sequential). "
+            "Recommended: --workers 6 runs one thread per model simultaneously. "
+            "Each worker respects --provider-concurrency to cap concurrent calls per provider."
+        ),
+    )
+    p.add_argument(
+        "--provider-concurrency", type=int, default=3,
+        help=(
+            "Max simultaneous LLM calls to the same provider (default: 3). "
+            "Prevents account throttling when --workers > 1. "
+            "e.g. with --workers 6 and claudecode+codex (3 models each): "
+            "at most 3 claudecode and 3 codex calls run at the same time."
+        ),
+    )
+
     # Resume
     p.add_argument("--resume", default=None, help="Path to existing matrix dir to resume incomplete runs")
 
@@ -156,6 +187,54 @@ class Cell(NamedTuple):
     task_id: str
     variant_id: str
     model_name: str
+
+
+# ---------------------------------------------------------------------------
+# Per-provider rate limiter (thread-safe)
+# ---------------------------------------------------------------------------
+
+
+class _ProviderThrottle:
+    """Thread-safe per-provider concurrency cap + call stagger.
+
+    Ensures at most `max_concurrent` threads call the same provider at once,
+    and enforces a minimum `spacing_seconds` gap between consecutive call starts
+    to prevent bursting.  Both mechanisms protect stored-auth CLI providers
+    (claudecode, codex) from account-level rate throttling.
+    """
+
+    def __init__(self, max_concurrent: int = 3, spacing_seconds: float = 1.0) -> None:
+        self._max_concurrent = max_concurrent
+        self._spacing = spacing_seconds
+        self._meta_lock = threading.Lock()
+        self._semaphores: dict[str, threading.Semaphore] = {}
+        self._last_start: dict[str, float] = {}
+
+    def _semaphore(self, provider: str) -> threading.Semaphore:
+        with self._meta_lock:
+            if provider not in self._semaphores:
+                self._semaphores[provider] = threading.Semaphore(self._max_concurrent)
+            return self._semaphores[provider]
+
+    def acquire(self, provider: str) -> None:
+        """Block until a slot is available for `provider`, then reserve it."""
+        sem = self._semaphore(provider)
+        sem.acquire()
+        # After acquiring the semaphore, enforce the minimum stagger between
+        # call starts within this provider to avoid thundering-herd bursts.
+        while True:
+            with self._meta_lock:
+                now = time.time()
+                last = self._last_start.get(provider, 0.0)
+                wait = self._spacing - (now - last)
+                if wait <= 0:
+                    self._last_start[provider] = now
+                    return
+            time.sleep(min(wait, 0.25))
+
+    def release(self, provider: str) -> None:
+        """Release the slot for `provider`."""
+        self._semaphore(provider).release()
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +259,12 @@ def main() -> None:
         models = suite.model_names
         LOGGER.info("no --models specified, using all %d models from suite: %s", len(models), models)
     variants = [v.strip() for v in args.variants.split(",")] if args.variants else list(suite.variant_map)
+    if args.priority_variants:
+        priority = [v.strip() for v in args.priority_variants.split(",") if v.strip()]
+        priority_set = set(priority)
+        # priority variants first (in the order specified), then the remaining in original suite order
+        variants = [v for v in priority if v in set(variants)] + [v for v in variants if v not in priority_set]
+        LOGGER.info("variant priority order: %s", variants)
     tasks = [t.strip() for t in args.tasks.split(",")] if args.tasks else list(suite.task_map)
     judge_specs = [m.strip() for m in args.judge_model.split("+") if m.strip()]
     judge_model_count = len(judge_specs)
@@ -252,57 +337,123 @@ def main() -> None:
     # How often to refresh the live scoreboard (every ~5% of cells, min 1)
     scoreboard_interval = max(1, total // 20)
 
-    # Run
+    # Shared state for parallel workers
     results: list[dict] = list(completed.values())
-    last_provider: dict[str, float] = {}
+    results_lock = threading.Lock()
+    done_count = [len(completed)]   # cells completed (for scoreboard trigger)
+    started_count = [0]             # cells dequeued/started (for race-free progress log)
 
-    for i, cell in enumerate(cells_to_run, 1):
+    # Per-provider throttle: cap concurrent calls + stagger starts
+    throttle = _ProviderThrottle(
+        max_concurrent=args.provider_concurrency,
+        spacing_seconds=args.spacing,
+    )
+
+    # Row metadata injected into every cell result
+    row_meta = dict(
+        scoring_judge_model=args.judge_model,
+        scoring_mode=args.scoring_mode,
+        judge_model_count=judge_model_count,
+        judge_ensemble_used=judge_model_count > 1,
+        git_commit=git_meta.get("git_commit"),
+        git_branch=git_meta.get("git_branch"),
+        git_dirty=git_meta.get("git_dirty"),
+        suite_sha256=suite_sha256,
+    )
+
+    def _run_cell(cell: Cell) -> dict:
+        """Worker: throttle → run → append CSV → return row."""
         provider = cell.model_name.split(":")[0].lower()
-        last_call = last_provider.get(provider, 0.0)
-        wait = args.spacing - (time.time() - last_call)
-        if wait > 0:
-            time.sleep(wait)
-
-        LOGGER.info("[%d/%d] task=%s variant=%s model=%s", i, len(cells_to_run), cell.task_id, cell.variant_id, cell.model_name)
+        throttle.acquire(provider)
         t0 = time.time()
         try:
-            result = run_one(
-                task_id=cell.task_id,
-                variant_id=cell.variant_id,
-                model_name=cell.model_name,
-                suite_path=args.suite,
-                output_dir=str(matrix_dir / "runs"),
-                repo_root=args.repo_root,
-                cfg=cfg,
-            )
-            row = _result_to_row(result)
-        except Exception as exc:
-            LOGGER.error("cell failed task=%s variant=%s model=%s: %s", cell.task_id, cell.variant_id, cell.model_name, exc)
-            row = _error_row(cell, exc)
+            with results_lock:
+                started_count[0] += 1          # increment FIRST — no race with other workers
+                n = started_count[0]
+            LOGGER.info("[%d/%d] task=%s variant=%s model=%s", n, len(cells_to_run), cell.task_id, cell.variant_id, cell.model_name)
+            try:
+                result = run_one(
+                    task_id=cell.task_id,
+                    variant_id=cell.variant_id,
+                    model_name=cell.model_name,
+                    suite_path=args.suite,
+                    output_dir=str(matrix_dir / "runs"),
+                    repo_root=args.repo_root,
+                    cfg=cfg,
+                )
+                row = _result_to_row(result)
+            except Exception as exc:
+                LOGGER.error("cell failed task=%s variant=%s model=%s: %s", cell.task_id, cell.variant_id, cell.model_name, exc)
+                row = _error_row(cell, exc)
 
-        # Persist scoring/runtime config per row so mixed-judge/mixed-mode runs
-        # remain analyzable without relying on matrix-level summary files.
-        row["scoring_judge_model"] = args.judge_model
-        row["scoring_mode"] = args.scoring_mode
-        row["judge_model_count"] = judge_model_count
-        row["judge_ensemble_used"] = judge_model_count > 1
-        row["git_commit"] = git_meta.get("git_commit")
-        row["git_branch"] = git_meta.get("git_branch")
-        row["git_dirty"] = git_meta.get("git_dirty")
-        row["suite_sha256"] = suite_sha256
-        row["task_spec_hash"] = task_spec_hashes.get(cell.task_id)
-        row["variant_spec_hash"] = variant_spec_hashes.get(cell.variant_id)
+            row.update(row_meta)
+            row["task_spec_hash"] = task_spec_hashes.get(cell.task_id)
+            row["variant_spec_hash"] = variant_spec_hashes.get(cell.variant_id)
 
-        last_provider[provider] = time.time()
-        results.append(row)
-        _append_csv_row(matrix_dir / "matrix_results.csv", row)
+            elapsed = time.time() - t0
+            score_str = f"score={row.get('overall_score', 'n/a')}" if "overall_score" in row else ""
+            LOGGER.info("  → %s %s  %.1fs  [%s/%s/%s]",
+                        row.get("status", "?"), score_str, elapsed,
+                        cell.task_id, cell.variant_id, cell.model_name)
 
-        elapsed = time.time() - t0
-        score_str = f"score={row.get('overall_score', 'n/a')}" if "overall_score" in row else ""
-        LOGGER.info("  → %s %s  %.1fs", row.get("status", "?"), score_str, elapsed)
+            _append_csv_row(matrix_dir / "matrix_results.csv", row)
 
-        if i % scoreboard_interval == 0:
-            _print_scoreboard(results, total)
+            with results_lock:
+                results.append(row)
+                done_count[0] += 1
+                if done_count[0] % scoreboard_interval == 0:
+                    _print_scoreboard(results, total)
+
+            return row
+        finally:
+            throttle.release(provider)
+
+    workers = max(1, args.workers)
+    if workers == 1:
+        # Sequential path — identical to original behaviour
+        for cell in cells_to_run:
+            _run_cell(cell)
+    else:
+        LOGGER.info(
+            "parallel mode: workers=%d provider_concurrency=%d spacing=%.1fs  queue=%d cells",
+            workers, args.provider_concurrency, args.spacing, len(cells_to_run),
+        )
+        # Pre-populate a queue with all cells.  Workers pull from it one at a time,
+        # call task_done() when finished.  queue.join() blocks until the last cell
+        # completes.  This approach:
+        #   • fixes the racy progress counter (started_count incremented under lock at dequeue)
+        #   • eliminates the N-entry futures dict that ThreadPoolExecutor would hold in memory
+        #   • gives clean in-progress visibility: queue.qsize() = cells still waiting
+        task_queue: _queue.Queue = _queue.Queue()
+        for cell in cells_to_run:
+            task_queue.put(cell)
+
+        def _worker() -> None:
+            while True:
+                cell = task_queue.get()          # blocks until an item is available
+                try:
+                    if cell is None:             # poison pill — this worker is done
+                        return
+                    _run_cell(cell)
+                except Exception as exc:
+                    LOGGER.error("unhandled worker exception cell=%s: %s", cell, exc)
+                finally:
+                    task_queue.task_done()       # always signal, even for poison pills
+
+        threads = [
+            threading.Thread(target=_worker, daemon=True, name=f"worker-{i}")
+            for i in range(workers)
+        ]
+        for t in threads:
+            t.start()
+
+        task_queue.join()  # blocks until every task_done() has been called
+
+        # Inject one poison pill per thread so workers exit cleanly
+        for _ in threads:
+            task_queue.put(None)
+        for t in threads:
+            t.join(timeout=5.0)
 
     # Write final summary + print scoreboard
     _write_summary(matrix_dir, results, args)
@@ -406,6 +557,7 @@ def _result_to_row(result: RunResult) -> dict:
     )
     _snippet_util    = _snippet_code_utilization(result.retrieved_snippets, generated_code)
     _code_size       = _code_size_metrics(generated_code)
+    process_passed, process_fail_reason = _compute_process_passed(result)
 
     row: dict = {
         # Identity
@@ -530,6 +682,12 @@ def _result_to_row(result: RunResult) -> dict:
         "code_output": result.artifacts.code_output,
         "comments_output": result.artifacts.comments_output,
         "rewrite_output": result.artifacts.rewrite_output,
+        # Raw provider artifacts — paths are deterministic from run_dir; file may be
+        # absent for providers that don't produce that artifact type.
+        "subprocess_stdout_jsonl": str(Path(result.artifacts.run_dir) / "subprocess.stdout.jsonl"),
+        "subprocess_stderr_txt":   str(Path(result.artifacts.run_dir) / "subprocess.stderr.txt"),
+        "llm_response_json":       str(Path(result.artifacts.run_dir) / "llm_response.json"),
+        "prompt_json":             str(Path(result.artifacts.run_dir) / "prompt.json"),
     }
 
     # Scoring
@@ -538,23 +696,16 @@ def _result_to_row(result: RunResult) -> dict:
         # Per-constraint detail as semicolon-separated IDs (pass/fail lists)
         passed_constraint_ids = ";".join(r["id"] for r in s.constraint_results if r.get("passed"))
         failed_constraint_ids = ";".join(r["id"] for r in s.constraint_results if not r.get("passed"))
-        # Constraints that hit via lexical vs llm only
-        lexical_only_ids = ";".join(
-            r["id"] for r in s.constraint_results
-            if r.get("passed") and r.get("lexical_hit") and not r.get("llm_verdict")
-        )
-        llm_only_ids = ";".join(
-            r["id"] for r in s.constraint_results
-            if r.get("passed") and not r.get("lexical_hit") and r.get("llm_verdict")
+        llm_verdict_ids = ";".join(
+            r["id"] for r in s.constraint_results if r.get("llm_verdict")
         )
         # Compact per-constraint JSON for post-hoc judge replay
-        # Fields: id, passed, lexical_hit, llm_verdict, expected, voltsnip_key
-        _keep = {"id", "passed", "lexical_hit", "llm_verdict", "expected", "voltsnip_key"}
+        # Fields: id, passed, llm_verdict, expected, voltsnip_key
+        _keep = {"id", "passed", "llm_verdict", "expected", "voltsnip_key"}
         constraint_results_json = json.dumps(
             [{k: v for k, v in r.items() if k in _keep} for r in s.constraint_results],
             separators=(",", ":"),
         )
-        lexical_hit_count  = sum(1 for r in s.constraint_results if r.get("lexical_hit"))
         llm_verdict_count  = sum(1 for r in s.constraint_results if r.get("llm_verdict") is not None)
         row.update({
             "overall_score": s.overall_score,
@@ -576,10 +727,8 @@ def _result_to_row(result: RunResult) -> dict:
             "constraint_pass_threshold": s.constraint_pass_threshold,
             "constraint_passed_ids": passed_constraint_ids,
             "constraint_failed_ids": failed_constraint_ids,
-            "constraint_lexical_only_ids": lexical_only_ids,
-            "constraint_llm_only_ids": llm_only_ids,
+            "constraint_llm_verdict_ids": llm_verdict_ids,
             "constraint_results_json": constraint_results_json,
-            "constraint_lexical_hit_count": lexical_hit_count,
             "constraint_llm_verdict_count": llm_verdict_count,
             # VoltSnip vs generic constraint decomposition — core of the research claim.
             # voltsnip_constraint_pass_rate: "did the fix follow org-specific VoltSnip policies?"
@@ -601,6 +750,16 @@ def _result_to_row(result: RunResult) -> dict:
             "evaluation_criteria_total": s.evaluation_criteria.total,
             "evaluation_criteria_notes": ";".join(s.evaluation_criteria_notes),
         })
+
+    # Process compliance — orthogonal to outcome score.
+    # outcome_passed: did the code fix the bug?
+    # process_passed: did the model use the required process (retrieval, tools)?
+    # A variant is considered "fully passing" only when both are true.
+    row.update({
+        "process_passed":       process_passed,
+        "process_fail_reason":  process_fail_reason,
+        "full_pass":            bool(result.score and result.score.passed and process_passed),
+    })
 
     # Pytest
     if result.pytest_result:
@@ -701,6 +860,62 @@ def _reliability_counts(result: RunResult) -> dict[str, int]:
         "timeout_count": int(timeout_count),
         "mcp_error_count": int(mcp_error_count),
     }
+
+
+def _compute_process_passed(result: RunResult) -> tuple[bool, str]:
+    """Compute process compliance pass/fail independently of outcome correctness.
+
+    Two orthogonal questions:
+      outcome_passed  — did the final code fix the bug? (oracle score >= threshold)
+      process_passed  — did the model use the required process to get there?
+
+    Process requirements by variant type:
+      No tools, no memory (P0/P1):
+        → no process requirements; process_passed = outcome_passed
+      Memory injected, no tools (P2/P3):
+        → required snippets must have been retrieved (req_coverage == 1.0)
+      Tools enabled, no pre-fetch (P4/P5a/P5b):
+        → at least one tool call must have been made
+        → at least one tool call must have succeeded (not all errors)
+      Tools + prefetched memory (P6a/P6b):
+        → all of the above (retrieval OK + tool calls made + at least one success)
+
+    Returns (process_passed: bool, reason: str).
+    reason is "" on pass, semicolon-joined failure tags on fail.
+    """
+    # Start with outcome gate — process compliance is moot if the code is wrong
+    outcome_passed = bool(result.score and result.score.passed)
+
+    failures: list[str] = []
+
+    if not outcome_passed:
+        return False, "outcome_failed"
+
+    m = result.summary_metrics
+
+    # --- Memory requirement ---------------------------------------------------
+    # If the variant pre-fetches memory, required snippets must have been found.
+    if result.variant_memory_enabled and result.required_snippet_keys:
+        required = set(result.required_snippet_keys)
+        retrieved = {s.canonical_key or s.id for s in result.retrieved_snippets}
+        missing = required - retrieved
+        if missing:
+            coverage = round(len(required & retrieved) / len(required), 3)
+            failures.append(f"retrieval_incomplete(coverage={coverage})")
+
+    # --- Tool requirement -----------------------------------------------------
+    # If tools were enabled, the model must have called at least one tool
+    # and at least one call must have succeeded.
+    if result.variant_tools_enabled:
+        if m.tool_call_count == 0:
+            failures.append("no_tool_calls")
+        elif m.tool_call_count == m.tool_error_count:
+            # Every single tool call errored — no successful retrieval at all
+            failures.append(f"all_tool_calls_failed({m.tool_error_count} errors)")
+
+    if failures:
+        return False, ";".join(failures)
+    return True, ""
 
 
 def _voltsnip_constraint_split(constraint_results: list[dict]) -> dict[str, int | float | str | None]:
@@ -1063,13 +1278,13 @@ _CANONICAL_COLUMNS: list[str] = [
     "constraint_failed_count", "constraint_pass_rate",
     "constraint_pass_threshold",
     "constraint_passed_ids", "constraint_failed_ids",
-    "constraint_lexical_only_ids", "constraint_llm_only_ids",
+    "constraint_llm_verdict_ids",
     "hidden_requirements_score", "hidden_requirements_matched", "hidden_requirements_total",
     "success_indicators_score", "success_indicators_matched", "success_indicators_total",
     "failure_modes_score", "failure_modes_matched", "failure_modes_total",
     "evaluation_criteria_score", "evaluation_criteria_matched", "evaluation_criteria_total",
     "evaluation_criteria_notes",
-    "constraint_results_json", "constraint_lexical_hit_count", "constraint_llm_verdict_count",
+    "constraint_results_json", "constraint_llm_verdict_count",
     # VoltSnip vs generic constraint decomposition (core of the research claim)
     # voltsnip_constraint_pass_rate: follows org-specific VoltSnip patterns?
     # generic_constraint_pass_rate:  satisfies baseline quality checks independently?
@@ -1086,6 +1301,15 @@ _CANONICAL_COLUMNS: list[str] = [
     # Artifacts
     "run_dir", "full_dump_json", "summary_dump_json", "rewrite_output",
     "code_output", "comments_output",
+    # Raw provider artifacts (subprocess JSONL, API response body, standalone prompt)
+    "subprocess_stdout_jsonl", "subprocess_stderr_txt",
+    "llm_response_json", "prompt_json",
+    # Process compliance — orthogonal to outcome score
+    # process_passed: model used the required process (retrieval for memory variants,
+    #                 tool calls for tool variants); False when outcome also fails
+    # process_fail_reason: "" on pass; semicolon-joined tags on fail
+    # full_pass: True only when outcome_passed AND process_passed are both True
+    "process_passed", "process_fail_reason", "full_pass",
 ]
 
 
@@ -1283,13 +1507,10 @@ def _print_scoreboard(results: list[dict], total_planned: int) -> None:
     cov_vals = [_safe_float(r["required_snippet_coverage"]) for r in ok_rows if r.get("required_snippet_coverage") not in ("", None)]
     cov_str = f"{sum(cov_vals)/len(cov_vals):.2f}" if cov_vals else "—"
 
-    # Shorten model names: remove prefix and common substrings
+    # Show exact model names (strip provider prefix only, keep full model id)
     def _short(name: str) -> str:
         _, _, tail = name.partition(":")
-        return (tail
-                .replace("claude-", "")
-                .replace("-codex", "")
-                .replace("gpt-", "gpt"))[:18]
+        return tail  # e.g. "gpt-5.2-codex", "claude-sonnet-4-6", exact as configured
 
     short_models = [_short(m) for m in models]
     model_col_w = max(len(s) for s in short_models) + 1

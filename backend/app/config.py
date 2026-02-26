@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     MAX_CODE_SIZE: int = 1000000
     MAX_TAGS: int = 20
     MAX_SEARCH_K: int = 100
-    EXPIRATION_HOURS: int = 24
+    EXPIRATION_HOURS: int = 87600  # 10 years — snippets do not expire by default
     TOP_FEED_WINDOW_HOURS: int = 24
     FEED_CACHE_TTL_SECONDS: int = DEFAULT_FEED_CACHE_TTL_SECONDS
     SNIPPET_CACHE_TTL_SECONDS: int = DEFAULT_SNIPPET_CACHE_TTL_SECONDS

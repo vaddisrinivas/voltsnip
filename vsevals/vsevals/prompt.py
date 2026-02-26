@@ -357,7 +357,7 @@ def _render_fetch_skill(snippet_keys: list[str], *, category: str | None = None,
     template = _load_template(_fetch_skill_path(category))
     csv = ", ".join(snippet_keys) if snippet_keys else "none"
     bullets = "\n".join(f"- {k}" for k in snippet_keys) if snippet_keys else "- none"
-    base_url = (voltsnip_base_url or "http://localhost:8001").rstrip("/")
+    base_url = (voltsnip_base_url or "http://localhost:8011").rstrip("/")
     if template:
         return _apply_template(template, {
             "SNIPPET_KEYS_CSV": csv,

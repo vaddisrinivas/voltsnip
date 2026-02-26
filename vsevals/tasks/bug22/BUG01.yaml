@@ -57,6 +57,6 @@ tasks:
       trap_baseline: 0.15
     - id: retry_set_default
       voltsnip_key: voltsnip/bug22/task/bug01/guideline/v1
-      check: Remove non-retryable 4xx from default retry set.
-      judge_prompt: Does the default retryable set exclude non-retryable 4xx statuses?
+      check: retryable status codes default non-retryable
+      judge_prompt: Does the default retryable set exclude non-retryable 4xx statuses (e.g. 404 is not in the default set)?
       trap_baseline: 0.22

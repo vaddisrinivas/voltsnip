@@ -14,7 +14,7 @@ models:
 
   # ── Codex CLI (stored OAuth — no API key needed) ───────
   - codex:gpt-5.2-codex
-  # codex:gpt-5.1-codex  # removed — consistently "no last agent message" / empty output
+  - codex:gpt-5.1-codex-mini  # removed — consistently "no last agent message" / empty output
   - codex:gpt-5.3-codex
 
 variants:
@@ -116,6 +116,17 @@ variants:
     max_tool_roundtrips: 4
     include_oracle: false
     purpose: "Full: agents.md sidecar + pre-fetched snippets + tools"
+
+  - id: P6c
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: explicit
+    context_surface: agents_md
+    max_tool_roundtrips: 8
+    include_oracle: false
+    purpose: "Agents.md sidecar + explicit MUST-call-tools instruction — forces at least one VoltSnip MCP call before output"
 
 task_files:
   - tasks/bug22/BUG01.yaml

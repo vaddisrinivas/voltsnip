@@ -227,7 +227,7 @@ class PromptBundle(BaseModel):
 
     system_prompt: str
     user_prompt: str
-    context_surface: Literal["system", "user", "tools_only", "skills_md", "agents_md", "fetch_skill"]
+    context_surface: Literal["system", "user", "tools_only", "skills_md", "skills_md_no_keys", "agents_md", "fetch_skill"]
     visible_sections: list[str] = Field(default_factory=list)
     injected_snippet_keys: list[str] = Field(default_factory=list)
     injected_repo_policy: bool = False
@@ -379,7 +379,7 @@ class ScoreResult(BaseModel):
     constraint_checks_passed: int | None = None
     constraint_checks_total: int | None = None
     constraint_pass_threshold: float | None = None
-    # Per-constraint detail: [{id, passed, lexical_hit, llm_verdict}]
+    # Per-constraint detail: [{id, passed, llm_verdict, judge_reason, expected, voltsnip_key}]
     constraint_results: list[dict] = Field(default_factory=list)
     passed: bool
 
@@ -460,7 +460,7 @@ class RunConfig(BaseModel):
     snippet_context_max_chars: int | None = Field(default=None, ge=100, le=20000)
 
     # Scoring
-    scoring_match_mode: Literal["lexical", "hybrid", "llm"] = "hybrid"
+    scoring_match_mode: Literal["hybrid", "llm"] = "llm"
     scoring_primary_endpoint: Literal["auto", "constraint_binary", "legacy_weighted"] = "auto"
     auto_constraints_from_legacy_oracle: bool = True
     scoring_judge_model: str = "openai:gpt-5-mini"
