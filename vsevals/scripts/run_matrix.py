@@ -97,15 +97,15 @@ def build_parser() -> argparse.ArgumentParser:
     # Model & scoring
     p.add_argument(
         "--judge-model",
-        default="claudecode:claude-sonnet-4-6",
+        default="openai:gpt-5.2+anthropic:claude-opus-4-6",
         help=(
-            "Scoring judge model(s). Use '+' for a cross-provider ensemble "
-            "(e.g. 'openai:gpt-5.2+anthropic:claude-opus-4-6'). "
-            "Default is 'claudecode:claude-sonnet-4-6' — uses stored OAuth auth, no API key required. "
-            "For the arxiv run use a cross-provider ensemble to avoid self-judging bias: "
-            "claudecode cells judged by a codex/openai model and vice versa. "
-            "Ensemble verdicts are merged: LENIENT for positive checks, STRICT for failure checks. "
-            "Only called when --scoring-mode is 'hybrid' or 'llm'; ignored for 'lexical'."
+            "Scoring judge model(s). Use '+' for a cross-provider ensemble. "
+            "Default 'openai:gpt-5.2+anthropic:claude-opus-4-6' eliminates self-judging bias: "
+            "claudecode cells judged by OpenAI, codex cells by Anthropic. "
+            "Requires OPENAI_API_KEY + ANTHROPIC_API_KEY when --scoring-mode is 'hybrid' or 'llm'. "
+            "For a key-free fallback use '--judge-model claudecode:claude-sonnet-4-6' (stored OAuth). "
+            "Ensemble verdicts merged: LENIENT for positive checks, STRICT for failure checks. "
+            "Ignored entirely when --scoring-mode is 'lexical'."
         ),
     )
     p.add_argument("--scoring-mode", default="lexical", choices=["lexical", "hybrid", "llm"],
