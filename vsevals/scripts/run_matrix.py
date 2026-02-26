@@ -79,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Required
     p.add_argument("--suite", required=True, help="Path to suite YAML (e.g. suite.yaml)")
-    p.add_argument("--models", required=True, help="Comma-separated model list (e.g. openai:gpt-5-nano,claudecode:claude-haiku-4-5)")
+    p.add_argument("--models", default=None, help="Comma-separated model list (e.g. openai:gpt-5-nano,claudecode:claude-haiku-4-5). Default: all models listed in the suite YAML.")
 
     # Filters
     p.add_argument("--variants", default=None, help="Comma-separated variant IDs to run (default: all in suite)")
@@ -172,7 +172,11 @@ def main() -> None:
     )
 
     suite = load_suite(args.suite)
-    models = [m.strip() for m in args.models.split(",") if m.strip()]
+    if args.models:
+        models = [m.strip() for m in args.models.split(",") if m.strip()]
+    else:
+        models = suite.model_names
+        LOGGER.info("no --models specified, using all %d models from suite: %s", len(models), models)
     variants = [v.strip() for v in args.variants.split(",")] if args.variants else list(suite.variant_map)
     tasks = [t.strip() for t in args.tasks.split(",")] if args.tasks else list(suite.task_map)
     judge_specs = [m.strip() for m in args.judge_model.split("+") if m.strip()]
@@ -386,7 +390,20 @@ def _result_to_row(result: RunResult) -> dict:
         if result.variant_max_tool_roundtrips > 0
         else None
     )
+    tool_success_count = max(0, m.tool_call_count - m.tool_error_count)
+    tool_success_rate = (
+        round(tool_success_count / m.tool_call_count, 4)
+        if m.tool_call_count > 0 else None
+    )
     reliability = _reliability_counts(result)
+
+    # New research metrics — collected now, incorporated into overall_score later
+    generated_code = result.parsed_output.code or ""
+    _vs_constraints  = _voltsnip_constraint_split(
+        result.score.constraint_results if result.score else []
+    )
+    _snippet_util    = _snippet_code_utilization(result.retrieved_snippets, generated_code)
+    _code_size       = _code_size_metrics(generated_code)
 
     row: dict = {
         # Identity
@@ -443,6 +460,8 @@ def _result_to_row(result: RunResult) -> dict:
         # Tools
         "tool_call_count": m.tool_call_count,
         "tool_error_count": m.tool_error_count,
+        "tool_success_count": tool_success_count,
+        "tool_success_rate": tool_success_rate,
         "used_tools": m.used_tools,
         "tool_budget_utilization": tool_budget_utilization,
         "tool_names": ";".join(tool_names),
@@ -480,6 +499,16 @@ def _result_to_row(result: RunResult) -> dict:
         "snippet_retrieved_titles": snippet_titles,
         "snippet_retrieved_languages": snippet_langs,
         "snippet_retrieved_tags": snippet_tags,
+        # Snippet utilization in generated code — did the model incorporate snippet text?
+        # High utilization + high voltsnip_constraint_pass_rate = VoltSnip was the source.
+        # Low  utilization + high voltsnip_constraint_pass_rate = model knew it independently.
+        "snippet_utilized_count":    _snippet_util["snippet_utilized_count"],
+        "snippet_utilized_fraction": _snippet_util["snippet_utilized_fraction"],
+        "snippet_utilized_ids":      _snippet_util["snippet_utilized_ids"],
+        # Generated code size (surgical patch vs whole-file rewrite)
+        "generated_code_lines":          _code_size["generated_code_lines"],
+        "generated_code_nonempty_lines": _code_size["generated_code_nonempty_lines"],
+        "generated_code_comment_lines":  _code_size["generated_code_comment_lines"],
         # Tool roundtrip detail
         "tool_roundtrips_used": tool_roundtrips_used,
         "tool_first_error": tool_first_error,
@@ -550,6 +579,12 @@ def _result_to_row(result: RunResult) -> dict:
             "constraint_results_json": constraint_results_json,
             "constraint_lexical_hit_count": lexical_hit_count,
             "constraint_llm_verdict_count": llm_verdict_count,
+            # VoltSnip vs generic constraint decomposition — core of the research claim.
+            # voltsnip_constraint_pass_rate: "did the fix follow org-specific VoltSnip policies?"
+            # generic_constraint_pass_rate:  "did the fix satisfy baseline quality checks?"
+            # A model scoring high on generic but low on voltsnip fixed the bug without
+            # VoltSnip patterns — suggesting VoltSnip wasn't needed for that cell.
+            **_vs_constraints,
             "hidden_requirements_score": s.hidden_requirements.score,
             "hidden_requirements_matched": s.hidden_requirements.matched,
             "hidden_requirements_total": s.hidden_requirements.total,
@@ -663,6 +698,127 @@ def _reliability_counts(result: RunResult) -> dict[str, int]:
         "rate_limit_count": int(rate_limit_count),
         "timeout_count": int(timeout_count),
         "mcp_error_count": int(mcp_error_count),
+    }
+
+
+def _voltsnip_constraint_split(constraint_results: list[dict]) -> dict[str, int | float | str | None]:
+    """Split constraint results into VoltSnip-attributed vs generic.
+
+    A constraint is "VoltSnip-attributed" when it carries a non-empty voltsnip_key,
+    meaning the expected fix pattern is explicitly sourced from a VoltSnip snippet.
+    Generic constraints encode general code-quality requirements that a model could
+    satisfy without ever consulting VoltSnip.
+
+    This decomposition is the core of the research claim:
+      voltsnip_constraint_pass_rate  → "did the fix follow VoltSnip org policies?"
+      generic_constraint_pass_rate   → "did the fix satisfy baseline quality checks?"
+
+    A model scoring high on generic but low on voltsnip means it fixed the bug
+    without the org-specific VoltSnip patterns — i.e. VoltSnip wasn't needed.
+    A model scoring high on both means VoltSnip context was absorbed and applied.
+    """
+    vs_all      = [r for r in constraint_results if r.get("voltsnip_key")]
+    gen_all     = [r for r in constraint_results if not r.get("voltsnip_key")]
+    vs_passed   = [r for r in vs_all  if r.get("passed")]
+    gen_passed  = [r for r in gen_all if r.get("passed")]
+
+    vs_total    = len(vs_all)
+    gen_total   = len(gen_all)
+
+    return {
+        "voltsnip_constraints_total":       vs_total,
+        "voltsnip_constraints_passed":      len(vs_passed),
+        "voltsnip_constraint_pass_rate":    round(len(vs_passed) / vs_total, 4) if vs_total else None,
+        "voltsnip_constraint_passed_ids":   ";".join(r["id"] for r in vs_passed),
+        "voltsnip_constraint_failed_ids":   ";".join(r["id"] for r in vs_all if not r.get("passed")),
+        "generic_constraints_total":        gen_total,
+        "generic_constraints_passed":       len(gen_passed),
+        "generic_constraint_pass_rate":     round(len(gen_passed) / gen_total, 4) if gen_total else None,
+    }
+
+
+_SNIPPET_UTIL_SKIP = frozenset({
+    "return", "import", "class", "def", "self", "None", "True", "False",
+    "raise", "except", "finally", "continue", "break", "lambda", "assert",
+    "yield", "async", "await", "with", "from", "pass", "elif", "else", "if",
+    "for", "while", "try", "not", "and", "or", "in", "is", "as", "global",
+    "nonlocal", "print", "super", "object", "list", "dict", "set", "tuple",
+    "str", "int", "float", "bool", "type", "None", "True", "False",
+})
+
+
+def _snippet_code_utilization(snippets: list, generated_code: str) -> dict[str, int | float | None]:
+    """Measure how many injected/retrieved snippets left lexical traces in the generated code.
+
+    A snippet is "utilized" when ≥1 distinctive identifier from its code
+    (identifier ≥ 6 chars, not a common Python keyword) appears verbatim in
+    the generated code output.
+
+    This is distinct from constraint_pass_rate:
+      - Constraints ask "does the output satisfy the policy spec?"
+      - Utilization asks "did the model copy/adapt text from the snippet itself?"
+
+    High utilization + high voltsnip_constraint_pass_rate  → snippet was the source.
+    High utilization + low  voltsnip_constraint_pass_rate  → model referenced snippets
+                                                             but misapplied the pattern.
+    Low  utilization + high voltsnip_constraint_pass_rate  → model knew the pattern
+                                                             independently (no VoltSnip needed).
+    Low  utilization + low  voltsnip_constraint_pass_rate  → snippet context unused.
+    """
+    total = len(snippets)
+    if not total or not generated_code:
+        return {
+            "snippet_utilized_count": 0,
+            "snippet_utilized_fraction": None,
+            "snippet_utilized_ids": "",
+        }
+
+    utilized_ids: list[str] = []
+    for snip in snippets:
+        code = (getattr(snip, "code", None) or "").strip()
+        if not code:
+            continue
+        # Extract identifiers of 6+ chars that aren't common keywords
+        tokens = [
+            t for t in re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]{5,})\b', code)
+            if t not in _SNIPPET_UTIL_SKIP
+        ]
+        if not tokens:
+            continue
+        # Check the first 30 distinctive tokens — avoid false positives from long files
+        if any(tok in generated_code for tok in tokens[:30]):
+            snip_id = getattr(snip, "canonical_key", None) or getattr(snip, "id", None) or ""
+            utilized_ids.append(snip_id)
+
+    utilized = len(utilized_ids)
+    return {
+        "snippet_utilized_count":    utilized,
+        "snippet_utilized_fraction": round(utilized / total, 4) if total else None,
+        "snippet_utilized_ids":      ";".join(utilized_ids),
+    }
+
+
+def _code_size_metrics(generated_code: str) -> dict[str, int | None]:
+    """Measure the size and structure of the generated code output.
+
+    Surgical patches that change only the necessary lines are better evidence
+    of VoltSnip utility than whole-file rewrites that incidentally satisfy
+    constraint checks.  These metrics let us control for output verbosity when
+    comparing scores across models.
+    """
+    if not generated_code or not generated_code.strip():
+        return {
+            "generated_code_lines":        0,
+            "generated_code_nonempty_lines": 0,
+            "generated_code_comment_lines":  0,
+        }
+    lines = generated_code.splitlines()
+    nonempty = sum(1 for ln in lines if ln.strip())
+    comment  = sum(1 for ln in lines if ln.strip().startswith(("#", "//", "/*", "*", "'''", '"""')))
+    return {
+        "generated_code_lines":          len(lines),
+        "generated_code_nonempty_lines": nonempty,
+        "generated_code_comment_lines":  comment,
     }
 
 
@@ -870,7 +1026,8 @@ _CANONICAL_COLUMNS: list[str] = [
     "prompt_chars", "prompt_system_chars", "prompt_user_chars",
     "snippet_injected_chars", "output_chars",
     # Tools
-    "tool_call_count", "tool_error_count", "used_tools", "tool_names",
+    "tool_call_count", "tool_error_count", "tool_success_count", "tool_success_rate",
+    "used_tools", "tool_names",
     "tool_budget_utilization",
     "tool_duration_total_ms", "tool_duration_max_ms", "tool_duration_avg_ms",
     "tool_roundtrips_used", "tool_first_error",
@@ -887,6 +1044,10 @@ _CANONICAL_COLUMNS: list[str] = [
     "required_snippet_retrieved_count", "required_snippet_missing_count",
     "required_snippet_coverage",
     "snippet_retrieved_titles", "snippet_retrieved_languages", "snippet_retrieved_tags",
+    # Snippet utilization in generated code — did the model absorb the snippet text?
+    "snippet_utilized_count", "snippet_utilized_fraction", "snippet_utilized_ids",
+    # Generated code size (surgical fix vs whole-file rewrite)
+    "generated_code_lines", "generated_code_nonempty_lines", "generated_code_comment_lines",
     # Memory / retrieval signal (key hypothesis metric)
     "memory_expected", "memory_signal",
     # Conversation metrics
@@ -907,6 +1068,12 @@ _CANONICAL_COLUMNS: list[str] = [
     "evaluation_criteria_score", "evaluation_criteria_matched", "evaluation_criteria_total",
     "evaluation_criteria_notes",
     "constraint_results_json", "constraint_lexical_hit_count", "constraint_llm_verdict_count",
+    # VoltSnip vs generic constraint decomposition (core of the research claim)
+    # voltsnip_constraint_pass_rate: follows org-specific VoltSnip patterns?
+    # generic_constraint_pass_rate:  satisfies baseline quality checks independently?
+    "voltsnip_constraints_total", "voltsnip_constraints_passed", "voltsnip_constraint_pass_rate",
+    "voltsnip_constraint_passed_ids", "voltsnip_constraint_failed_ids",
+    "generic_constraints_total", "generic_constraints_passed", "generic_constraint_pass_rate",
     # Pytest
     "pytest_ran", "pytest_passed", "pytest_returncode", "pytest_duration_ms",
     "pytest_total", "pytest_passed_count", "pytest_failed_count", "pytest_skipped_count",
