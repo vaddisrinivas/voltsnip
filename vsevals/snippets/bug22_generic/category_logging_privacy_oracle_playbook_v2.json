@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/category/logging_privacy/oracle_playbook/v2",
+  "title": "BUG22 logging_privacy oracle playbook",
+  "description": "Generic oracle-aligned checklist for logging privacy tasks: exact redaction token, request_id propagation from context, body truncation, and severity routing.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "logging_privacy", "oracle-playbook", "structured-logging"],
+  "code": "# Logging privacy oracle playbook\\n\\nRequired outcomes:\\n- Redact sensitive keys like password/token/api_key with exact literal ***REDACTED***.\\n- Preserve request correlation by including request_id from runtime context.\\n- Keep noisy payload fields (for example response_body) truncated to bounded size.\\n- Route log level to matching logger method (INFO->info, ERROR->error).\\n\\nFailure modes to avoid:\\n- Returning alternate redaction literals (REDACTED, [REDACTED]).\\n- Injecting request_id only when passed as explicit field while ignoring context.\\n- Leaking full response payloads into logs.\\n- Logging everything at INFO regardless of requested level.\\n"
+}

@@ -194,7 +194,8 @@ async def test_get_snippet_respects_visibility(db_session, fake):
     expired.status = ACTIVE_STATUS
     expired.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
     await db_session.commit()
-    assert await crud.get_snippet(db_session, expired.id) is None
+    # Expiration is no longer part of active visibility filtering.
+    assert await crud.get_snippet(db_session, expired.id) is not None
 
     hidden = await _create_snippet(db_session, fake)
     hidden.status = SURVIVED_STATUS

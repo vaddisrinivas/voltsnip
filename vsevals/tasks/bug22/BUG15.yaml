@@ -1,0 +1,81 @@
+tasks:
+- task:
+    id: BUG15
+    name: logging_level_routing
+    description: Fix level handling and logger method routing.
+    category: logging_privacy
+    difficulty: medium
+    target_file: orgops/logging/structured.py
+    line_start: 13
+    line_end: 28
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_15
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      import json
+      from datetime import datetime, timezone
+      from typing import Any
+
+      from orgops.logging.redaction import redact_fields
+
+
+      MAX_LOG_BODY = 256
+
+
+      def build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:
+          payload = {
+              "event": event,
+              "level": "INFO",  # BUG_15: ignores requested log level.
+              "ts": datetime.now(timezone.utc).isoformat(),
+          }
+          sanitized = redact_fields(fields)
+          payload.update(sanitized)
+          return payload  # BUG_14: correlation/request id is never included.
+
+
+      def log_event(logger: Any, event: str, level: str = "INFO", **fields: Any) -> None:
+          payload = build_payload(event, level, **fields)
+          if "response_body" in payload and isinstance(payload["response_body"], str):
+              payload["response_body"] = payload["response_body"]  # BUG_13: full response body logged without truncation.
+          logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.
+    expected_output: Requested log level controls payload level and logger method.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+    - voltsnip/bug22/category/logging_privacy/oracle_playbook/v2
+    - voltsnip/bug22/task/bug15/guideline/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Route logs to matching logger method by level.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/logging_privacy/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Requested log level controls payload level and logger method.
+      consistency:
+      - Implementation aligns with voltsnip/bug22/category/logging_privacy/guiding_principle/v1 and voltsnip/bug22/task/bug15/guideline/v1.
+    failure_modes:
+    - All logs emitted as INFO.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
+    - 'Bug guideline key: voltsnip/bug22/task/bug15/guideline/v1'
+    constraints:
+    - id: bug15_primary_behavior
+      voltsnip_key: voltsnip/bug22/task/bug15/guideline/v1
+      check: Route logs to matching logger method by level.
+      judge_prompt: 'Does the implementation satisfy this requirement: Route logs to matching
+        logger method by level.'
+      trap_baseline: 0.2
+    - id: bug15_failure_absent
+      voltsnip_key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+      check: All logs emitted as INFO.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: All logs
+        emitted as INFO.'
+      expected: false
+      trap_baseline: 0.2

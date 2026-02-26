@@ -25,10 +25,27 @@ from app.constants import (
 def active_snippets_filter():
     return or_(
         (Snippet.status == SURVIVED_STATUS) & (Snippet.is_hidden.is_(False)),
-        (Snippet.status == ACTIVE_STATUS)
-        & (Snippet.expires_at > func.now())
-        & (Snippet.is_hidden.is_(False)),
+        (Snippet.status == ACTIVE_STATUS) & (Snippet.is_hidden.is_(False)),
     )
+
+
+def is_snippet_active(snippet: Snippet) -> bool:
+    if snippet.is_hidden:
+        return False
+    return snippet.status in (SURVIVED_STATUS, ACTIVE_STATUS)
+
+
+async def reactivate_snippet(db: AsyncSession, snippet: Snippet) -> Snippet:
+    now = datetime.now(timezone.utc)
+    snippet.status = ACTIVE_STATUS
+    snippet.expires_at = now + timedelta(hours=settings.EXPIRATION_HOURS)
+    snippet.is_hidden = False
+    snippet.hidden_reason = None
+    snippet.updated_at = now
+    db.add(snippet)
+    await db.commit()
+    await db.refresh(snippet)
+    return snippet
 
 
 async def create_snippet(
@@ -353,6 +370,48 @@ async def get_snippet_by_hash(
 ) -> Snippet | None:
     query = select(Snippet).where(
         Snippet.source == source, Snippet.source_hash == source_hash
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def upsert_snippet_embedding(
+    db: AsyncSession,
+    snippet_id: uuid.UUID,
+    vector: List[float],
+    embedding_model: str | None = None,
+) -> None:
+    query = (
+        select(SnippetEmbedding)
+        .where(SnippetEmbedding.snippet_id == snippet_id)
+        .limit(1)
+    )
+    result = await db.execute(query)
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.vector = vector
+        existing.embedding_model = embedding_model or EMBEDDING_MODEL_UNKNOWN
+        db.add(existing)
+    else:
+        db.add(
+            SnippetEmbedding(
+                snippet_id=snippet_id,
+                vector=vector,
+                embedding_model=embedding_model or EMBEDDING_MODEL_UNKNOWN,
+            )
+        )
+    await db.commit()
+
+
+async def get_snippet_by_canonical_key(
+    db: AsyncSession, canonical_key: str
+) -> Snippet | None:
+    query = (
+        select(Snippet)
+        .where(active_snippets_filter())
+        .where(Snippet.canonical_key == canonical_key)
+        .order_by(Snippet.updated_at.desc())
+        .limit(1)
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()

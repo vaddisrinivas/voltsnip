@@ -1,0 +1,608 @@
+"""Scoring pipeline.
+
+Two modes (selected automatically or via RunConfig.scoring_primary_endpoint):
+
+1. Constraint binary (default when task has constraints):
+   - Each OracleConstraint is judged pass/fail by an LLM judge.
+   - Overall = passed_count / total.  Threshold default = 0.7.
+   - This is the mode used for publication runs.
+
+2. Legacy weighted (fallback when no constraints defined):
+   - Weighted sum: 40% hidden_requirements + 30% success_indicators
+                    + 20% failure_modes + 10% evaluation_criteria
+   - Each dimension: lexical or LLM-judged matching.
+   - Pass if overall >= 0.70 AND hidden >= 0.5 AND failure >= 0.6.
+
+Scoring match modes:
+  lexical  — simple substring / keyword matching only
+  hybrid   — lexical OR LLM judge (either passing = pass)
+  llm      — LLM judge only (overrides lexical result)
+
+Ensemble judges:
+  scoring_judge_model may contain '+'-separated models, e.g.
+  "openai:gpt-5-mini+anthropic:claude-sonnet-4-6".
+  All judges are called in parallel.  Verdicts are merged per dimension:
+    - expected=True constraints / hidden,success,criteria: LENIENT (any True → True)
+    - expected=False constraints / failure_modes:          STRICT  (all True → True)
+  This eliminates false failures caused by unreliable small judges on
+  failure-absent checks while keeping full sensitivity on positive checks.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
+
+from vsevals.dispatch import call_judge
+from vsevals.models import (
+    OracleConstraint,
+    RunConfig,
+    RunResult,
+    ScoreDimension,
+    ScoreResult,
+    TaskOracle,
+)
+
+LOGGER = logging.getLogger(__name__)
+
+# Keys referenced in generated code (used for "snippet hit" checks)
+_KEY_RE = re.compile(r"\bvoltsnip/[a-z0-9][a-z0-9_./-]*", re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Ensemble judge helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_ensemble(spec: str) -> list[str]:
+    """Split '+'-delimited ensemble spec → list of model names."""
+    return [m.strip() for m in spec.split("+") if m.strip()]
+
+
+def _call_judge_raw(
+    judge_model: str,
+    instructions: str,
+    user_json: str,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> str | None:
+    """Call one judge model; return raw text or None on failure."""
+    return call_judge(
+        model_name=judge_model,
+        system_prompt=instructions,
+        user_prompt=user_json,
+        cfg=cfg,
+        provider_keys=provider_keys,
+    )
+
+
+def _merge_constraint_verdicts(
+    verdict_lists: list[list[bool]],
+    constraints: list[OracleConstraint],
+) -> list[bool]:
+    """Merge parallel judge verdicts with constraint-type-aware voting.
+
+    expected=True  → LENIENT: matched=True if ANY judge says True
+                     (don't penalise the model if one judge misses a satisfied check)
+    expected=False → STRICT:  matched=True only if ALL judges say True
+                     (don't falsely claim a failure is present due to one noisy judge)
+    """
+    n = len(constraints)
+    result: list[bool] = []
+    for i in range(n):
+        votes = [bl[i] for bl in verdict_lists if i < len(bl)]
+        if not votes:
+            result.append(False)
+            continue
+        if constraints[i].expected:
+            result.append(any(votes))    # LENIENT
+        else:
+            result.append(all(votes))    # STRICT
+    return result
+
+
+def _merge_requirement_verdicts(
+    results_per_dim: list[dict[str, list[bool] | None]],
+    lengths: dict[str, int],
+) -> dict[str, list[bool] | None]:
+    """Merge per-judge requirement verdicts with dimension-aware voting.
+
+    failure_modes → STRICT (all judges must agree failure is present)
+    hidden / success / evaluation_criteria → LENIENT (any judge agreement = satisfied)
+    """
+    if not results_per_dim:
+        return {k: None for k in lengths}
+    if len(results_per_dim) == 1:
+        return results_per_dim[0]
+
+    merged: dict[str, list[bool] | None] = {}
+    for dim, length in lengths.items():
+        lists = [r[dim] for r in results_per_dim if r.get(dim) is not None]
+        if not lists:
+            merged[dim] = None
+            continue
+        if len(lists) == 1:
+            merged[dim] = lists[0]
+            continue
+        result: list[bool] = []
+        for i in range(length):
+            votes = [bl[i] for bl in lists if i < len(bl)]
+            if not votes:
+                result.append(False)
+                continue
+            if dim == "failure_modes":
+                result.append(all(votes))   # STRICT: only true if all agree failure present
+            else:
+                result.append(any(votes))   # LENIENT: true if any judge sees requirement met
+        merged[dim] = result
+    return merged
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
+def score_one(
+    *,
+    run_result: RunResult,
+    oracle: TaskOracle,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> ScoreResult:
+    """Score a completed run against its oracle definition."""
+    available_keys = _snippet_keys_from_result(run_result)
+    scoring_mode = (cfg.scoring_match_mode or "hybrid").lower()
+    endpoint = (cfg.scoring_primary_endpoint or "auto").lower()
+
+    constraints = _select_constraints(oracle, endpoint, cfg)
+
+    if constraints:
+        return _score_constraints(
+            run_result=run_result,
+            constraints=constraints,
+            available_keys=available_keys,
+            scoring_mode=scoring_mode,
+            cfg=cfg,
+            provider_keys=provider_keys,
+        )
+
+    return _score_legacy(
+        run_result=run_result,
+        oracle=oracle,
+        available_keys=available_keys,
+        scoring_mode=scoring_mode,
+        cfg=cfg,
+        provider_keys=provider_keys,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Constraint binary scoring
+# ---------------------------------------------------------------------------
+
+
+def _score_constraints(
+    *,
+    run_result: RunResult,
+    constraints: list[OracleConstraint],
+    available_keys: set[str],
+    scoring_mode: str,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> ScoreResult:
+    output_text = _output_text(run_result)
+    threshold = float(cfg.constraint_pass_threshold)
+
+    llm_verdicts = _judge_constraints(
+        run_result=run_result,
+        constraints=constraints,
+        scoring_mode=scoring_mode,
+        cfg=cfg,
+        provider_keys=provider_keys,
+    )
+
+    passed_count = 0
+    misses: list[str] = []
+    constraint_results: list[dict] = []
+
+    for idx, constraint in enumerate(constraints):
+        lexical = _text_matches(constraint.check, output_text, available_keys)
+        judged = (llm_verdicts[idx] if llm_verdicts is not None and idx < len(llm_verdicts) else None)
+
+        if scoring_mode == "llm" and judged is not None:
+            matched = judged
+        elif scoring_mode == "hybrid":
+            matched = lexical or (judged is True)
+        else:
+            matched = lexical
+
+        satisfied = matched if constraint.expected else not matched
+        if satisfied:
+            passed_count += 1
+        else:
+            misses.append(constraint.id)
+
+        constraint_results.append({
+            "id": constraint.id,
+            "passed": satisfied,
+            "lexical_hit": lexical,
+            "llm_verdict": judged,
+            "expected": constraint.expected,
+            "voltsnip_key": constraint.voltsnip_key,
+        })
+
+    total = len(constraints)
+    overall = round(passed_count / total, 4) if total > 0 else 1.0
+    dim = ScoreDimension(matched=passed_count, total=total, score=overall, notes=[f"missing: {m}" for m in misses])
+    neutral = ScoreDimension(matched=0, total=0, score=1.0, notes=[])
+
+    return ScoreResult(
+        overall_score=overall,
+        hidden_requirements=dim,
+        success_indicators=dim,
+        failure_modes=neutral,
+        evaluation_criteria=dim,
+        evaluation_criteria_notes=[c.id for c in constraints],
+        constraint_scoring_used=True,
+        constraint_checks_passed=passed_count,
+        constraint_checks_total=total,
+        constraint_pass_threshold=threshold,
+        constraint_results=constraint_results,
+        passed=overall >= threshold,
+    )
+
+
+def _judge_constraints(
+    *,
+    run_result: RunResult,
+    constraints: list[OracleConstraint],
+    scoring_mode: str,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> list[bool] | None:
+    if scoring_mode == "lexical" or not constraints:
+        return None
+
+    judge_specs = _parse_ensemble(cfg.scoring_judge_model)
+
+    payload = {
+        "candidate": {"code": run_result.parsed_output.code, "comments": run_result.parsed_output.comments},
+        "constraints": [
+            {"id": c.id, "voltsnip_key": c.voltsnip_key, "check": c.check, "judge_prompt": c.judge_prompt, "expected": c.expected}
+            for c in constraints
+        ],
+    }
+    instructions = (
+        "Judge each constraint independently as pass/fail for this candidate output. "
+        "Use judge_prompt as the primary decision rule. "
+        'Return ONLY JSON: {"results":[true|false,...]} in the same order as input constraints.'
+    )
+    user_json = json.dumps(payload, ensure_ascii=False)
+
+    # Filter to judges that have API keys available
+    usable_specs = [s for s in judge_specs if _judge_has_key(s, cfg, provider_keys)]
+    if not usable_specs:
+        LOGGER.debug("constraint judge skipped: no usable judge in spec=%s", cfg.scoring_judge_model)
+        return None
+
+    if len(usable_specs) == 1:
+        raw = _call_judge_raw(usable_specs[0], instructions, user_json, cfg, provider_keys)
+        if not raw:
+            return None
+        parsed = _parse_json(raw)
+        if parsed is None:
+            return None
+        return _coerce_bool_list(parsed.get("results"), len(constraints))
+
+    # Ensemble: call all judges in parallel
+    verdict_lists: list[list[bool]] = []
+    with ThreadPoolExecutor(max_workers=len(usable_specs)) as executor:
+        futures = {
+            executor.submit(_call_judge_raw, spec, instructions, user_json, cfg, provider_keys): spec
+            for spec in usable_specs
+        }
+        for future in as_completed(futures):
+            raw = future.result()
+            if raw:
+                parsed = _parse_json(raw)
+                if parsed:
+                    bl = _coerce_bool_list(parsed.get("results"), len(constraints))
+                    if bl is not None:
+                        verdict_lists.append(bl)
+                        LOGGER.debug("ensemble constraint judge=%s verdicts=%s", futures[future], bl)
+
+    if not verdict_lists:
+        return None
+    if len(verdict_lists) == 1:
+        return verdict_lists[0]
+    return _merge_constraint_verdicts(verdict_lists, constraints)
+
+
+# ---------------------------------------------------------------------------
+# Legacy weighted scoring
+# ---------------------------------------------------------------------------
+
+
+def _score_legacy(
+    *,
+    run_result: RunResult,
+    oracle: TaskOracle,
+    available_keys: set[str],
+    scoring_mode: str,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> ScoreResult:
+    """Fallback when no constraints are defined."""
+    output_text = _output_text(run_result)
+
+    llm_results = _judge_requirements(
+        run_result=run_result,
+        oracle=oracle,
+        scoring_mode=scoring_mode,
+        cfg=cfg,
+        provider_keys=provider_keys,
+    )
+
+    def _dim(lines: list[str], llm_hits: list[bool] | None, *, invert: bool = False) -> ScoreDimension:
+        if not lines:
+            return ScoreDimension(matched=0, total=0, score=1.0, notes=[])
+        hits, notes = 0, []
+        for i, line in enumerate(lines):
+            lex = _text_matches(line, output_text, available_keys)
+            judged = (llm_hits[i] if llm_hits and i < len(llm_hits) else None)
+            if scoring_mode == "llm" and judged is not None:
+                matched = judged
+            elif scoring_mode == "hybrid":
+                matched = lex or (judged is True)
+            else:
+                matched = lex
+            if invert:
+                matched = not matched
+            if matched:
+                hits += 1
+            else:
+                notes.append(f"{'present (bad)' if invert else 'not found'}: {line[:60]}")
+        score = round(hits / len(lines), 4)
+        return ScoreDimension(matched=hits, total=len(lines), score=score, notes=notes)
+
+    hidden_dim = _dim(oracle.hidden_requirements, llm_results.get("hidden"))
+    success_dim = _dim(oracle.success_indicators.as_lines(), llm_results.get("success"))
+    failure_dim_ = _dim(oracle.failure_modes, llm_results.get("failure_modes"), invert=True)
+    criteria_dim = _dim(oracle.evaluation_criteria, llm_results.get("evaluation_criteria"))
+
+    # Weighted overall: 40/30/20/10
+    overall = round(
+        0.40 * hidden_dim.score
+        + 0.30 * success_dim.score
+        + 0.20 * failure_dim_.score
+        + 0.10 * criteria_dim.score,
+        4,
+    )
+    passed = (
+        overall >= 0.70
+        and hidden_dim.score >= 0.50
+        and failure_dim_.score >= 0.60
+    )
+
+    return ScoreResult(
+        overall_score=overall,
+        hidden_requirements=hidden_dim,
+        success_indicators=success_dim,
+        failure_modes=failure_dim_,
+        evaluation_criteria=criteria_dim,
+        constraint_scoring_used=False,
+        passed=passed,
+    )
+
+
+def _judge_requirements(
+    *,
+    run_result: RunResult,
+    oracle: TaskOracle,
+    scoring_mode: str,
+    cfg: RunConfig,
+    provider_keys: dict[str, str],
+) -> dict[str, list[bool] | None]:
+    empty: dict[str, list[bool] | None] = {"hidden": None, "success": None, "failure_modes": None, "evaluation_criteria": None}
+    if scoring_mode == "lexical":
+        return empty
+
+    judge_specs = _parse_ensemble(cfg.scoring_judge_model)
+    usable_specs = [s for s in judge_specs if _judge_has_key(s, cfg, provider_keys)]
+    if not usable_specs:
+        return empty
+
+    hidden = oracle.hidden_requirements
+    success = oracle.success_indicators.as_lines()
+    failures = oracle.failure_modes
+    criteria = oracle.evaluation_criteria
+
+    payload = {
+        "candidate": {"code": run_result.parsed_output.code, "comments": run_result.parsed_output.comments},
+        "requirements": {"hidden": hidden, "success": success, "failure_modes": failures, "evaluation_criteria": criteria},
+    }
+    instructions = (
+        "Evaluate whether each requirement is satisfied by the candidate code/comments. "
+        "For failure_modes, mark true only when the failure behavior is actually present. "
+        "Return ONLY JSON with arrays of booleans: hidden, success, failure_modes, evaluation_criteria."
+    )
+    user_json = json.dumps(payload, ensure_ascii=False)
+    lengths = {"hidden": len(hidden), "success": len(success), "failure_modes": len(failures), "evaluation_criteria": len(criteria)}
+
+    def _parse_one(raw: str | None) -> dict[str, list[bool] | None] | None:
+        if not raw:
+            return None
+        parsed = _parse_json(raw)
+        if parsed is None:
+            return None
+        return {
+            "hidden": _coerce_bool_list(parsed.get("hidden"), len(hidden)),
+            "success": _coerce_bool_list(parsed.get("success"), len(success)),
+            "failure_modes": _coerce_bool_list(parsed.get("failure_modes"), len(failures)),
+            "evaluation_criteria": _coerce_bool_list(parsed.get("evaluation_criteria"), len(criteria)),
+        }
+
+    if len(usable_specs) == 1:
+        result = _parse_one(_call_judge_raw(usable_specs[0], instructions, user_json, cfg, provider_keys))
+        return result if result is not None else empty
+
+    # Ensemble: call all judges in parallel
+    results_per_judge: list[dict[str, list[bool] | None]] = []
+    with ThreadPoolExecutor(max_workers=len(usable_specs)) as executor:
+        futures = {
+            executor.submit(_call_judge_raw, spec, instructions, user_json, cfg, provider_keys): spec
+            for spec in usable_specs
+        }
+        for future in as_completed(futures):
+            result = _parse_one(future.result())
+            if result is not None:
+                results_per_judge.append(result)
+                LOGGER.debug("ensemble requirement judge=%s done", futures[future])
+
+    if not results_per_judge:
+        return empty
+    return _merge_requirement_verdicts(results_per_judge, lengths)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _select_constraints(
+    oracle: TaskOracle,
+    endpoint: str,
+    cfg: RunConfig,
+) -> list[OracleConstraint]:
+    if endpoint == "legacy_weighted":
+        return []
+    if endpoint == "constraint_binary" and oracle.constraints:
+        return oracle.constraints
+    if endpoint == "auto":
+        if oracle.constraints:
+            return oracle.constraints
+        if cfg.auto_constraints_from_legacy_oracle:
+            return _synthetic_constraints(oracle)
+    return []
+
+
+def _synthetic_constraints(oracle: TaskOracle) -> list[OracleConstraint]:
+    """Synthesize binary constraints from hidden_requirements when no explicit constraints exist."""
+    constraints: list[OracleConstraint] = []
+    for i, req in enumerate(oracle.hidden_requirements):
+        req = req.strip()
+        if not req:
+            continue
+        constraints.append(OracleConstraint(
+            id=f"auto_hidden_{i}",
+            check=req,
+            judge_prompt=f"Does the implementation satisfy: {req}",
+        ))
+    return constraints
+
+
+def _snippet_keys_from_result(run_result: RunResult) -> set[str]:
+    keys: set[str] = set()
+    for s in run_result.retrieved_snippets:
+        if s.canonical_key:
+            keys.add(s.canonical_key)
+        keys.add(s.id)
+    # Also extract from raw output
+    keys.update(_KEY_RE.findall(run_result.raw_model_output))
+    return keys
+
+
+def _output_text(run_result: RunResult) -> str:
+    return f"{run_result.parsed_output.code}\n\n{run_result.parsed_output.comments}".lower()
+
+
+def _text_matches(requirement: str, text: str, available_keys: set[str]) -> bool:
+    req = requirement.strip().lower()
+    if not req:
+        return True
+
+    # Check if requirement mentions a snippet key that wasn't retrieved
+    key_refs = set(_KEY_RE.findall(req))
+    if key_refs and not key_refs.intersection({k.lower() for k in available_keys}):
+        return False
+
+    # Keyword matching: all words with len >= 4 must appear in text
+    words = [w for w in re.findall(r"\w+", req) if len(w) >= 4]
+    if not words:
+        return req in text
+    return all(w in text for w in words)
+
+
+def _has_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> bool:
+    import os
+    if cfg.api_key:
+        return True
+    if provider in cfg.provider_api_keys:
+        return True
+    if provider in provider_keys:
+        return True
+    env_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+    env_k = env_map.get(provider)
+    return bool(env_k and os.environ.get(env_k))
+
+
+def _judge_has_key(judge_model: str, cfg: RunConfig, provider_keys: dict[str, str]) -> bool:
+    """Return True if the judge model's provider has an accessible API key (or uses claudecode)."""
+    provider = judge_model.split(":")[0].lower() if ":" in judge_model else "openai"
+    if provider == "claudecode":
+        return True  # claudecode uses stored auth, no key check needed here
+    if provider not in {"openai", "anthropic"}:
+        return False
+    return _has_key(provider, cfg, provider_keys)
+
+
+def _parse_json(text: str) -> dict[str, Any] | None:
+    text = text.strip()
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+    # Scan for first JSON object
+    depth = 0
+    start = None
+    in_str = False
+    escaped = False
+    for i, ch in enumerate(text):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                try:
+                    obj = json.loads(text[start:i + 1])
+                    return obj if isinstance(obj, dict) else None
+                except Exception:
+                    pass
+                start = None
+    return None
+
+
+def _coerce_bool_list(raw: Any, expected_len: int) -> list[bool] | None:
+    if not isinstance(raw, list):
+        return None
+    result = [bool(v) if isinstance(v, (bool, int)) else False for v in raw]
+    if len(result) < expected_len:
+        result.extend([False] * (expected_len - len(result)))
+    return result[:expected_len]

@@ -1,0 +1,81 @@
+tasks:
+- task:
+    id: BUG16
+    name: db_session_close_in_scope
+    description: Fix session_scope to always close session.
+    category: db_patterns
+    difficulty: easy
+    target_file: orgops/db/session.py
+    line_start: 8
+    line_end: 18
+    test_command: uv run pytest -q tests/unit/test_db_patterns.py -k bug_16
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      from collections.abc import Callable, Iterator
+      from contextlib import contextmanager
+      from typing import Any
+
+
+      @contextmanager
+      def session_scope(session_factory: Callable[[], Any]) -> Iterator[Any]:
+          session = session_factory()
+          session.commit()  # BUG_18: commits before any unit of work executes.
+          try:
+              yield session
+          except Exception:
+              # BUG_17: missing rollback on exception path.
+              raise
+          finally:
+              pass  # BUG_16: session not closed.
+
+
+      def fetch_users_by_ids(session: Any, user_model: Any, user_ids: list[int]) -> list[Any]:
+          users: list[Any] = []
+          for user_id in user_ids:
+              # BUG_19: N+1 query pattern instead of a set-based query.
+              row = session.query(user_model).filter(user_model.id == user_id).first()
+              if row is not None:
+                  users.append(row)
+          return users
+    expected_output: Session is closed after scope.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/db_patterns/guiding_principle/v1
+    - voltsnip/bug22/category/db_patterns/oracle_playbook/v2
+    - voltsnip/bug22/task/bug16/guideline/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Ensure close is called in finally path.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/db_patterns/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Session is closed after scope.
+      consistency:
+      - Implementation aligns with voltsnip/bug22/category/db_patterns/guiding_principle/v1 and voltsnip/bug22/task/bug16/guideline/v1.
+    failure_modes:
+    - Session remains open after scope.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/db_patterns/guiding_principle/v1'
+    - 'Bug guideline key: voltsnip/bug22/task/bug16/guideline/v1'
+    constraints:
+    - id: bug16_primary_behavior
+      voltsnip_key: voltsnip/bug22/task/bug16/guideline/v1
+      check: Ensure close is called in finally path.
+      judge_prompt: 'Does the implementation satisfy this requirement: Ensure close is
+        called in finally path.'
+      trap_baseline: 0.2
+    - id: bug16_failure_absent
+      voltsnip_key: voltsnip/bug22/category/db_patterns/guiding_principle/v1
+      check: Session remains open after scope.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Session
+        remains open after scope.'
+      expected: false
+      trap_baseline: 0.2

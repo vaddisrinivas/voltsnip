@@ -1,0 +1,143 @@
+suite:
+  version: "1.0"
+  description: "VoltSnip pytest-first suite for 22 failing hybrid-example bug cases"
+  usecase_id: hybrid-example
+  usecase_manifest: usecases/hybrid-example/usecase.yaml
+
+models:
+  # ── Test stub ──────────────────────────────────────────
+  - mock:echo                        # echo stub — smoke tests only
+
+  # ── Claude Code (stored OAuth — no API key needed) ─────
+  - claudecode:claude-haiku-4-5
+  - claudecode:claude-sonnet-4-6
+  - claudecode:claude-opus-4-6
+
+  # ── Codex CLI (stored OAuth — no API key needed) ───────
+  - codex:gpt-5.2-codex
+  - codex:gpt-5.1-codex
+  - codex:gpt-5.3-codex
+
+variants:
+  - id: P0
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Raw baseline: direct, no memory, no tools"
+
+  - id: P1
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: explicit
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Baseline + explicit instruction (no memory, no tools)"
+
+  - id: P2
+    mode: agent
+    memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: none
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Memory injected (implicit)"
+
+  - id: P3
+    mode: agent
+    memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: explicit
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Memory injected (explicit instruction)"
+
+  - id: P4
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: tools_only
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Tools only — raw tool use, zero guidance"
+
+  - id: P5b
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Skill docs (no keys) + tools — knows how to use VoltSnip, decides what to fetch"
+
+  - id: P5a
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_md
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Skill docs + specific keys + tools — knows exactly which keys to fetch"
+
+  - id: P6b
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: agents_md
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Agents.md sidecar + keys + tools — richer context, no pre-fetched snippets"
+
+  - id: P6a
+    mode: agent
+    memory_enabled: true
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: agents_md
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Full: agents.md sidecar + pre-fetched snippets + tools"
+
+task_files:
+  - tasks/bug22/BUG01.yaml
+  - tasks/bug22/BUG02.yaml
+  - tasks/bug22/BUG03.yaml
+  - tasks/bug22/BUG04.yaml
+  - tasks/bug22/BUG05.yaml
+  - tasks/bug22/BUG06.yaml
+  - tasks/bug22/BUG07.yaml
+  - tasks/bug22/BUG08.yaml
+  - tasks/bug22/BUG09.yaml
+  - tasks/bug22/BUG10.yaml
+  - tasks/bug22/BUG11.yaml
+  - tasks/bug22/BUG12.yaml
+  - tasks/bug22/BUG13.yaml
+  - tasks/bug22/BUG14.yaml
+  - tasks/bug22/BUG15.yaml
+  - tasks/bug22/BUG16.yaml
+  - tasks/bug22/BUG17.yaml
+  - tasks/bug22/BUG18.yaml
+  - tasks/bug22/BUG19.yaml
+  - tasks/bug22/BUG20.yaml
+  - tasks/bug22/BUG21.yaml
+  - tasks/bug22/BUG22.yaml

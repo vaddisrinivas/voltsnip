@@ -1,0 +1,9 @@
+preset: smoke
+models:
+  - mock:echo
+runtime:
+  strict: true
+  auto_apply_patch: true
+  pytest_isolated_overlay: true
+  provider_spacing_seconds: 0.2
+  pytest_timeout_seconds: 120

@@ -1,0 +1,66 @@
+tasks:
+- task:
+    id: BUG05
+    name: http_timeout_applies_to_all_methods
+    description: Fix timeout forwarding for non-GET methods.
+    category: http_resilience
+    difficulty: easy
+    target_file: orgops/http/request_config.py
+    line_start: 6
+    line_end: 18
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_05
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def resolve_request_config(
+          *,
+          retry_policy: RetryPolicy,
+          method: str,
+          timeout: float | None,
+          max_attempts: int | None,
+      ) -> tuple[str, int, float | None]:
+          method = method.upper()
+          attempts = retry_policy.max_attempts  # BUG_04: ignores per-request max_attempts override.
+          request_timeout = (
+              timeout if timeout is not None and method == "GET" else None
+          )  # BUG_05: timeout only applied to GET and omitted otherwise.
+          return method, attempts, request_timeout
+    expected_output: Timeout argument is forwarded consistently.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
+    - voltsnip/bug22/task/bug05/guideline/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Apply timeout to all request methods when provided.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/http_resilience/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Timeout argument is forwarded consistently.
+      consistency:
+      - Implementation aligns with voltsnip/bug22/category/http_resilience/guiding_principle/v1 and voltsnip/bug22/task/bug05/guideline/v1.
+    failure_modes:
+    - Timeout remains method-gated.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    - 'Bug guideline key: voltsnip/bug22/task/bug05/guideline/v1'
+    constraints:
+    - id: bug05_primary_behavior
+      voltsnip_key: voltsnip/bug22/task/bug05/guideline/v1
+      check: Apply timeout to all request methods when provided.
+      judge_prompt: 'Does the implementation satisfy this requirement: Apply timeout to
+        all request methods when provided.'
+      trap_baseline: 0.2
+    - id: bug05_failure_absent
+      voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
+      check: Timeout remains method-gated.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Timeout
+        remains method-gated.'
+      expected: false
+      trap_baseline: 0.2

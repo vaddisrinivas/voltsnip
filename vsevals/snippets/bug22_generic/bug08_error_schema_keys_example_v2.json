@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/task/bug08/example_contract_keys/v2",
+  "title": "BUG08 error schema key contract example",
+  "description": "Reference snippet showing canonical ErrorSchema serialization keys expected by BUG08.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "bug08", "error_contracts", "schema"],
+  "code": "def to_dict(self):\\n    # Canonical contract keys only\\n    return {\\n        \"code\": self.code,\\n        \"message\": self.message,\\n        \"details\": self.details,\\n        \"trace_id\": self.trace_id,\\n    }\\n"
+}

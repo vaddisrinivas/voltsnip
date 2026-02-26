@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     SNIPPET_CACHE_TTL_SECONDS: int = DEFAULT_SNIPPET_CACHE_TTL_SECONDS
     SNIPPET_CACHE_MAX_AGE_SECONDS: int = DEFAULT_SNIPPET_CACHE_MAX_AGE_SECONDS
     CORS_ORIGINS: list[str] | str = DEFAULT_CORS_ORIGINS
+    MCP_SAMPLING_ENABLED: bool = True
+    MCP_SAMPLING_PROVIDER: Literal["auto", "openai", "anthropic", "none"] = "auto"
+    MCP_SAMPLING_HANDLER_BEHAVIOR: Literal["fallback", "always"] = "fallback"
+    MCP_SAMPLING_OPENAI_MODEL: str = "gpt-5-mini"
+    MCP_SAMPLING_ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
 
     @field_validator(SETTINGS_CORS_ORIGINS_FIELD, mode=VALIDATOR_MODE_BEFORE)
     @classmethod

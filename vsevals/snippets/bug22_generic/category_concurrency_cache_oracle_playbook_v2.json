@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2",
+  "title": "BUG22 concurrency_cache oracle playbook",
+  "description": "Generic oracle-aligned checklist for cache concurrency tasks: per-key synchronization, TTL correctness, and no deadlocks.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "concurrency_cache", "oracle-playbook", "cache"],
+  "code": "# Concurrency cache oracle playbook\\n\\nRequired outcomes:\\n- Coalesce concurrent cache misses per key so builder runs once.\\n- Preserve TTL semantics: expired entries should rebuild, not return stale value.\\n- Ensure waiters always complete (no self-wait or unresolved event states).\\n- Keep synchronization scoped per key to avoid global bottlenecks.\\n\\nFailure modes to avoid:\\n- Multiple builder executions under concurrent misses.\\n- Deadlock from waiting on an event that current thread owns.\\n- Returning stale entries after expiry.\\n- Recursive retries with no progress condition.\\n"
+}

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from contextlib import asynccontextmanager
 import logging
+import os
 import sys
 
 from fastmcp import FastMCP
@@ -10,7 +11,7 @@ from app.globals import settings
 import app.globals as app_globals
 import app.crud as crud
 from app.schemas import SnippetDetailResponse, SnippetMetaResponse
-from typing import List
+from typing import Any, List
 from app.views import (
     create_snippet,
     hot_feed,
@@ -80,6 +81,47 @@ from app.constants import (
 )
 from app.cache import get_cached_snippet, set_cached_snippet
 import uuid
+
+
+def _build_mcp_sampling_config() -> tuple[object | None, str | None]:
+    if not settings.MCP_SAMPLING_ENABLED:
+        return None, None
+
+    provider = (settings.MCP_SAMPLING_PROVIDER or "auto").strip().lower()
+    behavior = settings.MCP_SAMPLING_HANDLER_BEHAVIOR
+    order: list[str]
+    if provider == "auto":
+        order = ["openai", "anthropic"]
+    elif provider in {"openai", "anthropic"}:
+        order = [provider]
+    else:
+        return None, None
+
+    for candidate in order:
+        if candidate == "openai":
+            if not os.getenv("OPENAI_API_KEY"):
+                continue
+            try:
+                from fastmcp.client.sampling.handlers.openai import OpenAISamplingHandler
+
+                handler = OpenAISamplingHandler(default_model=settings.MCP_SAMPLING_OPENAI_MODEL)
+                return handler, behavior
+            except Exception:
+                logging.getLogger(__name__).warning("failed to initialize OpenAI sampling handler", exc_info=True)
+                continue
+        if candidate == "anthropic":
+            if not os.getenv("ANTHROPIC_API_KEY"):
+                continue
+            try:
+                from fastmcp.client.sampling.handlers.anthropic import AnthropicSamplingHandler
+
+                handler = AnthropicSamplingHandler(default_model=settings.MCP_SAMPLING_ANTHROPIC_MODEL)
+                return handler, behavior
+            except Exception:
+                logging.getLogger(__name__).warning("failed to initialize Anthropic sampling handler", exc_info=True)
+                continue
+
+    return None, None
 
 def setup_logging() -> None:
     logging.basicConfig(
@@ -183,7 +225,12 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
-    mcp = FastMCP.from_fastapi(app)
+    sampling_handler, sampling_behavior = _build_mcp_sampling_config()
+    mcp_kwargs: dict[str, Any] = {}
+    if sampling_handler is not None:
+        mcp_kwargs["sampling_handler"] = sampling_handler
+        mcp_kwargs["sampling_handler_behavior"] = sampling_behavior
+    mcp = FastMCP.from_fastapi(app, **mcp_kwargs)
 
     @mcp.resource(MCP_SNIPPETS_RESOURCE)
     async def mcp_snippets():
@@ -243,6 +290,54 @@ def create_app() -> FastAPI:
                 app_globals.settings.SNIPPET_CACHE_TTL_SECONDS,
             )
             return payload
+
+    @mcp.tool
+    async def search_memory(query: str, k: int = 5) -> list[dict[str, Any]] | dict[str, str]:
+        query = (query or "").strip()
+        if not query:
+            return {"error": MCP_INVALID_FILTER}
+        limit = max(1, min(int(k), 20))
+        async with app_globals.SessionLocal() as session:
+            if settings.EMBEDDINGS_ENABLED:
+                try:
+                    vector = await app_globals.embeddings_service.generate_embedding(query)
+                    snippets = await crud.semantic_search_snippets(session, vector, k=limit)
+                except Exception:
+                    logging.getLogger(__name__).warning("semantic search failed, falling back to title search", exc_info=True)
+                    snippets = await crud.search_snippets_by_title(session, title=query, limit=limit, offset=0)
+            else:
+                snippets = await crud.search_snippets_by_title(session, title=query, limit=limit, offset=0)
+
+            rows: list[dict[str, Any]] = []
+            for snippet in snippets:
+                code = await app_globals.storage_service.get_snippet_content(snippet.blob_key)
+                rows.append(
+                    {
+                        "id": str(snippet.id),
+                        "canonical_key": snippet.canonical_key,
+                        "title": snippet.title,
+                        "description": snippet.description,
+                        "language": snippet.language,
+                        "tags": snippet.tags,
+                        "code": (code or "")[:4000],
+                    }
+                )
+            return rows
+
+    @mcp.tool
+    async def get_snippet_by_canonical_key(canonical_key: str) -> dict[str, Any] | dict[str, str]:
+        key = (canonical_key or "").strip()
+        if not key:
+            return {"error": MCP_INVALID_FILTER}
+        async with app_globals.SessionLocal() as session:
+            snippet = await crud.get_snippet_by_canonical_key(session, key)
+            if snippet is None:
+                return {"error": MCP_SNIPPET_NOT_FOUND}
+            code = await app_globals.storage_service.get_snippet_content(snippet.blob_key)
+            payload = SnippetMetaResponse.model_validate(snippet).model_dump()
+            payload["blob_key"] = snippet.blob_key
+            payload["code"] = code or ""
+            return SnippetDetailResponse.model_validate(payload).model_dump()
 
     try:
         app_globals.mcp_app = mcp.http_app(path=MCP_INTERNAL_PATH)

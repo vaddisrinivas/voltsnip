@@ -14,6 +14,9 @@ def mock_crud(monkeypatch):
     mock = MagicMock()
     mock.get_snippet = AsyncMock(return_value=None)
     mock.get_snippet_by_hash = AsyncMock(return_value=None)
+    mock.is_snippet_active = MagicMock(return_value=True)
+    mock.reactivate_snippet = AsyncMock(side_effect=lambda _db, snippet: snippet)
+    mock.upsert_snippet_embedding = AsyncMock()
     mock.create_snippet = AsyncMock()
     mock.create_snippet_reference = AsyncMock()
     monkeypatch.setattr(views, "crud", mock)
@@ -81,6 +84,30 @@ async def test_create_snippet_duplicate_hash_returns_existing(
 
     assert response.status_code == 200
     assert response.json()["code"] == "mocked code content"
+    assert mock_crud.create_snippet.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_create_snippet_duplicate_hash_reactivates_inactive(
+    client, mock_crud, mock_snippet
+):
+    mock_snippet.blob_key = "snippets/existing.py"
+    mock_crud.get_snippet_by_hash.return_value = mock_snippet
+    mock_crud.is_snippet_active.return_value = False
+
+    response = await client.post(
+        "/api/v1/snippets/",
+        json={
+            "title": "Dup",
+            "code": "print('dup')",
+            "language": "python",
+            "tags": ["python"],
+        },
+    )
+
+    assert response.status_code == 200
+    mock_crud.reactivate_snippet.assert_awaited_once()
+    mock_crud.upsert_snippet_embedding.assert_awaited_once()
     assert mock_crud.create_snippet.await_count == 0
 
 

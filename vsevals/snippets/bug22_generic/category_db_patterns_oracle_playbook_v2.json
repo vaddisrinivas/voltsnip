@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/category/db_patterns/oracle_playbook/v2",
+  "title": "BUG22 db_patterns oracle playbook",
+  "description": "Generic oracle-aligned checklist for database pattern tasks: transactional safety, session lifecycle, and query efficiency.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "db_patterns", "oracle-playbook", "transactions"],
+  "code": "# DB patterns oracle playbook\\n\\nRequired outcomes:\\n- Commit only after successful unit of work.\\n- Rollback on exceptions before re-raising.\\n- Always close session resources.\\n- Avoid N+1 query patterns when loading related entities.\\n\\nFailure modes to avoid:\\n- Commit in finally regardless of errors.\\n- Missing rollback path on exceptions.\\n- Leaking sessions/connections.\\n- Repeating per-row DB fetches when batch fetch is available.\\n"
+}

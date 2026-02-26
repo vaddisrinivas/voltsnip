@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from orgops.policy import standards
+
+
+@dataclass
+class RetryPolicy:
+    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS
+    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS
+    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS
+    retryable_status_codes: set[int] = field(
+        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.
+    )
+    retryable_methods: set[str] = field(
+        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)
+        | {"POST"}  # BUG_06: retries non-idempotent POST by default.
+    )
+
+    def compute_sleep(self, attempt: int) -> float:
+        base = self.backoff_seconds * (2 ** (attempt - 1))  # Exponential backoff
+        return base + self.jitter_seconds

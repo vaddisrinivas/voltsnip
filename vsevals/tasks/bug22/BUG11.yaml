@@ -1,0 +1,73 @@
+tasks:
+- task:
+    id: BUG11
+    name: errors_details_json_serializable
+    description: Fix error details payload to be JSON serializable.
+    category: error_contracts
+    difficulty: medium
+    target_file: orgops/errors/mapping.py
+    line_start: 7
+    line_end: 20
+    test_command: uv run pytest -q tests/unit/test_error_contracts.py -k bug_11
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      from orgops.errors.schema import ErrorSchema
+
+
+
+      def map_exception(exc: Exception) -> tuple[int, ErrorSchema]:
+          if isinstance(exc, TimeoutError):
+              status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.
+          elif isinstance(exc, ValueError):
+              status = 500  # BUG_09: validation errors should map to 4xx.
+          else:
+              status = 400
+
+          schema = ErrorSchema(
+              code=exc.__class__.__name__,
+              message=str(exc),  # BUG_10: leaks raw exception text to clients.
+              details={"exception": exc},  # BUG_11: embeds non-JSON-serializable objects.
+          )
+          return status, schema
+    expected_output: Error details are JSON serializable.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/error_contracts/guiding_principle/v1
+    - voltsnip/bug22/category/error_contracts/oracle_playbook/v2
+    - voltsnip/bug22/task/bug11/guideline/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Avoid storing non-serializable objects in details.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/error_contracts/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Error details are JSON serializable.
+      consistency:
+      - Implementation aligns with voltsnip/bug22/category/error_contracts/guiding_principle/v1 and voltsnip/bug22/task/bug11/guideline/v1.
+    failure_modes:
+    - Details remain non-serializable.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
+    - 'Bug guideline key: voltsnip/bug22/task/bug11/guideline/v1'
+    constraints:
+    - id: bug11_primary_behavior
+      voltsnip_key: voltsnip/bug22/task/bug11/guideline/v1
+      check: Avoid storing non-serializable objects in details.
+      judge_prompt: 'Does the implementation satisfy this requirement: Avoid storing non-serializable
+        objects in details.'
+      trap_baseline: 0.2
+    - id: bug11_failure_absent
+      voltsnip_key: voltsnip/bug22/category/error_contracts/guiding_principle/v1
+      check: Details remain non-serializable.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Details
+        remain non-serializable.'
+      expected: false
+      trap_baseline: 0.2
