@@ -574,14 +574,26 @@ def _retrieve_snippets(
     voltsnip: VoltSnipClient | None,
     cfg: RunConfig,
 ) -> list[RetrievedSnippet]:
-    if not voltsnip or not task.voltsnip.required_snippets:
+    """Pre-fetch snippets to inject into the prompt for P2/P3 variants (oracle injection).
+
+    Uses the ground-truth canonical keys from ``task.voltsnip.required_snippets``
+    to fetch exactly the right snippets — this is the *oracle* baseline: "given perfect
+    context, does injecting it help?".
+
+    Semantic retrieval (realistic RAG) is a separate variant so both can be compared
+    in the paper (P2_sem / P3_sem will be added alongside P2 / P3 oracle variants).
+    """
+    if not voltsnip:
+        return []
+    keys: list[str] = list(task.voltsnip.required_snippets or [])
+    if not keys:
         return []
     limit = cfg.snippet_context_limit or task.voltsnip.snippet_context_limit
     max_chars = cfg.snippet_context_max_chars or task.voltsnip.snippet_context_max_chars
     try:
-        return voltsnip.get_by_canonical_keys(task.voltsnip.required_snippets, limit=limit, max_chars=max_chars)
+        return voltsnip.get_by_canonical_keys(keys, limit=limit, max_chars=max_chars)
     except Exception as exc:
-        LOGGER.warning("snippet retrieval failed: %s", exc)
+        LOGGER.warning("snippet oracle retrieval failed (P2/P3): %s", exc)
         return []
 
 

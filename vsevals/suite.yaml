@@ -6,7 +6,6 @@ suite:
 
 models:
   # ── Test stub ──────────────────────────────────────────
-  - mock:echo                        # echo stub — smoke tests only
 
   # ── Claude Code (stored OAuth — no API key needed) ─────
   - claudecode:claude-haiku-4-5
@@ -15,7 +14,7 @@ models:
 
   # ── Codex CLI (stored OAuth — no API key needed) ───────
   - codex:gpt-5.2-codex
-  - codex:gpt-5.1-codex
+  # codex:gpt-5.1-codex  # removed — consistently "no last agent message" / empty output
   - codex:gpt-5.3-codex
 
 variants:
