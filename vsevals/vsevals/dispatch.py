@@ -494,12 +494,13 @@ def _call_claudecode_single_shot(
             "--system-prompt", system_prompt,
             "--max-turns", "1",
             "--no-session-persistence",
-            # Disallow filesystem/web tools for single-shot (P0–P3) runs.
-            # Without this, thorough models (e.g. opus) try to read the actual
-            # target source file from the eval working directory, fail with tool
-            # errors, and produce empty output.  These variants are designed to
-            # work from injected prompt context only — no file access is needed.
-            "--disallowed-tools", "Bash,Read,Write,Edit,Glob,NotebookEdit,WebSearch,WebFetch",
+            # Disallow filesystem/web/agent tools for single-shot (P0–P3) runs.
+            # Without this, thorough models (e.g. opus) either try to read the
+            # actual target source file or spawn a Task sub-agent to explore the
+            # codebase — both paths produce empty output because the task sub-agent
+            # exhausts the --max-turns 1 budget before producing any JSON.
+            # These variants are designed to work from injected prompt context only.
+            "--disallowed-tools", "Bash,Read,Write,Edit,Glob,NotebookEdit,WebSearch,WebFetch,Task",
         ]
         LOGGER.debug("claudecode single-shot model=%s sidecar=%s timeout=%ds",
                      model_id, bool(sidecar_dir), cfg.llm_timeout_seconds)
