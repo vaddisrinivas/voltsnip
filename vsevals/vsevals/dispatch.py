@@ -941,6 +941,7 @@ def _run_codex_subprocess(
 
     sidecar_dir: str | None = None
     tmp_output: str | None = None
+    tmp_schema: str | None = None
     try:
         sidecar_dir = _make_isolated_cli_cwd(sidecar_files)
         if sidecar_files:
@@ -953,12 +954,34 @@ def _run_codex_subprocess(
         ) as fh:
             tmp_output = fh.name
 
+        # Write output schema so codex is forced to produce a structured final
+        # JSON response even when it runs file-edit tool calls (without this,
+        # codex may complete its tool loop without emitting any last agent message).
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", prefix="vsevals_codex_schema_", delete=False
+        ) as sf:
+            import json as _json
+            _json.dump(
+                {
+                    "type": "object",
+                    "properties": {
+                        "code": {"type": "string"},
+                        "comments": {"type": "string"},
+                    },
+                    "required": ["code", "comments"],
+                    "additionalProperties": False,
+                },
+                sf,
+            )
+            tmp_schema = sf.name
+
         cmd = [
             "codex", "exec",
             "--model", model_id,
             "--json",
             "--ephemeral",
             "--skip-git-repo-check",
+            "--output-schema", tmp_schema,
             "-o", tmp_output,
             *extra_args,
             combined_prompt,
@@ -991,6 +1014,11 @@ def _run_codex_subprocess(
         if tmp_output:
             try:
                 Path(tmp_output).unlink(missing_ok=True)
+            except Exception:
+                pass
+        if tmp_schema:
+            try:
+                Path(tmp_schema).unlink(missing_ok=True)
             except Exception:
                 pass
         if sidecar_dir:

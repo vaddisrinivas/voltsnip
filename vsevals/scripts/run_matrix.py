@@ -109,9 +109,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--judge-model",
         default="openai:gpt-5.2+anthropic:claude-opus-4-6",
         help=(
-            "Judge model(s) for scoring. Use '+' for a cross-provider ensemble. "
-            "Default 'openai:gpt-5.2+anthropic:claude-opus-4-6'. "
-            "Requires OPENAI_API_KEY + ANTHROPIC_API_KEY. "
+            "Scoring judge model(s). Use '+' for a cross-provider ensemble. "
+            "Default 'openai:gpt-5.2+anthropic:claude-opus-4-6' eliminates self-judging bias: "
+            "claudecode cells judged by OpenAI, codex cells by Anthropic. "
+            "Requires OPENAI_API_KEY + ANTHROPIC_API_KEY (or stored OAuth via claudecode). "
             "For a key-free fallback use '--judge-model claudecode:claude-sonnet-4-6' (stored OAuth). "
             "Ensemble verdicts merged: LENIENT for positive checks, STRICT for failure checks."
         ),
@@ -132,8 +133,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
 
     # Pytest / Docker
+    p.add_argument("--no-pytest", action="store_true", default=False,
+                   help="Disable pytest Docker run (pytest runs by default after each run)")
     p.add_argument("--auto-apply-patch", action="store_true", default=False,
-                   help="After each run, write generated code to target file and run pytest in Docker")
+                   help=argparse.SUPPRESS)  # legacy alias kept for backward compat; no-op (pytest is on by default)
     p.add_argument("--pytest-docker-image", default=None,
                    help="Docker image for pytest runs (default: moltsnip-pytest:latest or from usecase.yaml)")
     p.add_argument("--pytest-timeout", type=int, default=300,
@@ -300,7 +303,7 @@ def main() -> None:
         scoring_judge_model=args.judge_model,
         scoring_match_mode=args.scoring_mode,
         constraint_pass_threshold=args.constraint_threshold,
-        auto_apply_patch=args.auto_apply_patch,
+        auto_apply_patch=not args.no_pytest,
         pytest_timeout_seconds=args.pytest_timeout,
         llm_timeout_seconds=args.llm_timeout,
     )
@@ -709,7 +712,6 @@ def _result_to_row(result: RunResult) -> dict:
         llm_verdict_count  = sum(1 for r in s.constraint_results if r.get("llm_verdict") is not None)
         row.update({
             "overall_score": s.overall_score,
-            "passed": s.passed,
             "constraint_scoring_used": s.constraint_scoring_used,
             "constraint_checks_passed": s.constraint_checks_passed,
             "constraint_checks_total": s.constraint_checks_total,
@@ -1273,7 +1275,7 @@ _CANONICAL_COLUMNS: list[str] = [
     "raw_output_preview", "parsed_code_chars", "parsed_comments_chars",
     # Scoring
     "scoring_judge_model", "scoring_mode", "judge_model_count", "judge_ensemble_used",
-    "overall_score", "passed",
+    "overall_score",
     "constraint_scoring_used", "constraint_checks_passed", "constraint_checks_total",
     "constraint_failed_count", "constraint_pass_rate",
     "constraint_pass_threshold",
@@ -1364,7 +1366,6 @@ def _append_csv_row(path: Path, row: dict) -> None:
 
 def _write_summary(matrix_dir: Path, results: list[dict], args: argparse.Namespace) -> None:
     ok = [r for r in results if r.get("status") == "ok"]
-    passed = [r for r in ok if _truthy(r.get("passed"))]
     avg_score = round(sum(_safe_float(r.get("overall_score", 0)) for r in ok) / len(ok), 4) if ok else None
     pytest_ok = [r for r in results if _truthy(r.get("pytest_ran")) and _truthy(r.get("pytest_passed"))]
 
@@ -1377,7 +1378,6 @@ def _write_summary(matrix_dir: Path, results: list[dict], args: argparse.Namespa
         "judge_model": args.judge_model,
         "total_cells": len(results),
         "ok_cells": len(ok),
-        "passed_cells": len(passed),
         "pytest_passed_cells": len(pytest_ok),
         "avg_score": avg_score,
         "matrix_dir": str(matrix_dir),
@@ -1392,7 +1392,6 @@ def _write_summary(matrix_dir: Path, results: list[dict], args: argparse.Namespa
 def _write_matrix_report(matrix_dir: Path, results: list[dict], args: argparse.Namespace, summary: dict) -> None:
     """Write a markdown table report identical in structure to the old harness."""
     ok = [r for r in results if r.get("status") == "ok"]
-    passed = [r for r in ok if _truthy(r.get("passed"))]
     avg_score = summary.get("avg_score")
 
     lines: list[str] = [
@@ -1403,20 +1402,17 @@ def _write_matrix_report(matrix_dir: Path, results: list[dict], args: argparse.N
         f"- Successful runs: **{len(ok)}**",
         f"- Failed runs: **{len(results) - len(ok)}**",
         f"- Avg oracle score: **{avg_score:.4f}**" if avg_score is not None else "- Avg score: n/a",
-        f"- Primary pass rate: **{len(passed)/len(ok):.4f}**" if ok else "",
         "",
         "## Per-Run Table",
         "",
-        "| task | variant | model | status | score | passed | memory_signal | req_coverage | snippets | tools | latency_ms | prompt_tokens | completion_tokens | pytest |",
-        "|---|---|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|---|",
+        "| task | variant | model | status | score | memory_signal | req_coverage | snippets | tools | latency_ms | prompt_tokens | completion_tokens | pytest |",
+        "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---|",
     ]
 
     for r in sorted(results, key=lambda x: (x.get("task_id", ""), x.get("variant_id", ""), x.get("model_name", ""))):
         score = r.get("overall_score", "")
         # _safe_float prevents crash on misaligned columns from resumed runs
         score_str = f"{_safe_float(score):.4f}" if score not in ("", None) else "-"
-        # _truthy prevents "False" string being treated as truthy
-        passed_str = "yes" if _truthy(r.get("passed")) else ("no" if r.get("passed") not in ("", None) else "-")
         pytest_str = "ok" if _truthy(r.get("pytest_passed")) else ("fail" if _truthy(r.get("pytest_ran")) else "-")
         coverage = r.get("required_snippet_coverage", "")
         cov_str = f"{_safe_float(coverage):.2f}" if coverage not in ("", None) else "-"
@@ -1426,7 +1422,6 @@ def _write_matrix_report(matrix_dir: Path, results: list[dict], args: argparse.N
             f"| `{r.get('model_name','')}` "
             f"| {r.get('status','')} "
             f"| {score_str} "
-            f"| {passed_str} "
             f"| {r.get('memory_signal', '-')} "
             f"| {cov_str} "
             f"| {r.get('snippet_count', 0)} "
@@ -1471,27 +1466,25 @@ def _print_scoreboard(results: list[dict], total_planned: int) -> None:
     if not models or not variants:
         return
 
-    # Per-cell stats: (model, variant) → {ok, passed, errors, count}
-    cell: dict[tuple[str, str], dict[str, int]] = {}
+    # Per-cell stats: (model, variant) → {ok, score_sum, errors, count}
+    cell: dict[tuple[str, str], dict[str, int | float]] = {}
     for r in results:
         m, v = r.get("model_name", ""), r.get("variant_id", "")
         if not m or not v:
             continue
         key = (m, v)
         if key not in cell:
-            cell[key] = {"ok": 0, "passed": 0, "err": 0, "count": 0}
+            cell[key] = {"ok": 0, "score_sum": 0.0, "err": 0, "count": 0}
         s = cell[key]
         s["count"] += 1
         if r.get("status") == "ok":
             s["ok"] += 1
-            if _truthy(r.get("passed")):
-                s["passed"] += 1
+            s["score_sum"] += _safe_float(r.get("overall_score", 0))
         elif r.get("status") == "error":
             s["err"] += 1
 
     # Global stats
     ok_rows = [r for r in results if r.get("status") == "ok"]
-    passed_rows = [r for r in ok_rows if _truthy(r.get("passed"))]
     avg_score = (
         sum(_safe_float(r.get("overall_score", 0)) for r in ok_rows) / len(ok_rows)
         if ok_rows else 0.0
@@ -1543,7 +1536,6 @@ def _print_scoreboard(results: list[dict], total_planned: int) -> None:
         f"  {_ANSI_B}vsevals{_ANSI_W}  "
         f"{len(results)}/{total_planned} ({pct_done:.0f}%)  "
         f"{_ANSI_C}[{bar}]{_ANSI_W}  "
-        f"{_ANSI_G}✓ {len(passed_rows)}/{len(ok_rows)} passed{_ANSI_W}  "
         f"avg {avg_score:.3f}  cov {cov_str}  p95 {p95_str}"
     )
     lines.append(f"{_ANSI_B}{'━' * total_w}{_ANSI_W}")
@@ -1565,9 +1557,9 @@ def _print_scoreboard(results: list[dict], total_planned: int) -> None:
             elif s["ok"] == 0:
                 row_parts += f"{_ANSI_R}{'err':^{var_w}}{_ANSI_W}"
             else:
-                rate = s["passed"] / s["ok"]
-                val = f"{rate:.2f}"
-                row_parts += f"{_color(rate)}{val:^{var_w}}{_ANSI_W}"
+                avg = s["score_sum"] / s["ok"]
+                val = f"{avg:.2f}"
+                row_parts += f"{_color(avg)}{val:^{var_w}}{_ANSI_W}"
         lines.append(row_parts)
 
     lines.append(f"{_ANSI_B}{'━' * total_w}{_ANSI_W}")

@@ -992,6 +992,6 @@ def main() -> None:
     print(f"run_id:  {result.run_id}")
     print(f"status:  {result.status}")
     if result.score:
-        print(f"score:   {result.score.overall_score:.3f}  passed={result.score.passed}")
+        print(f"score:   {result.score.overall_score:.3f}")
     if result.error:
         print(f"error:   {result.error.type}: {result.error.message}")

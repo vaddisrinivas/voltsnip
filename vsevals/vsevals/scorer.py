@@ -247,7 +247,6 @@ def _score_constraints(
         constraint_checks_total=total,
         constraint_pass_threshold=threshold,
         constraint_results=constraint_results,
-        passed=overall >= threshold,
     )
 
 
@@ -372,12 +371,6 @@ def _score_legacy(
         + 0.10 * criteria_dim.score,
         4,
     )
-    passed = (
-        overall >= 0.70
-        and hidden_dim.score >= 0.50
-        and failure_dim_.score >= 0.60
-    )
-
     return ScoreResult(
         overall_score=overall,
         hidden_requirements=hidden_dim,
@@ -385,7 +378,6 @@ def _score_legacy(
         failure_modes=failure_dim_,
         evaluation_criteria=criteria_dim,
         constraint_scoring_used=False,
-        passed=passed,
     )
 
 

@@ -381,7 +381,6 @@ class ScoreResult(BaseModel):
     constraint_pass_threshold: float | None = None
     # Per-constraint detail: [{id, passed, llm_verdict, judge_reason, expected, voltsnip_key}]
     constraint_results: list[dict] = Field(default_factory=list)
-    passed: bool
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +467,7 @@ class RunConfig(BaseModel):
     constraint_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
     # Pytest / code execution (Docker only)
-    auto_apply_patch: bool = False
+    auto_apply_patch: bool = True
     pytest_docker_image: str = "moltsnip-pytest:latest"
     pytest_docker_workdir: str = "/workspace"
     pytest_timeout_seconds: int = Field(default=300, ge=1)
