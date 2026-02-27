@@ -11,7 +11,7 @@
 # Options:
 #   --variants      Comma-separated variants  (default: P0,P1,P2,P3,P4,P5b,P5a,P6b,P6a)
 #   --tasks         Comma-separated task IDs  (default: all)
-#   --voltsnip-url  VoltSnip base URL         (default: http://localhost:8011)
+#   --voltsnip-url  VoltSnip base URL         (default: http://localhost:8001)
 #   --output-dir    Root output directory     (default: ./vsevals_runs)
 #   --no-pytest     Skip Phase 2 pytest       (default: pytest runs)
 #   --spacing       Seconds between calls     (default: 0.5)
@@ -53,7 +53,7 @@
 #   - .env at repo root with OPENAI_API_KEY  (or export it; codex: models only)
 #   - `claude` CLI available    (for claudecode provider)
 #   - `codex` CLI available     (for codex provider)
-#   - VoltSnip backend on :8011 (for P2-P6a variants; P0/P1 don't need it)
+#   - VoltSnip backend on :8001 (for P2-P6a variants; P0/P1 don't need it)
 #   - Docker running            (for Phase 2 pytest)
 #
 # ⚠️  Must run from a plain terminal — NOT inside a Claude Code session.
@@ -70,7 +70,7 @@ SUITE="$VSEVALS_DIR/suite.yaml"
 # ── Defaults ──────────────────────────────────────────────────────────────────
 VARIANTS="P0,P1,P2,P3,P4,P5b,P5a,P6b,P6a"
 TASKS=""
-VOLTSNIP_URL="http://localhost:8011"
+VOLTSNIP_URL="http://localhost:8001"
 OUTPUT_DIR="$REPO_ROOT/vsevals_runs"
 RUN_PYTEST=true
 SPACING="0.5"
@@ -217,7 +217,8 @@ echo -e "  Logs         : $LOG_DIR"
 echo ""
 echo -e "  ${CYAN}claudecode${RESET} models : claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5"
 echo -e "  ${CYAN}codex${RESET} models     : gpt-5.2, gpt-5.3-codex"
-echo -e "  Scoring            : LLM judge inline (rescore_scoring.py for post-hoc re-judging)"
+echo -e "  Scoring            : lexical only — no LLM judge during run"
+echo -e "                       Run inference/judging separately after data collection"
 echo -e "${BOLD}═══════════════════════════════════════════════════════${RESET}"
 echo ""
 
@@ -232,22 +233,22 @@ CODEX_LOG="$LOG_DIR/phase1_codex.log"
 PHASE1_START=$(date +%s)
 
 # -- 1. claudecode (live output to terminal + log) --
-log "Starting claudecode  →  $CLAUDECODE_LOG"
+log "Starting claudecode (lexical scoring)  →  $CLAUDECODE_LOG"
 "$PYTHON" "$VSEVALS_DIR/scripts/run_matrix.py" \
   "${COMMON_ARGS[@]}" \
   --models       claudecode:claude-opus-4-6,claudecode:claude-sonnet-4-6,claudecode:claude-haiku-4-5 \
-  --scoring-mode llm \
+  --scoring-mode lexical \
   2>&1 | tee "$CLAUDECODE_LOG"
 ok "claudecode complete"
 
 echo ""
 
 # -- 2. codex (live output to terminal + log) --
-log "Starting codex  →  $CODEX_LOG"
+log "Starting codex (lexical scoring)  →  $CODEX_LOG"
 "$PYTHON" "$VSEVALS_DIR/scripts/run_matrix.py" \
   "${COMMON_ARGS[@]}" \
   --models       codex:gpt-5.2,codex:gpt-5.3-codex \
-  --scoring-mode llm \
+  --scoring-mode lexical \
   2>&1 | tee "$CODEX_LOG"
 ok "codex complete"
 

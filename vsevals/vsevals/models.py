@@ -379,8 +379,9 @@ class ScoreResult(BaseModel):
     constraint_checks_passed: int | None = None
     constraint_checks_total: int | None = None
     constraint_pass_threshold: float | None = None
-    # Per-constraint detail: [{id, passed, llm_verdict, judge_reason, expected, voltsnip_key}]
+    # Per-constraint detail: [{id, passed, lexical_hit, llm_verdict}]
     constraint_results: list[dict] = Field(default_factory=list)
+    passed: bool
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +460,7 @@ class RunConfig(BaseModel):
     snippet_context_max_chars: int | None = Field(default=None, ge=100, le=20000)
 
     # Scoring
-    scoring_match_mode: Literal["hybrid", "llm"] = "llm"
+    scoring_match_mode: Literal["lexical", "hybrid", "llm"] = "hybrid"
     scoring_primary_endpoint: Literal["auto", "constraint_binary", "legacy_weighted"] = "auto"
     auto_constraints_from_legacy_oracle: bool = True
     scoring_judge_model: str = "openai:gpt-5-mini"
@@ -467,7 +468,7 @@ class RunConfig(BaseModel):
     constraint_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
     # Pytest / code execution (Docker only)
-    auto_apply_patch: bool = True
+    auto_apply_patch: bool = False
     pytest_docker_image: str = "moltsnip-pytest:latest"
     pytest_docker_workdir: str = "/workspace"
     pytest_timeout_seconds: int = Field(default=300, ge=1)
