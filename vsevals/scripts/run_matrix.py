@@ -128,7 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Runtime
     p.add_argument("--repo-root", default=None, help="Override repo root for all tasks")
-    p.add_argument("--voltsnip-url", default=None, help="VoltSnip base URL (default: $VOLTSNIP_BASE_URL or http://localhost:8011)")
+    p.add_argument("--voltsnip-url", default=None, help="VoltSnip base URL (default: $VOLTSNIP_BASE_URL or http://localhost:8001)")
     p.add_argument("--spacing", type=float, default=0.35, help="Seconds to wait between same-provider calls")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
 

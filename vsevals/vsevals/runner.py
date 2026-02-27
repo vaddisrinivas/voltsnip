@@ -70,7 +70,7 @@ from vsevals.scorer import score_one
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
-DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8011"
+DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8001"
 
 HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a"]
 HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a")
