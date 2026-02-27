@@ -41,7 +41,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
     - voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2
-    - voltsnip/bug22/task/bug22/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -54,21 +53,13 @@ tasks:
       correctness:
       - Concurrent misses coalesce to one builder execution and all waiters complete.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/concurrency_cache/guiding_principle/v1 and voltsnip/bug22/task/bug22/guideline/v1.
     failure_modes:
     - Concurrent misses call builder multiple times.
     - Concurrency path can deadlock or wait indefinitely.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug22/guideline/v1'
     constraints:
-    - id: bug22_primary_behavior
-      voltsnip_key: voltsnip/bug22/task/bug22/guideline/v1
-      check: Synchronize miss path per key.
-      judge_prompt: 'Does the implementation satisfy this requirement: Synchronize miss
-        path per key.'
-      trap_baseline: 0.2
     - id: bug22_failure_absent
       voltsnip_key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
       check: Concurrent misses call builder multiple times.

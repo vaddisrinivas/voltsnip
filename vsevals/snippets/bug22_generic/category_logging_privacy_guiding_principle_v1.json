@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/category/logging_privacy/guiding_principle/v1",
+  "title": "BUG22 logging_privacy guiding principle",
+  "description": "Org-level guiding principle for structured logging: privacy, truncation, request correlation, and level routing.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "logging_privacy",
+    "guiding-principle",
+    "logging"
+  ],
+  "code": "# Logging & Privacy \u2014 Org Guiding Principle\n\n## Privacy / Redaction\n- Always redact sensitive fields before logging: password, token, api_key, authorization, secret.\n- Replace sensitive values with a fixed placeholder (e.g. '***REDACTED***').\n- Never log raw request bodies containing credentials or PII.\n\n## Truncation\n- Truncate response_body in logs to MAX_LOG_BODY (256) characters to prevent log bloat.\n- Apply truncation before serialisation, not after.\n\n## Request Correlation\n- Every log event must carry request_id when one is active in the current context.\n- Propagate request_id from context storage (e.g. threading.local) into each payload.\n\n## Level Routing\n- Route log events to the logger method matching the requested level (INFO\u2192info, ERROR\u2192error, WARNING\u2192warning).\n- Never hardcode logger.info for all events regardless of requested level.\n"
+}

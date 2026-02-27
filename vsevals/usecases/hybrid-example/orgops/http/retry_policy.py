@@ -19,5 +19,5 @@ class RetryPolicy:
     )
 
     def compute_sleep(self, attempt: int) -> float:
-        base = self.backoff_seconds * (2 ** (attempt - 1))  # Exponential backoff
-        return base + self.jitter_seconds
+        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.
+        return base  # BUG_02: jitter_seconds configured but not added to sleep.

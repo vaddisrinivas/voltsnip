@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/category/concurrency_cache/guiding_principle/v1",
+  "title": "BUG22 concurrency_cache guiding principle",
+  "description": "Org-level guiding principle for TTL caches and concurrency: expiry semantics, stampede prevention, and request isolation.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "concurrency_cache",
+    "guiding-principle",
+    "cache",
+    "threading"
+  ],
+  "code": "# Concurrency & Cache \u2014 Org Guiding Principle\n\n## TTL Expiry Semantics\n- An entry is expired when now >= expires_at (i.e. expires_at <= now), NOT when expires_at < now.\n- Return fresh data by calling builder() when entry is absent OR expired.\n- Use a monotonic clock (time.monotonic) for TTL calculations, never wall-clock time.\n\n## Stampede Prevention\n- Use per-key locking with threading.Event so only one thread calls builder() per cache miss.\n- Other threads must wait on the Event and re-read the populated entry rather than calling builder() again.\n- On builder() failure, remove the pending entry and signal the Event so waiters don't hang.\n\n## Request Isolation\n- Never store per-request state (e.g. request_id) in module-level or class-level variables.\n- Use threading.local() or contextvars.ContextVar for per-thread/per-task isolation.\n"
+}

@@ -47,7 +47,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
     - voltsnip/bug22/category/logging_privacy/oracle_playbook/v2
-    - voltsnip/bug22/task/bug15/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -58,20 +57,12 @@ tasks:
       correctness:
       - Requested log level controls payload level and logger method.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/logging_privacy/guiding_principle/v1 and voltsnip/bug22/task/bug15/guideline/v1.
     failure_modes:
     - All logs emitted as INFO.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug15/guideline/v1'
     constraints:
-    - id: bug15_primary_behavior
-      voltsnip_key: voltsnip/bug22/task/bug15/guideline/v1
-      check: Route logs to matching logger method by level.
-      judge_prompt: 'Does the implementation satisfy this requirement: Route logs to matching
-        logger method by level.'
-      trap_baseline: 0.2
     - id: bug15_failure_absent
       voltsnip_key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1
       check: All logs emitted as INFO.

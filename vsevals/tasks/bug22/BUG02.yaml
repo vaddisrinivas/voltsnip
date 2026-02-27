@@ -36,7 +36,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/http_resilience/guiding_principle/v1
     - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
-    - voltsnip/bug22/task/bug02/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -47,19 +46,12 @@ tasks:
       correctness:
       - Backoff output reflects jitter configuration.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/http_resilience/guiding_principle/v1 and voltsnip/bug22/task/bug02/guideline/v1.
     failure_modes:
     - Jitter remains unused.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug02/guideline/v1'
     constraints:
-    - id: jitter_usage
-      voltsnip_key: voltsnip/bug22/task/bug02/guideline/v1
-      check: Use jitter_seconds in sleep computation.
-      judge_prompt: Does compute_sleep use jitter_seconds in the returned sleep value?
-      trap_baseline: 0.20
     - id: deterministic_backoff
       voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
       check: Backoff output reflects jitter configuration.

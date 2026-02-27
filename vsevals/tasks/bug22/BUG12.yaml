@@ -26,7 +26,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
     - voltsnip/bug22/category/logging_privacy/oracle_playbook/v2
-    - voltsnip/bug22/task/bug12/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -38,21 +37,13 @@ tasks:
       correctness:
       - Sensitive fields are redacted with exact literal ***REDACTED***.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/logging_privacy/guiding_principle/v1 and voltsnip/bug22/task/bug12/guideline/v1.
     failure_modes:
     - Sensitive values are logged unredacted.
     - Redaction token differs from expected literal ***REDACTED***.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug12/guideline/v1'
     constraints:
-    - id: bug12_primary_behavior
-      voltsnip_key: voltsnip/bug22/task/bug12/guideline/v1
-      check: Redact password/token/api_key-like fields.
-      judge_prompt: 'Does the implementation satisfy this requirement: Redact password/token/api_key-like
-        fields.'
-      trap_baseline: 0.2
     - id: bug12_failure_absent
       voltsnip_key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1
       check: Sensitive values are logged unredacted.

@@ -15,7 +15,6 @@ models:
 
   # ── Codex CLI (stored OAuth — no API key needed) ───────
   - codex:gpt-5.2-codex
-  - codex:gpt-5.1-codex-mini  # removed — consistently "no last agent message" / empty output
   - codex:gpt-5.3-codex
 
 variants:

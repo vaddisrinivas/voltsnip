@@ -39,7 +39,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/error_contracts/guiding_principle/v1
     - voltsnip/bug22/category/error_contracts/oracle_playbook/v2
-    - voltsnip/bug22/task/bug08/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -51,20 +50,12 @@ tasks:
       correctness:
       - Error schema exposes standard keys code/message/details/trace_id including trace_id.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/error_contracts/guiding_principle/v1 and voltsnip/bug22/task/bug08/guideline/v1.
     failure_modes:
     - Error contract keys remain inconsistent or use legacy error_code naming.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug08/guideline/v1'
     constraints:
-    - id: bug08_primary_behavior
-      voltsnip_key: voltsnip/bug22/task/bug08/guideline/v1
-      check: Serialize exactly the keys code/message/details/trace_id in to_dict().
-      judge_prompt: 'Does the implementation satisfy this requirement: Serialize exactly
-        the keys code/message/details/trace_id in to_dict().'
-      trap_baseline: 0.2
     - id: bug08_failure_absent
       voltsnip_key: voltsnip/bug22/category/error_contracts/guiding_principle/v1
       check: Error contract keys remain inconsistent or use legacy error_code naming.

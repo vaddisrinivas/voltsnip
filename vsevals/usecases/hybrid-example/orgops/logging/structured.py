@@ -19,9 +19,7 @@ def build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:
     }
     sanitized = redact_fields(fields)
     payload.update(sanitized)
-    request_id = get_request_id()
-    if request_id is not None and payload.get("request_id") is None:
-        payload["request_id"] = request_id
+    # BUG_14: request_id from context never propagated into payload.
     return payload
 
 

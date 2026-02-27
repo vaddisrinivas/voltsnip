@@ -39,7 +39,6 @@ tasks:
     required_snippets:
     - voltsnip/bug22/category/error_contracts/guiding_principle/v1
     - voltsnip/bug22/category/error_contracts/oracle_playbook/v2
-    - voltsnip/bug22/task/bug11/guideline/v1
     snippet_context_limit: 4
     snippet_context_max_chars: 1200
   oracle:
@@ -50,20 +49,12 @@ tasks:
       correctness:
       - Error details are JSON serializable.
       consistency:
-      - Implementation aligns with voltsnip/bug22/category/error_contracts/guiding_principle/v1 and voltsnip/bug22/task/bug11/guideline/v1.
     failure_modes:
     - Details remain non-serializable.
     evaluation_criteria:
     - Keep edits localized to configured target file
     - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
-    - 'Bug guideline key: voltsnip/bug22/task/bug11/guideline/v1'
     constraints:
-    - id: bug11_primary_behavior
-      voltsnip_key: voltsnip/bug22/task/bug11/guideline/v1
-      check: Avoid storing non-serializable objects in details.
-      judge_prompt: 'Does the implementation satisfy this requirement: Avoid storing non-serializable
-        objects in details.'
-      trap_baseline: 0.2
     - id: bug11_failure_absent
       voltsnip_key: voltsnip/bug22/category/error_contracts/guiding_principle/v1
       check: Details remain non-serializable.
