@@ -467,6 +467,9 @@ class RunConfig(BaseModel):
     scoring_judge_max_tokens: int = Field(default=800, ge=64, le=8192)
     constraint_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
+    # Scoring gate
+    skip_scoring: bool = False  # Pass 1 only: skip LLM judge; rescore_scoring.py runs it later
+
     # Pytest / code execution (Docker only)
     auto_apply_patch: bool = False
     pytest_docker_image: str = "moltsnip-pytest:latest"

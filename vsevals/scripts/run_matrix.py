@@ -132,9 +132,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--spacing", type=float, default=0.35, help="Seconds to wait between same-provider calls")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
 
-    # Pytest / Docker
+    # Scoring / Pytest / Docker
+    p.add_argument("--no-scoring", action="store_true", default=False,
+                   help="Pass 1: skip LLM judge scoring during generation. Run rescore_scoring.py afterwards for Pass 2.")
     p.add_argument("--no-pytest", action="store_true", default=False,
-                   help="Disable pytest Docker run (pytest runs by default after each run)")
+                   help="Skip pytest Docker run. Run rescore_pytest.py afterwards for Pass 3.")
     p.add_argument("--auto-apply-patch", action="store_true", default=False,
                    help=argparse.SUPPRESS)  # legacy alias kept for backward compat; no-op (pytest is on by default)
     p.add_argument("--pytest-docker-image", default=None,
@@ -303,6 +305,7 @@ def main() -> None:
         scoring_judge_model=args.judge_model,
         scoring_match_mode=args.scoring_mode,
         constraint_pass_threshold=args.constraint_threshold,
+        skip_scoring=args.no_scoring,
         auto_apply_patch=not args.no_pytest,
         pytest_timeout_seconds=args.pytest_timeout,
         llm_timeout_seconds=args.llm_timeout,

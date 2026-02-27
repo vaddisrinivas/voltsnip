@@ -317,9 +317,9 @@ def run_one(
         error=run_error,
     )
 
-    # Step 7: score
+    # Step 7: score (skipped when cfg.skip_scoring=True; use rescore_scoring.py for Pass 2)
     score: ScoreResult | None = None
-    if status == "ok":
+    if status == "ok" and not resolved_cfg.skip_scoring:
         t_score = time.perf_counter()
         score = score_one(run_result=run_result, oracle=task.oracle, cfg=resolved_cfg, provider_keys=provider_keys)
         run_result.score = score
