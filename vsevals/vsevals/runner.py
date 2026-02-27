@@ -208,6 +208,7 @@ def run_one(
                 cfg=resolved_cfg, provider_keys=provider_keys,
                 voltsnip=voltsnip, seed_snippets=retrieved_snippets,
                 target_file_content=target_file_content, repo_policy=repo_policy,
+                repo_root=repo_root_path,
             )
         else:
             prompt = build_prompt(
@@ -366,6 +367,7 @@ def _run_agent(
     seed_snippets: list[RetrievedSnippet],
     target_file_content: str | None,
     repo_policy: str,
+    repo_root: "Path | None" = None,
 ) -> tuple[LLMResult, PromptBundle, PromptBundle, list[RetrievedSnippet], list[ToolTrace]]:
     snippets = _dedup_snippets(seed_snippets)
     tool_traces: list[ToolTrace] = []
@@ -394,6 +396,7 @@ def _run_agent(
                 user_prompt=prompt_sent.user_prompt, cfg=cfg,
                 tool_schemas=tools, max_tool_turns=turns,
                 sidecar_files=prompt_sent.sidecar_files or None,
+                repo_root=repo_root,
             )
         else:
             llm_result = _call_codex(
@@ -401,6 +404,7 @@ def _run_agent(
                 user_prompt=prompt_sent.user_prompt, cfg=cfg,
                 tool_schemas=tools, max_tool_turns=turns,
                 sidecar_files=prompt_sent.sidecar_files or None,
+                repo_root=repo_root,
             )
         # Merge tool_traces parsed from the subprocess JSONL stdout
         tool_traces.extend(llm_result.tool_traces)

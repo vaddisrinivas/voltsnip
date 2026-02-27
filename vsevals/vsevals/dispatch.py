@@ -382,6 +382,41 @@ def _make_isolated_cli_cwd(sidecar_files: dict[str, str] | None) -> str:
     return _make_sidecar_dir(sidecar_files or {})
 
 
+def _make_agent_cwd(
+    repo_root: "Path | None",
+    sidecar_files: dict[str, str] | None,
+) -> str:
+    """Create a per-call agent CWD that includes the task's codebase.
+
+    When repo_root is provided, every top-level entry from repo_root is
+    symlinked into a fresh temp directory so that Read/Grep/Glob work as
+    if the agent is running inside the repository.  Sidecar files
+    (CLAUDE.md, AGENTS.md, SKILL.md, …) are written on top — they take
+    priority over any same-named entry that may exist in repo_root.
+
+    Without repo_root, falls back to an isolated sidecar-only directory.
+    """
+    import shutil
+    tmpdir = tempfile.mkdtemp(prefix="vsevals_agent_")
+    try:
+        if repo_root is not None and Path(repo_root).is_dir():
+            # Symlink every top-level entry from repo_root into the temp dir.
+            # Filesystem tools (Read/Grep/Glob) follow symlinks so the model
+            # can browse and read actual task source files.
+            sidecar_names = set(sidecar_files or {})
+            for entry in Path(repo_root).iterdir():
+                if entry.name not in sidecar_names:
+                    link = Path(tmpdir) / entry.name
+                    link.symlink_to(entry.resolve())
+        # Write sidecar files last — they override any same-named symlink.
+        for fname, content in (sidecar_files or {}).items():
+            Path(tmpdir, fname).write_text(content, encoding="utf-8")
+    except Exception:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+    return tmpdir
+
+
 def _call_claudecode(
     *,
     model_id: str,
@@ -391,6 +426,7 @@ def _call_claudecode(
     tool_schemas: list[dict[str, Any]] | None = None,
     max_tool_turns: int = 8,
     sidecar_files: dict[str, str] | None = None,
+    repo_root: "Path | None" = None,
 ) -> LLMResult:
     """Call via `claude -p` subprocess (no ANTHROPIC_API_KEY required).
 
@@ -400,6 +436,8 @@ def _call_claudecode(
 
     sidecar_files: optional dict of filename→content to write into a temp cwd so that
     claude auto-loads CLAUDE.md (project context) and SKILL.md (skills).
+    repo_root: when provided, the agent CWD is populated with symlinks to repo_root
+    so Read/Grep/Glob can explore the task codebase.
     """
     if tool_schemas:
         return _call_claudecode_with_mcp(
@@ -409,6 +447,7 @@ def _call_claudecode(
             cfg=cfg,
             max_tool_turns=max_tool_turns,
             sidecar_files=sidecar_files,
+            repo_root=repo_root,
         )
     return _call_claudecode_single_shot(
         model_id=model_id,
@@ -506,6 +545,7 @@ def _call_claudecode_with_mcp(
     cfg: RunConfig,
     max_tool_turns: int = 8,
     sidecar_files: dict[str, str] | None = None,
+    repo_root: "Path | None" = None,
 ) -> LLMResult:
     """Tool-calling `claude -p` using the live VoltSnip MCP HTTP endpoint.
 
@@ -515,6 +555,8 @@ def _call_claudecode_with_mcp(
 
     If sidecar_files provided, writes CLAUDE.md / SKILL.md into a temp cwd so
     claude auto-loads them as project context on top of --system-prompt.
+    If repo_root is provided, the agent CWD is populated with symlinks to the
+    task repository so Read/Grep/Glob can explore real source files.
     """
     import shutil
     t0 = datetime.now(timezone.utc)
@@ -536,11 +578,11 @@ def _call_claudecode_with_mcp(
     sidecar_dir: str | None = None
     tmp_cfg_path: str | None = None
     try:
-        sidecar_dir = _make_isolated_cli_cwd(sidecar_files)
-        if sidecar_files:
-            LOGGER.debug("claudecode-mcp sidecar dir=%s files=%s", sidecar_dir, list(sidecar_files))
-        else:
-            LOGGER.debug("claudecode-mcp isolated cwd=%s (no sidecars)", sidecar_dir)
+        sidecar_dir = _make_agent_cwd(repo_root, sidecar_files)
+        LOGGER.debug(
+            "claudecode-mcp agent cwd=%s repo=%s files=%s",
+            sidecar_dir, repo_root, list(sidecar_files or {}),
+        )
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", prefix="vsevals_mcp_", delete=False
@@ -558,14 +600,14 @@ def _call_claudecode_with_mcp(
             "--strict-mcp-config",
             "--no-session-persistence",
             "--max-turns", str(max(1, max_tool_turns)),
-            # Pre-approve only VoltSnip MCP tools.  Filesystem tools (Read/Grep/Glob) are
-            # intentionally excluded: the agent runs in an isolated sidecar dir that
-            # contains only context files — granting Read/Glob/Grep causes models to
-            # spiral trying to explore a directory with no task code.  The target file
-            # content is already injected into the prompt via build_prompt().
-            "--allowedTools", "mcp__voltsnip__*",
-            # Block destructive tools + Task (no sub-agent spawning) + filesystem tools.
-            "--disallowed-tools", "Bash,Write,Edit,NotebookEdit,WebSearch,WebFetch,Task,Read,Grep,Glob",
+            # Pre-approve VoltSnip MCP tools + read-only filesystem tools.
+            # Read/Grep/Glob are allowed because the agent CWD is now populated with
+            # symlinks to the task's repo_root, mirroring real-world usage where agents
+            # can inspect the codebase before deciding which snippets to fetch.
+            "--allowedTools", "mcp__voltsnip__*,Read,Grep,Glob",
+            # Block destructive tools and Task (no sub-agent spawning — sub-agents
+            # spawn with an unlimited turn budget, bypassing max_tool_roundtrips).
+            "--disallowed-tools", "Bash,Write,Edit,NotebookEdit,WebSearch,WebFetch,Task",
         ]
         mcp_timeout = max(600, cfg.llm_timeout_seconds * 2)
         LOGGER.debug("claudecode mcp-tool-loop model=%s mcp_cfg=%s sidecar=%s timeout=%ds",
@@ -829,11 +871,14 @@ def _call_codex(
     tool_schemas: list[dict[str, Any]] | None = None,
     max_tool_turns: int = 8,
     sidecar_files: dict[str, str] | None = None,
+    repo_root: "Path | None" = None,
 ) -> LLMResult:
     """Route to codex MCP (tools) or single-shot based on tool_schemas.
 
     sidecar_files: optional AGENTS.md / SKILL.md written to a temp cwd so
     codex auto-loads them as agent instructions (AGENTS.md is read by codex on startup).
+    repo_root: when provided, the agent CWD is populated with symlinks to the
+    task repository so the agent can explore real source files.
     """
     if tool_schemas:
         return _call_codex_with_mcp(
@@ -843,6 +888,7 @@ def _call_codex(
             cfg=cfg,
             max_tool_turns=max_tool_turns,
             sidecar_files=sidecar_files,
+            repo_root=repo_root,
         )
     return _call_codex_single_shot(
         model_id=model_id,
@@ -881,6 +927,7 @@ def _call_codex_with_mcp(
     cfg: RunConfig,
     max_tool_turns: int = 8,
     sidecar_files: dict[str, str] | None = None,
+    repo_root: "Path | None" = None,
 ) -> LLMResult:
     """Tool-calling `codex exec` using the live VoltSnip MCP HTTP endpoint.
 
@@ -891,7 +938,7 @@ def _call_codex_with_mcp(
     --dangerously-bypass-approvals-and-sandbox is required in non-interactive
     subprocess mode so codex does not pause waiting for user approval when it
     attempts to call MCP tools.  The eval harness already restricts what can
-    happen (read-only sidecar cwd, no write tools configured).
+    happen (read-only agent cwd, no write tools configured).
     """
     base_url = (cfg.voltsnip_base_url or "http://localhost:8011").rstrip("/")
     # Use trailing slash to avoid FastAPI 307 redirect /mcp -> /mcp/.
@@ -913,6 +960,7 @@ def _call_codex_with_mcp(
         ],
         timeout=mcp_timeout,
         sidecar_files=sidecar_files,
+        repo_root=repo_root,
     )
 
 
@@ -925,6 +973,7 @@ def _run_codex_subprocess(
     extra_args: list[str],
     timeout: int,
     sidecar_files: dict[str, str] | None = None,
+    repo_root: "Path | None" = None,
 ) -> LLMResult:
     """Core codex exec runner. Merges system+user prompt (no --system-prompt flag).
 
@@ -932,6 +981,8 @@ def _run_codex_subprocess(
     directory used as the subprocess cwd so codex auto-loads AGENTS.md as agent
     instructions on startup.  The combined_prompt still includes the full content
     (additive — ensures compatibility even if auto-loading is not active).
+    If repo_root is provided, the agent CWD is populated with symlinks to the
+    task repository so the agent can read real source files.
     """
     import shutil
     t0 = datetime.now(timezone.utc)
@@ -944,11 +995,11 @@ def _run_codex_subprocess(
     tmp_output: str | None = None
     tmp_schema: str | None = None
     try:
-        sidecar_dir = _make_isolated_cli_cwd(sidecar_files)
-        if sidecar_files:
-            LOGGER.debug("codex sidecar dir=%s files=%s", sidecar_dir, list(sidecar_files))
-        else:
-            LOGGER.debug("codex isolated cwd=%s (no sidecars)", sidecar_dir)
+        sidecar_dir = _make_agent_cwd(repo_root, sidecar_files)
+        LOGGER.debug(
+            "codex agent cwd=%s repo=%s files=%s",
+            sidecar_dir, repo_root, list(sidecar_files or {}),
+        )
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", prefix="vsevals_codex_out_", delete=False
