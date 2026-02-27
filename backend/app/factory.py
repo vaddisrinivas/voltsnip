@@ -2,12 +2,12 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from contextlib import asynccontextmanager
+import json
 import logging
 import os
 import sys
 
 from fastmcp import FastMCP
-from fastmcp.resources.resource import ResourceContent
 from app.globals import settings
 import app.globals as app_globals
 import app.crud as crud
@@ -237,51 +237,51 @@ def create_app() -> FastAPI:
     async def mcp_snippets():
         async with app_globals.SessionLocal() as session:
             snippets = await crud.get_recent_snippets(session, limit=50, offset=0)
-            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
+            return json.dumps([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_TAG_RESOURCE)
     async def mcp_snippets_by_tag(tag: str):
         tag = (tag or "").strip().lower()
         if not tag:
-            return ResourceContent({"error": MCP_INVALID_FILTER})
+            return json.dumps({"error": MCP_INVALID_FILTER})
         tags = [t.strip().lower() for t in tag.split(",") if t.strip()]
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets_by_tags(session, tags=tags, limit=50, offset=0)
-            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
+            return json.dumps([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_TITLE_RESOURCE)
     async def mcp_snippets_by_title(title: str):
         title = (title or "").strip()
         if not title:
-            return ResourceContent({"error": MCP_INVALID_FILTER})
+            return json.dumps({"error": MCP_INVALID_FILTER})
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets_by_title(session, title=title, limit=50, offset=0)
-            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
+            return json.dumps([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPETS_BY_LANGUAGE_RESOURCE)
     async def mcp_snippets_by_language(language: str):
         language = (language or "").strip().lower()
         if not language:
-            return ResourceContent({"error": MCP_INVALID_FILTER})
+            return json.dumps({"error": MCP_INVALID_FILTER})
         async with app_globals.SessionLocal() as session:
             snippets = await crud.search_snippets(session, tag=None, language=language, limit=50, offset=0)
-            return ResourceContent([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
+            return json.dumps([SnippetMetaResponse.model_validate(s).model_dump() for s in snippets])
 
     @mcp.resource(MCP_SNIPPET_RESOURCE)
     async def mcp_snippet(snippet_id: str):
         try:
             snippet_uuid = uuid.UUID(snippet_id)
         except ValueError:
-            return ResourceContent({"error": MCP_SNIPPET_INVALID_ID})
+            return json.dumps({"error": MCP_SNIPPET_INVALID_ID})
 
         cached = await get_cached_snippet(snippet_uuid)
         if cached is not None:
-            return ResourceContent(cached)
+            return json.dumps(cached)
 
         async with app_globals.SessionLocal() as session:
             snippet = await crud.get_snippet(session, snippet_uuid)
             if not snippet:
-                return ResourceContent({"error": MCP_SNIPPET_NOT_FOUND})
+                return json.dumps({"error": MCP_SNIPPET_NOT_FOUND})
             content = await app_globals.storage_service.get_snippet_content(snippet.blob_key)
             snippet.code = content
             payload = SnippetDetailResponse.model_validate(snippet).model_dump()
@@ -290,7 +290,7 @@ def create_app() -> FastAPI:
                 payload,
                 app_globals.settings.SNIPPET_CACHE_TTL_SECONDS,
             )
-            return ResourceContent(payload)
+            return json.dumps(payload)
 
     @mcp.tool
     async def search_memory(query: str, k: int = 5) -> list[dict[str, Any]] | dict[str, str]:

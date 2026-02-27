@@ -558,13 +558,14 @@ def _call_claudecode_with_mcp(
             "--strict-mcp-config",
             "--no-session-persistence",
             "--max-turns", str(max(1, max_tool_turns)),
-            # Pre-approve all VoltSnip MCP tools so claude doesn't prompt for permission
-            # in non-interactive -p mode.  Read/Grep/Glob are also pre-approved so the
-            # agent can inspect the codebase before making VoltSnip calls.
-            "--allowedTools", "mcp__voltsnip__*,Read,Grep,Glob",
-            # Block destructive built-in tools.  Bash/Write/Edit are disallowed to prevent
-            # accidental writes to the eval host during the experiment.
-            "--disallowed-tools", "Bash,Write,Edit,NotebookEdit,WebSearch,WebFetch",
+            # Pre-approve only VoltSnip MCP tools.  Filesystem tools (Read/Grep/Glob) are
+            # intentionally excluded: the agent runs in an isolated sidecar dir that
+            # contains only context files — granting Read/Glob/Grep causes models to
+            # spiral trying to explore a directory with no task code.  The target file
+            # content is already injected into the prompt via build_prompt().
+            "--allowedTools", "mcp__voltsnip__*",
+            # Block destructive tools + Task (no sub-agent spawning) + filesystem tools.
+            "--disallowed-tools", "Bash,Write,Edit,NotebookEdit,WebSearch,WebFetch,Task,Read,Grep,Glob",
         ]
         mcp_timeout = max(600, cfg.llm_timeout_seconds * 2)
         LOGGER.debug("claudecode mcp-tool-loop model=%s mcp_cfg=%s sidecar=%s timeout=%ds",
