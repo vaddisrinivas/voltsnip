@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - response_body is truncated to max length.
-      consistency:
+      consistency: []
     failure_modes:
     - Full response body remains logged.
     evaluation_criteria:

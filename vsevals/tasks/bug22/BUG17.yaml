@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - Rollback occurs on exception path.
-      consistency:
+      consistency: []
     failure_modes:
     - Rollback missing on exception path.
     evaluation_criteria:

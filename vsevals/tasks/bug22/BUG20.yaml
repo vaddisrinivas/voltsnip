@@ -40,7 +40,7 @@ tasks:
     success_indicators:
       correctness:
       - Request ids are isolated across threads.
-      consistency:
+      consistency: []
     failure_modes:
     - Request ids leak across threads.
     evaluation_criteria:

@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - Requested log level controls payload level and logger method.
-      consistency:
+      consistency: []
     failure_modes:
     - All logs emitted as INFO.
     evaluation_criteria:

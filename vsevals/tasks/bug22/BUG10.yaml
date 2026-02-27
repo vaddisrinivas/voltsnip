@@ -48,7 +48,7 @@ tasks:
     success_indicators:
       correctness:
       - Client message does not leak sensitive raw exception text.
-      consistency:
+      consistency: []
     failure_modes:
     - Raw exception text leaks to clients.
     evaluation_criteria:

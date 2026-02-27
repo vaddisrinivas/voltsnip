@@ -41,7 +41,7 @@ tasks:
     success_indicators:
       correctness:
       - Per-request max_attempts is honored.
-      consistency:
+      consistency: []
     failure_modes:
     - Request override is ignored.
     evaluation_criteria:

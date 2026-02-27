@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - Commit happens after successful work, not before yield.
-      consistency:
+      consistency: []
     failure_modes:
     - Commit still occurs before work.
     evaluation_criteria:

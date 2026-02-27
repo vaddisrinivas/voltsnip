@@ -52,7 +52,7 @@ tasks:
     success_indicators:
       correctness:
       - Concurrent misses coalesce to one builder execution and all waiters complete.
-      consistency:
+      consistency: []
     failure_modes:
     - Concurrent misses call builder multiple times.
     - Concurrency path can deadlock or wait indefinitely.

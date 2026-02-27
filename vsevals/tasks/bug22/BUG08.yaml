@@ -49,7 +49,7 @@ tasks:
     success_indicators:
       correctness:
       - Error schema exposes standard keys code/message/details/trace_id including trace_id.
-      consistency:
+      consistency: []
     failure_modes:
     - Error contract keys remain inconsistent or use legacy error_code naming.
     evaluation_criteria:

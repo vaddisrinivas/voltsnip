@@ -50,7 +50,7 @@ tasks:
     success_indicators:
       correctness:
       - Expired entries are recomputed.
-      consistency:
+      consistency: []
     failure_modes:
     - Cache returns stale value after TTL.
     evaluation_criteria:

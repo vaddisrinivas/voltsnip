@@ -45,7 +45,7 @@ tasks:
     success_indicators:
       correctness:
       - Backoff output reflects jitter configuration.
-      consistency:
+      consistency: []
     failure_modes:
     - Jitter remains unused.
     evaluation_criteria:

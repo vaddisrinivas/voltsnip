@@ -48,7 +48,7 @@ tasks:
     success_indicators:
       correctness:
       - Timeout maps to 504 and validation maps to 4xx.
-      consistency:
+      consistency: []
     failure_modes:
     - Status mapping remains incorrect.
     evaluation_criteria:

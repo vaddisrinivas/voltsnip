@@ -40,7 +40,7 @@ tasks:
     success_indicators:
       correctness:
       - 404 is not retried by default.
-      consistency:
+      consistency: []
     failure_modes:
     - 4xx retry behavior remains.
     evaluation_criteria:

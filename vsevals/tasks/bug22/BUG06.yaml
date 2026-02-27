@@ -40,7 +40,7 @@ tasks:
     success_indicators:
       correctness:
       - POST is not retried by default.
-      consistency:
+      consistency: []
     failure_modes:
     - POST continues retrying by default.
     evaluation_criteria:

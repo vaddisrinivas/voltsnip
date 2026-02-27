@@ -7,6 +7,7 @@ suite:
 
 models:
   # ── Test stub ──────────────────────────────────────────
+  - mock:echo
 
   # ── Claude Code (stored OAuth — no API key needed) ─────
   - claudecode:claude-haiku-4-5
@@ -79,7 +80,7 @@ variants:
     tools_enabled: true
     retrieval_mode: agent_decides
     instruction_mode: none
-    context_surface: skills_md_no_keys
+    context_surface: skills_md
     max_tool_roundtrips: 4
     include_oracle: false
     purpose: "Skill docs (no keys) + tools — knows how to use VoltSnip, decides what to fetch"

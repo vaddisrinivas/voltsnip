@@ -41,7 +41,7 @@ tasks:
     success_indicators:
       correctness:
       - Timeout argument is forwarded consistently.
-      consistency:
+      consistency: []
     failure_modes:
     - Timeout remains method-gated.
     evaluation_criteria:

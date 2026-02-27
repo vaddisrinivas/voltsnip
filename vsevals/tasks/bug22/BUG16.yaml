@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - Session is closed after scope.
-      consistency:
+      consistency: []
     failure_modes:
     - Session remains open after scope.
     evaluation_criteria:

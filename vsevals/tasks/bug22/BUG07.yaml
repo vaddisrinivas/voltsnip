@@ -37,7 +37,7 @@ tasks:
     success_indicators:
       correctness:
       - Closed circuit allows request flow.
-      consistency:
+      consistency: []
     failure_modes:
     - Circuit open error raised for allowed request.
     evaluation_criteria:

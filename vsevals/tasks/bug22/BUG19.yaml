@@ -56,7 +56,7 @@ tasks:
     success_indicators:
       correctness:
       - fetch_users_by_ids executes a single query.
-      consistency:
+      consistency: []
     failure_modes:
     - N+1 query pattern remains.
     evaluation_criteria:

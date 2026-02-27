@@ -57,7 +57,7 @@ tasks:
     success_indicators:
       correctness:
       - Payload contains request_id when set via set_request_id().
-      consistency:
+      consistency: []
     failure_modes:
     - request_id missing from logs.
     - request_id is included only when explicitly passed in fields but not from context.

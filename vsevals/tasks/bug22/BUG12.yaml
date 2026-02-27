@@ -36,7 +36,7 @@ tasks:
     success_indicators:
       correctness:
       - Sensitive fields are redacted with exact literal ***REDACTED***.
-      consistency:
+      consistency: []
     failure_modes:
     - Sensitive values are logged unredacted.
     - Redaction token differs from expected literal ***REDACTED***.

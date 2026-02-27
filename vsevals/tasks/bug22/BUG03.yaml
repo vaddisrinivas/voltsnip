@@ -44,7 +44,7 @@ tasks:
     success_indicators:
       correctness:
       - Backoff at attempt 3 is exponential.
-      consistency:
+      consistency: []
     failure_modes:
     - Backoff remains linear.
     evaluation_criteria:
