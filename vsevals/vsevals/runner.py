@@ -181,7 +181,10 @@ def run_one(
     try:
         provider_keys = _load_provider_keys(resolved_cfg)
         voltsnip = _make_client(variant, resolved_cfg)
-        repo_root_path = _resolve_repo_root(repo_root or task.task.repo_root, suite_path=suite_path)
+        repo_root_path = _resolve_repo_root(
+            repo_root or task.task.repo_root or suite.suite.default_repo_root,
+            suite_path=suite_path,
+        )
         target_file_content = _read_target_file(repo_root=repo_root_path, target_file=task.task.target_file, suite_path=suite_path)
         repo_policy = resolved_cfg.repo_policy_text or DEFAULT_REPO_POLICY
 

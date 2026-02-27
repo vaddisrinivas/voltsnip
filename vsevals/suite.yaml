@@ -3,6 +3,7 @@ suite:
   description: "VoltSnip pytest-first suite for 22 failing hybrid-example bug cases"
   usecase_id: hybrid-example
   usecase_manifest: usecases/hybrid-example/usecase.yaml
+  default_repo_root: usecases/hybrid-example
 
 models:
   # ── Test stub ──────────────────────────────────────────
