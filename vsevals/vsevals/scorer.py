@@ -237,6 +237,7 @@ def _score_constraints(
 
     return ScoreResult(
         overall_score=overall,
+        passed=overall >= threshold,
         hidden_requirements=dim,
         success_indicators=dim,
         failure_modes=neutral,
@@ -373,6 +374,7 @@ def _score_legacy(
     )
     return ScoreResult(
         overall_score=overall,
+        passed=overall >= float(cfg.constraint_pass_threshold),
         hidden_requirements=hidden_dim,
         success_indicators=success_dim,
         failure_modes=failure_dim_,
