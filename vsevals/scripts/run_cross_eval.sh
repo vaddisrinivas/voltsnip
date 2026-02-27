@@ -11,7 +11,7 @@
 # Options:
 #   --variants      Comma-separated variants  (default: P0,P1,P2,P3,P4,P5b,P5a,P6b,P6a)
 #   --tasks         Comma-separated task IDs  (default: all)
-#   --voltsnip-url  VoltSnip base URL         (default: http://localhost:8001)
+#   --voltsnip-url  VoltSnip base URL         (default: http://localhost:8011)
 #   --output-dir    Root output directory     (default: ./vsevals_runs)
 #   --no-pytest     Skip Phase 2 pytest       (default: pytest runs)
 #   --spacing       Seconds between calls     (default: 0.5)
@@ -53,7 +53,7 @@
 #   - .env at repo root with OPENAI_API_KEY  (or export it; codex: models only)
 #   - `claude` CLI available    (for claudecode provider)
 #   - `codex` CLI available     (for codex provider)
-#   - VoltSnip backend on :8001 (for P2-P6a variants; P0/P1 don't need it)
+#   - VoltSnip backend on :8011 (for P2-P6a variants; P0/P1 don't need it)
 #   - Docker running            (for Phase 2 pytest)
 #
 # ⚠️  Must run from a plain terminal — NOT inside a Claude Code session.
@@ -70,7 +70,7 @@ SUITE="$VSEVALS_DIR/suite.yaml"
 # ── Defaults ──────────────────────────────────────────────────────────────────
 VARIANTS="P0,P1,P2,P3,P4,P5b,P5a,P6b,P6a"
 TASKS=""
-VOLTSNIP_URL="http://localhost:8001"
+VOLTSNIP_URL="http://localhost:8011"
 OUTPUT_DIR="$REPO_ROOT/vsevals_runs"
 RUN_PYTEST=true
 SPACING="0.5"
