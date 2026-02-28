@@ -358,6 +358,19 @@ async def read_snippet(
     return db_snippet
 
 
+async def read_snippet_by_canonical_key(
+    canonical_key: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve a snippet by its canonical_key (slash-delimited path)."""
+    db_snippet = await crud.get_snippet_by_canonical_key(db, canonical_key)
+    if db_snippet is None:
+        raise HTTPException(status_code=404, detail=ERR_SNIPPET_NOT_FOUND)
+    content = await storage_service.get_snippet_content(db_snippet.blob_key)
+    db_snippet.code = content
+    return db_snippet
+
+
 async def view_snippet(
     snippet_id: uuid.UUID,
     background_tasks: BackgroundTasks,

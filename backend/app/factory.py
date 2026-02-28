@@ -18,6 +18,7 @@ from app.views import (
     hot_feed,
     most_used_feed,
     read_snippet,
+    read_snippet_by_canonical_key,
     search,
     semantic_search,
     top_feed,
@@ -45,6 +46,7 @@ from app.constants import (
     SEARCH_SEMANTIC_PATH,
     SNIPPETS_ROOT_PATH,
     SNIPPET_BY_ID_PATH,
+    SNIPPET_BY_CANONICAL_KEY_PATH,
     SNIPPET_VIEW_PATH,
     SNIPPET_VOTE_PATH,
     FEEDS_TAG,
@@ -213,6 +215,7 @@ def create_app() -> FastAPI:
 
     snippets_router = APIRouter(prefix=SNIPPETS_PREFIX, tags=[SNIPPETS_TAG])
     snippets_router.post(SNIPPETS_ROOT_PATH, response_model=SnippetDetailResponse)(create_snippet)
+    snippets_router.get(SNIPPET_BY_CANONICAL_KEY_PATH, response_model=SnippetDetailResponse)(read_snippet_by_canonical_key)
     snippets_router.get(SNIPPET_BY_ID_PATH, response_model=SnippetDetailResponse)(read_snippet)
     snippets_router.post(SNIPPET_VIEW_PATH, response_model=SnippetMetaResponse)(
         view_snippet
