@@ -1,0 +1,1 @@
+Inverted circuit breaker condition to raise error only when request is NOT allowed.

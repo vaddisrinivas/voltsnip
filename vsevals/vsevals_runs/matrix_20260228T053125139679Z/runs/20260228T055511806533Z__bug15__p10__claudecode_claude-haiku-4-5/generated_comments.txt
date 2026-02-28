@@ -1,0 +1,1 @@
+Fix BUG_15: Use requested log level in payload and route to correct logger method (info/error/warning) via getattr, eliminating hardcoded INFO.

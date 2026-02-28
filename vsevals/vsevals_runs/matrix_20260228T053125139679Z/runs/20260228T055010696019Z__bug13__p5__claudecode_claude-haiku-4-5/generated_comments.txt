@@ -1,0 +1,1 @@
+Truncate response_body to MAX_LOG_BODY (256 characters) using string slicing to prevent large response bodies from being logged in full.

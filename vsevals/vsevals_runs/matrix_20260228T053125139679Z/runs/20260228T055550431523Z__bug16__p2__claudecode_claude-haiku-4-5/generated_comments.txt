@@ -1,0 +1,1 @@
+Replace 'pass' with 'session.close()' in finally block to ensure session is properly closed after scope.

@@ -1,0 +1,1 @@
+Added threading.Lock with double-check pattern to serialize builder() calls on cache miss, preventing concurrent stampede.

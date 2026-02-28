@@ -1,0 +1,1 @@
+Redact sensitive fields by checking key names against known patterns and replacing their values with ***REDACTED***.

@@ -1,0 +1,1 @@
+Fix BUG_21: invert expired check from < to > so stale entries are recomputed when now >= expires_at.

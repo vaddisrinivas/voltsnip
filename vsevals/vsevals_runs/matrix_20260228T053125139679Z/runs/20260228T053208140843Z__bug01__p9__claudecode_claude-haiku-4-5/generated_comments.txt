@@ -1,0 +1,1 @@
+Exclude 404 status code from default retryable set to prevent retrying non-retriable client errors.

@@ -1,0 +1,1 @@
+Close the session in the finally block to ensure cleanup on all code paths.

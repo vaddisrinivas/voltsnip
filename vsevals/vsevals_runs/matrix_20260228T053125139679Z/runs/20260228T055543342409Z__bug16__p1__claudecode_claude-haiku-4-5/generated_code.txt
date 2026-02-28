@@ -1,0 +1,11 @@
+@contextmanager
+def session_scope(session_factory: Callable[[], Any]) -> Iterator[Any]:
+    session = session_factory()
+    session.commit()  # BUG_18: commits before any unit of work executes.
+    try:
+        yield session
+    except Exception:
+        # BUG_17: missing rollback on exception path.
+        raise
+    finally:
+        session.close()

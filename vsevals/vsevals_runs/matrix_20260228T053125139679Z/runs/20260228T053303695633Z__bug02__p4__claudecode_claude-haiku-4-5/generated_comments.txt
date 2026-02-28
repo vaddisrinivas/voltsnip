@@ -1,0 +1,1 @@
+Add configured jitter as deterministic positive offset to sleep computation.

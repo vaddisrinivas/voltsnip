@@ -1,0 +1,1 @@
+Truncate response_body to MAX_LOG_BODY (256) using slice notation before JSON serialization, per logging privacy truncation requirement.

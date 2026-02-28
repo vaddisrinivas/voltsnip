@@ -1,0 +1,1 @@
+Replace non-serializable exception object with empty JSON-serializable dict in details field.

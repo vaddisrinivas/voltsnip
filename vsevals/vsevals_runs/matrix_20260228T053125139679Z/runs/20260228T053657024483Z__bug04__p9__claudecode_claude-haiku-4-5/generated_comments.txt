@@ -1,0 +1,1 @@
+Honor per-request max_attempts override by preferring the provided value over retry_policy default when not None.

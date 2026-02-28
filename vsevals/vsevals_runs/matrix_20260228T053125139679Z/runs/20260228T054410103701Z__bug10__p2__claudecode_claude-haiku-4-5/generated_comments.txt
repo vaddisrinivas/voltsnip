@@ -1,0 +1,1 @@
+Replace raw exception text with generic message to prevent sensitive data leakage in error responses.

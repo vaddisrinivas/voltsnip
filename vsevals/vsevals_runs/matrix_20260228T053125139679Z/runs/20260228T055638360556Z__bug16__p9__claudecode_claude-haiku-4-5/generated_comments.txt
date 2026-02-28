@@ -1,0 +1,1 @@
+Fixed BUG_16 by replacing pass with session.close() in finally block to ensure session is always closed after scope exits.

@@ -1,0 +1,1 @@
+Fix BUG14: propagate request_id from logging context into payload.

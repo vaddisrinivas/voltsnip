@@ -1,0 +1,1 @@
+Retrieve request_id from context and conditionally include it in payload to enable request correlation across logs.

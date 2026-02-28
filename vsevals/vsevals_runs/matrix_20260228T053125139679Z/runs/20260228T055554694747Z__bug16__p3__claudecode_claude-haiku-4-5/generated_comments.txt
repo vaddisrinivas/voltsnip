@@ -1,0 +1,1 @@
+Add session.close() to finally block to ensure session is always closed.

@@ -1,0 +1,1 @@
+Propagate request_id from context into payload by calling get_request_id() and conditionally adding it to the payload dictionary.

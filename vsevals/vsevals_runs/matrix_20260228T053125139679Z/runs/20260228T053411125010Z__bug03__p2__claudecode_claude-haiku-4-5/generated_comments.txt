@@ -1,0 +1,1 @@
+Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)).

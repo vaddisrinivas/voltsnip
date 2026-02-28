@@ -1,0 +1,1 @@
+Remove POST from default retryable methods; POST is not idempotent and should never be retried without explicit opt-in per org resilience principle.

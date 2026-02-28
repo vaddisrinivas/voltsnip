@@ -1,0 +1,1 @@
+Moved session.commit() from before yield to after yield succeeds, ensuring work is committed only after execution rather than before.

@@ -1,0 +1,1 @@
+Fixed BUG14 by retrieving request_id from logging context via get_request_id() and propagating it into the payload when available.

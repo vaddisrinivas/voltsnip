@@ -1,0 +1,1 @@
+Add jitter_seconds as deterministic positive offset to sleep computation.

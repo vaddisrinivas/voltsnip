@@ -1,0 +1,13 @@
+def resolve_request_config(
+    *,
+    retry_policy: RetryPolicy,
+    method: str,
+    timeout: float | None,
+    max_attempts: int | None,
+) -> tuple[str, int, float | None]:
+    method = method.upper()
+    attempts = retry_policy.max_attempts  # BUG_04: ignores per-request max_attempts override.
+    request_timeout = (
+        timeout if timeout is not None else None
+    )  # BUG_05: timeout only applied to GET and omitted otherwise.
+    return method, attempts, request_timeout

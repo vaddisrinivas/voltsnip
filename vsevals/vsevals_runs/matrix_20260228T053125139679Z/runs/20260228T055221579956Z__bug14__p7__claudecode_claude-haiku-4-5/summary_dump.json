@@ -1,0 +1,110 @@
+{
+  "run_id": "20260228T055221579956Z__bug14__p7__claudecode_claude-haiku-4-5",
+  "task_id": "BUG14",
+  "task_name": "logging_request_id_inclusion",
+  "variant_id": "P7",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 20350,
+    "prompt_chars": 4512,
+    "output_chars": 1377,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3462,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 20332,
+    "model_request_started_at": "2026-02-28T05:52:21.598573Z",
+    "model_request_finished_at": "2026-02-28T05:52:41.930980Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10161,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug14_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug14_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "The code calls get_request_id() and adds it to the payload only if it exists, preventing the request_id from being missing when one is available.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/logging_privacy/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 4,
+    "passed": false,
+    "stdout": "",
+    "stderr": "ImportError while loading conftest '/workspace/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from service.app import create_app\nservice/app.py:9: in <module>\n    from service.app_middleware import register_correlation_middleware\nservice/app_middleware.py:9: in <module>\n    from orgops.logging import set_request_id\norgops/logging/__init__.py:3: in <module>\n    from .structured import build_payload, log_event\nE     File \"/workspace/orgops/logging/structured.py\", line 32\nE       payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\nE   IndentationError: unexpected indent\n",
+    "duration_ms": 1615,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Add configured jitter_seconds as deterministic positive offset to base backoff, ensuring sleep is strictly greater when jitter > 0.

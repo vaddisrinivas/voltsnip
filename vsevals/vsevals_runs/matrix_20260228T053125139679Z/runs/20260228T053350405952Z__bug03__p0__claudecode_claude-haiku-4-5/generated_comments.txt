@@ -1,0 +1,1 @@
+Fixed BUG_03: Replace linear backoff formula with exponential backoff using 2^(attempt-1) multiplier.

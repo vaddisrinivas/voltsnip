@@ -1,0 +1,1 @@
+Move session.commit() to after yield so commit happens after work executes instead of before.

@@ -1,0 +1,1 @@
+Fixed BUG_15: Use requested log level parameter in payload and route to appropriate logger method via getattr.

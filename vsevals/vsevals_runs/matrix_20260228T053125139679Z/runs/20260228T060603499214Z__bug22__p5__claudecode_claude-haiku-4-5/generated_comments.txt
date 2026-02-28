@@ -1,0 +1,1 @@
+Added per-key lock synchronization with double-checked locking pattern to coalesce concurrent cache misses into single builder execution.

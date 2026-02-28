@@ -1,0 +1,1 @@
+Forward timeout to all HTTP methods per guiding principle; remove GET-only restriction.

@@ -1,0 +1,1 @@
+Use requested level parameter in payload and route logger call to appropriate method via getattr based on level.

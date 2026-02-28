@@ -1,0 +1,1 @@
+Exclude 404 from retryable status codes by subtracting it from the default set, ensuring non-retryable 4xx errors are not retried.

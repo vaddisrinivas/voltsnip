@@ -1,0 +1,1 @@
+Fetch request_id from logging context and include it in payload when available.

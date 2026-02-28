@@ -1,0 +1,1 @@
+Add session.rollback() before re-raising on exception to ensure transaction cleanup on error.

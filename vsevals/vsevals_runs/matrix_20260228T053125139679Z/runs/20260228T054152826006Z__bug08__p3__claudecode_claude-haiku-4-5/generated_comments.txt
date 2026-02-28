@@ -1,0 +1,1 @@
+Fixed error schema contract: renamed legacy 'error_code' key to canonical 'code' and added required 'trace_id' field to serialized payload.

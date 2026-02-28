@@ -1,0 +1,1 @@
+Added session.rollback() in exception handler to ensure transactional safety on error paths.

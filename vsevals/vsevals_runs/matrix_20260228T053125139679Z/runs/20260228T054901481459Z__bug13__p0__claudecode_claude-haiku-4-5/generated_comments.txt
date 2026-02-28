@@ -1,0 +1,1 @@
+Truncate response_body to MAX_LOG_BODY (256 chars) to prevent full response body from being logged.

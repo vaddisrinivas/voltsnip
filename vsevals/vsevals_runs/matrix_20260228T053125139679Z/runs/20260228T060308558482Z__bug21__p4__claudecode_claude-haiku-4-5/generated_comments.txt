@@ -1,0 +1,1 @@
+Fixed inverted TTL expiry check: changed < to > so cached entries are returned only when NOT expired.

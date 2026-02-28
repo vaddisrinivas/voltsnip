@@ -1,0 +1,1 @@
+Redact sensitive fields (password, token, api_key, secret, credentials, auth) to ***REDACTED*** string literal.

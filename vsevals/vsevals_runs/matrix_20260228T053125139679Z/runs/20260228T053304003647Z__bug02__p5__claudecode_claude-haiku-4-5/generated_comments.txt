@@ -1,0 +1,1 @@
+Add configured jitter_seconds as a deterministic positive offset to the base backoff value.

@@ -1,0 +1,1 @@
+Add configured jitter_seconds as deterministic positive offset to base delay, ensuring strictly greater output when jitter > 0 and full test repeatability.

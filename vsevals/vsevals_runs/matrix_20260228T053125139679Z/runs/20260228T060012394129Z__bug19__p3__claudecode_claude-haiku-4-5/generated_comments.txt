@@ -1,0 +1,1 @@
+Replace N+1 loop with single set-based query using IN-clause batch fetch as per db_patterns guiding principle.

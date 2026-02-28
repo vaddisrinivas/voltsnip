@@ -1,0 +1,1 @@
+Inverted the gate condition from `allow_request()` to `not allow_request()` so the circuit error is only raised when requests should be blocked.

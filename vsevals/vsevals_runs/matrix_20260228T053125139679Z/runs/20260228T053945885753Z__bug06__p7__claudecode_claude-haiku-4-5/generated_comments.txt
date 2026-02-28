@@ -1,0 +1,1 @@
+Remove POST from default retryable methods; only idempotent methods (GET, HEAD, PUT, DELETE, OPTIONS) should be retried.

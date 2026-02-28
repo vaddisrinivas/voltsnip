@@ -1,0 +1,1 @@
+Move commit to after yield and add rollback on exception to follow DB session pattern (commit after work, rollback on error).

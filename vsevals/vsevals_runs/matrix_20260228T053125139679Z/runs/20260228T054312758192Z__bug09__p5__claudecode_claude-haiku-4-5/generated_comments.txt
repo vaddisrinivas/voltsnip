@@ -1,0 +1,1 @@
+Fixed exception-to-status mapping: TimeoutError now maps to 504 (Gateway Timeout) and ValueError maps to 422 (Unprocessable Entity) per HTTP semantics.

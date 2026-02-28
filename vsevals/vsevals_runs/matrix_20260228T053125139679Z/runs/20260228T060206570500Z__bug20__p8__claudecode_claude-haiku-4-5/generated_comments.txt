@@ -1,0 +1,1 @@
+Replace global mutable state with contextvars.ContextVar for per-task request id isolation under concurrent execution.

@@ -1,0 +1,1 @@
+Replace raw exception text with sanitized exception class name to prevent leaking sensitive error details to clients.

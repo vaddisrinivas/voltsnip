@@ -1,0 +1,1 @@
+Fixed inverted TTL expiry condition: changed < to >= so expired entries are recomputed instead of returning stale values.

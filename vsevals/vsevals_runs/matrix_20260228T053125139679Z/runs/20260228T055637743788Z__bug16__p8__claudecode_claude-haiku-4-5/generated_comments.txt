@@ -1,0 +1,1 @@
+Replace pass with session.close() to ensure the session is always closed after use, preventing resource leaks.

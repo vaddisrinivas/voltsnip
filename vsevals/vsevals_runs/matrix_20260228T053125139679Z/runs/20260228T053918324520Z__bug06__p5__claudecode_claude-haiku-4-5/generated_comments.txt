@@ -1,0 +1,1 @@
+Removed | {"POST"} from retryable_methods to exclude non-idempotent POST from default retry policy.

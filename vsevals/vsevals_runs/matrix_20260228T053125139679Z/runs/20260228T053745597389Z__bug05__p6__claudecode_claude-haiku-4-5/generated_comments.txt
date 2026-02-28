@@ -1,0 +1,1 @@
+Fix timeout forwarding to apply consistently to all HTTP methods, not just GET.

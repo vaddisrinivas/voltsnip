@@ -1,0 +1,1 @@
+Fixed BUG_15: use passed level parameter in payload and route logger method dynamically based on level.

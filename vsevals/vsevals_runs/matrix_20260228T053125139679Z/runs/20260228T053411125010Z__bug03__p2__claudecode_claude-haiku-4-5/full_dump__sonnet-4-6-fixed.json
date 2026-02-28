@@ -1,0 +1,212 @@
+{
+  "run_id": "20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG03",
+  "task_name": "http_backoff_exponential",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "easy",
+  "task_line_start": 8,
+  "task_line_end": 23,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+    "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\\n\\n    def compute_sleep(self, attempt: int) -> float:\\n        base = self.backoff_seconds * (2 ** (attempt - 1))\\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\",\n  \"comments\": \"Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)).\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\\n\\n    def compute_sleep(self, attempt: int) -> float:\\n        base = self.backoff_seconds * (2 ** (attempt - 1))\\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\",\n  \"comments\": \"Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)).\"\n}\n```",
+  "parsed_output": {
+    "code": "@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * (2 ** (attempt - 1))\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.",
+    "comments": "Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1))."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:34:11.125185Z",
+    "finished_at": "2026-02-28T05:34:52.937872Z",
+    "latency_ms": 41812
+  },
+  "summary_metrics": {
+    "latency_ms": 41812,
+    "prompt_chars": 3964,
+    "output_chars": 881,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 2831,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 41793,
+    "model_request_started_at": "2026-02-28T05:34:11.144030Z",
+    "model_request_finished_at": "2026-02-28T05:34:52.937775Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10373,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053411125010Z__bug03__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug03_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug03_failure_absent",
+        "passed": true,
+        "llm_verdict": false,
+        "judge_reason": "The implementation uses exponential backoff (`backoff_seconds * (2 ** (attempt - 1))`), not linear backoff; the candidate comment explicitly states the formula was changed from linear to exponential.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2233,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

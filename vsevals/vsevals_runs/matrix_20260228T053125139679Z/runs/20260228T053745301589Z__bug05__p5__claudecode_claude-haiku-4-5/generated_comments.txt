@@ -1,0 +1,1 @@
+Timeout is now forwarded consistently to all HTTP methods by removing the GET-only condition.

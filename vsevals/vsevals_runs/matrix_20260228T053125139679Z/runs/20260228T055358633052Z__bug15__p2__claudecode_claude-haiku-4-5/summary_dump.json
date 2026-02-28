@@ -1,0 +1,110 @@
+{
+  "run_id": "20260228T055358633052Z__bug15__p2__claudecode_claude-haiku-4-5",
+  "task_id": "BUG15",
+  "task_name": "logging_level_routing",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 22008,
+    "prompt_chars": 4403,
+    "output_chars": 939,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 3270,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 21980,
+    "model_request_started_at": "2026-02-28T05:53:58.661601Z",
+    "model_request_finished_at": "2026-02-28T05:54:20.641999Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 13271,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug15_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug15_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug15_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug15_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug15_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug15_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "The logger method is chosen from the provided level (level.lower()), so non-INFO levels can be used; logs are not forcibly emitted at INFO only.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/logging_privacy/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2165,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

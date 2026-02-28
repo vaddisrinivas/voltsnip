@@ -1,0 +1,1 @@
+Added request_id retrieval via get_request_id() and conditional inclusion in payload to fix BUG14 propagation issue.

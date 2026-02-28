@@ -1,0 +1,1 @@
+Replace non-JSON-serializable Exception object with empty dict to ensure error details payload is JSON serializable.

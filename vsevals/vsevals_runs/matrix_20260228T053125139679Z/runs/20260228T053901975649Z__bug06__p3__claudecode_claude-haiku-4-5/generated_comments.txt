@@ -1,0 +1,1 @@
+Removed POST from default retryable methods to prevent retrying non-idempotent requests.

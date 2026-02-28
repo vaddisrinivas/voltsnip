@@ -1,0 +1,1 @@
+Changed backoff formula from linear multiplication to exponential (power) operator to implement proper exponential backoff.

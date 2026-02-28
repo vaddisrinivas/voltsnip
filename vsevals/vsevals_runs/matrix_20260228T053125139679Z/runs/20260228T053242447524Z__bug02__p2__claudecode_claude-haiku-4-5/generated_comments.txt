@@ -1,0 +1,1 @@
+Add configured jitter_seconds as deterministic additive offset to computed backoff value.

@@ -1,0 +1,1 @@
+Add session.rollback() in exception handler to properly rollback failed transactions before re-raising.

@@ -1,0 +1,1 @@
+Convert non-serializable Exception object to JSON-serializable dict with type and message.

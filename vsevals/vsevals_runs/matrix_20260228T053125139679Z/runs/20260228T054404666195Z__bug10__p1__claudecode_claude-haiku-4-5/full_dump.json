@@ -1,0 +1,184 @@
+{
+  "run_id": "20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG10",
+  "task_name": "errors_message_sanitization",
+  "variant_id": "P1",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "error_contracts",
+  "task_difficulty": "medium",
+  "task_line_start": 7,
+  "task_line_end": 20,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+    "voltsnip/bug22/category/error_contracts/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG10\nTask Name: errors_message_sanitization\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix error message sanitization to avoid raw exception leakage.\n\nTarget File: orgops/errors/mapping.py\n\nTarget Lines:\n7-20 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 7-20 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_error_contracts.py -k bug_10\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom orgops.errors.schema import ErrorSchema\n\n\n\ndef map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\n    if isinstance(exc, TimeoutError):\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\n    elif isinstance(exc, ValueError):\n        status = 500  # BUG_09: validation errors should map to 4xx.\n    else:\n        status = 400\n\n    schema = ErrorSchema(\n        code=exc.__class__.__name__,\n        message=str(exc),  # BUG_10: leaks raw exception text to clients.\n        details={\"exception\": exc},  # BUG_11: embeds non-JSON-serializable objects.\n    )\n    return status, schema\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom orgops.errors.schema import ErrorSchema\n\n\n\ndef map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\n    if isinstance(exc, TimeoutError):\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\n    elif isinstance(exc, ValueError):\n        status = 500  # BUG_09: validation errors should map to 4xx.\n    else:\n        status = 400\n\n    schema = ErrorSchema(\n        code=exc.__class__.__name__,\n        message=str(exc),  # BUG_10: leaks raw exception text to clients.\n        details={\"exception\": exc},  # BUG_11: embeds non-JSON-serializable objects.\n    )\n    return status, schema\n```\n\nExpected Output:\nClient message does not leak sensitive raw exception text.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit instruction (no memory, no tools)\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG10\nTask Name: errors_message_sanitization\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix error message sanitization to avoid raw exception leakage.\n\nTarget File: orgops/errors/mapping.py\n\nTarget Lines:\n7-20 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 7-20 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_error_contracts.py -k bug_10\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom orgops.errors.schema import ErrorSchema\n\n\n\ndef map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\n    if isinstance(exc, TimeoutError):\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\n    elif isinstance(exc, ValueError):\n        status = 500  # BUG_09: validation errors should map to 4xx.\n    else:\n        status = 400\n\n    schema = ErrorSchema(\n        code=exc.__class__.__name__,\n        message=str(exc),  # BUG_10: leaks raw exception text to clients.\n        details={\"exception\": exc},  # BUG_11: embeds non-JSON-serializable objects.\n    )\n    return status, schema\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom orgops.errors.schema import ErrorSchema\n\n\n\ndef map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\n    if isinstance(exc, TimeoutError):\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\n    elif isinstance(exc, ValueError):\n        status = 500  # BUG_09: validation errors should map to 4xx.\n    else:\n        status = 400\n\n    schema = ErrorSchema(\n        code=exc.__class__.__name__,\n        message=str(exc),  # BUG_10: leaks raw exception text to clients.\n        details={\"exception\": exc},  # BUG_11: embeds non-JSON-serializable objects.\n    )\n    return status, schema\n```\n\nExpected Output:\nClient message does not leak sensitive raw exception text.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit instruction (no memory, no tools)\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"def map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\\n    if isinstance(exc, TimeoutError):\\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\\n    elif isinstance(exc, ValueError):\\n        status = 500  # BUG_09: validation errors should map to 4xx.\\n    else:\\n        status = 400\\n\\n    schema = ErrorSchema(\\n        code=exc.__class__.__name__,\\n        message=\\\"An error occurred\\\",\\n        details={\\\"exception\\\": exc},  # BUG_11: embeds non-JSON-serializable objects.\\n    )\\n    return status, schema\",\n  \"comments\": \"Replaced raw exception string with generic sanitized message to prevent leaking sensitive information to clients.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"def map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\\n    if isinstance(exc, TimeoutError):\\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\\n    elif isinstance(exc, ValueError):\\n        status = 500  # BUG_09: validation errors should map to 4xx.\\n    else:\\n        status = 400\\n\\n    schema = ErrorSchema(\\n        code=exc.__class__.__name__,\\n        message=\\\"An error occurred\\\",\\n        details={\\\"exception\\\": exc},  # BUG_11: embeds non-JSON-serializable objects.\\n    )\\n    return status, schema\",\n  \"comments\": \"Replaced raw exception string with generic sanitized message to prevent leaking sensitive information to clients.\"\n}\n```",
+  "parsed_output": {
+    "code": "def map_exception(exc: Exception) -> tuple[int, ErrorSchema]:\n    if isinstance(exc, TimeoutError):\n        status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.\n    elif isinstance(exc, ValueError):\n        status = 500  # BUG_09: validation errors should map to 4xx.\n    else:\n        status = 400\n\n    schema = ErrorSchema(\n        code=exc.__class__.__name__,\n        message=\"An error occurred\",\n        details={\"exception\": exc},  # BUG_11: embeds non-JSON-serializable objects.\n    )\n    return status, schema",
+    "comments": "Replaced raw exception string with generic sanitized message to prevent leaking sensitive information to clients."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:44:04.666386Z",
+    "finished_at": "2026-02-28T05:44:25.967271Z",
+    "latency_ms": 21300
+  },
+  "summary_metrics": {
+    "latency_ms": 21300,
+    "prompt_chars": 3694,
+    "output_chars": 721,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 2644,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 21300,
+    "model_request_started_at": "2026-02-28T05:44:04.666768Z",
+    "model_request_finished_at": "2026-02-28T05:44:25.967216Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6308,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054404666195Z__bug10__p1__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug10_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug10_failure_absent",
+        "passed": true,
+        "llm_verdict": false,
+        "judge_reason": "Fails the constraint: it embeds the raw exception object in details, which can leak internal information and is not guaranteed to be JSON-serializable, allowing potential leakage of raw error text to clients.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2148,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

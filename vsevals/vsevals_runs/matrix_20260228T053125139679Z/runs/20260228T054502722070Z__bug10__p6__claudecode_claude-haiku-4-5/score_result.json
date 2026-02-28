@@ -1,0 +1,45 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug10_failure_absent"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug10_failure_absent",
+      "passed": true,
+      "llm_verdict": false,
+      "judge_reason": "The code embeds the raw exception object in details (details={\"exception\": exc}), which can leak internal error information to clients, failing the raw exception text leakage constraint.",
+      "expected": false,
+      "voltsnip_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1"
+    }
+  ],
+  "passed": true
+}

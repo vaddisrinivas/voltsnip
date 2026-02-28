@@ -1,0 +1,1 @@
+Move commit to after yield so it executes only after successful work completes, not before the unit of work.

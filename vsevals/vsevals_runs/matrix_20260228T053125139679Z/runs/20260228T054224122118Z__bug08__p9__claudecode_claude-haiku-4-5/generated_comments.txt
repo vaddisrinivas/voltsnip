@@ -1,0 +1,1 @@
+Fix serialized error schema keys: use consistent 'code' key instead of 'error_code', and include required 'trace_id' in payload.

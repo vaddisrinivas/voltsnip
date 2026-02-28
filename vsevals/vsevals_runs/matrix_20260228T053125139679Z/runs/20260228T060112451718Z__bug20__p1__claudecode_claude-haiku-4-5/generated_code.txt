@@ -1,0 +1,12 @@
+from __future__ import annotations
+
+import threading
+
+_context = threading.local()
+
+def set_request_id(request_id: str | None) -> None:
+    _context.request_id = request_id
+
+
+def get_request_id() -> str | None:
+    return getattr(_context, 'request_id', None)

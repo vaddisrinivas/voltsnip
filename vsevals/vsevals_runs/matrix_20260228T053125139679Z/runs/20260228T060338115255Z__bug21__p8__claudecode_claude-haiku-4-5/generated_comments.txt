@@ -1,0 +1,1 @@
+Fixed BUG_21 by inverting the expiry condition from < to >= so valid (non-expired) entries are returned and stale entries are recomputed.

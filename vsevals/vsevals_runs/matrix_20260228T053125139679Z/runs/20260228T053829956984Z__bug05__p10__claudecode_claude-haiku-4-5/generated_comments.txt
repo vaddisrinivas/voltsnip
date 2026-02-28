@@ -1,0 +1,1 @@
+BUG_05: Forward timeout to all HTTP methods, not just GET, per org http_resilience guiding principle.

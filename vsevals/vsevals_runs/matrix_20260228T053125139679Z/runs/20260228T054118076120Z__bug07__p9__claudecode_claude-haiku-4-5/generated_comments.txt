@@ -1,0 +1,1 @@
+Fixed inverted logic: raise CircuitOpenError when circuit breaker explicitly does NOT allow requests, enabling closed circuits to pass requests through.

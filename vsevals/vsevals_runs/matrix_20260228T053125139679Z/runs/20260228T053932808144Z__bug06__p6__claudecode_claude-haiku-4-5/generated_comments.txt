@@ -1,0 +1,1 @@
+Removed POST from default retryable methods since POST is not idempotent and should not be retried automatically.

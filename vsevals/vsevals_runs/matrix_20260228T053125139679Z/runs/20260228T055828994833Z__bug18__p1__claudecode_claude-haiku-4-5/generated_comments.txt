@@ -1,0 +1,1 @@
+Move session.commit() to after yield to commit only after successful work completion.

@@ -1,0 +1,1 @@
+Inverted the gate condition by adding `not` to raise CircuitOpenError only when the circuit breaker disallows requests, fixing the inverted logic.

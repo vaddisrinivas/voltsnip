@@ -1,0 +1,1 @@
+Convert exception object to string in details dict for JSON serialization.

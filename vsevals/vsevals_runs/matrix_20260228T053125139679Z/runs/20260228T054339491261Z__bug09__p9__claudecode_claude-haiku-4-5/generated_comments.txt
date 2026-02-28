@@ -1,0 +1,1 @@
+Fixed BUG09: TimeoutError now maps to 504 (Gateway Timeout, 5xx) and ValueError now maps to 422 (Unprocessable Entity, 4xx validation error).

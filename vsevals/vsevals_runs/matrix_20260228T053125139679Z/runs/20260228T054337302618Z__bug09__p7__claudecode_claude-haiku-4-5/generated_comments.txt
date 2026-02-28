@@ -1,0 +1,1 @@
+Map TimeoutError to 504 Gateway Timeout and ValueError to 422 Unprocessable Entity per error contracts specification.

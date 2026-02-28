@@ -1,0 +1,1 @@
+Use level parameter in build_payload and route logger method dynamically based on requested level

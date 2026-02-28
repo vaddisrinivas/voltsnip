@@ -1,0 +1,45 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "deterministic_backoff"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "deterministic_backoff",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "Yes—the backoff is deterministic (depends only on the attempt) and it adds the configured jitter_seconds, so the jitter value is reflected.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+    }
+  ],
+  "passed": true
+}

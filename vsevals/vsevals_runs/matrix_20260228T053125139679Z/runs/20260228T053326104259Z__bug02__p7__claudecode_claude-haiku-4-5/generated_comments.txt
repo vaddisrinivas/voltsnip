@@ -1,0 +1,1 @@
+Apply jitter as deterministic positive additive offset to base backoff.

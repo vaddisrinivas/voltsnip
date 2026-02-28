@@ -1,0 +1,1 @@
+Replace global mutable state with contextvars.ContextVar for thread-safe and async-safe per-request ID isolation.

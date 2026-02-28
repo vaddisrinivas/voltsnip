@@ -1,0 +1,1 @@
+Fixed inconsistent key naming (error_code→code) and added missing trace_id field to serialized payload.

@@ -1,0 +1,102 @@
+{
+  "run_id": "20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG02",
+  "task_name": "http_backoff_uses_jitter",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 15917,
+    "prompt_chars": 3877,
+    "output_chars": 987,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 2827,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 15916,
+    "model_request_started_at": "2026-02-28T05:33:11.822033Z",
+    "model_request_finished_at": "2026-02-28T05:33:27.738683Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5651,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "deterministic_backoff"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "deterministic_backoff",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "Yes—the computed sleep is deterministic and it incorporates the configured jitter_seconds as a fixed offset.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 4,
+    "passed": false,
+    "stdout": "",
+    "stderr": "ImportError while loading conftest '/workspace/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from service.app import create_app\nservice/app.py:7: in <module>\n    from service.app_http import make_http_client\nservice/app_http.py:5: in <module>\n    from orgops.http import OrgHTTPClient, RetryPolicy\norgops/http/__init__.py:2: in <module>\n    from .org_http_client import OrgHTTPClient\norgops/http/org_http_client.py:9: in <module>\n    from .request_config import resolve_request_config\norgops/http/request_config.py:3: in <module>\n    from .retry_policy import RetryPolicy\nE     File \"/workspace/orgops/http/retry_policy.py\", line 8\nE       @dataclass\nE   IndentationError: unexpected indent\n",
+    "duration_ms": 1375,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Added `not` operator to invert gate condition: raise error only when circuit breaker rejects request.

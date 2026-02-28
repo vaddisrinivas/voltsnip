@@ -1,0 +1,10 @@
+@contextmanager
+def session_scope(session_factory: Callable[[], Any]) -> Iterator[Any]:
+    session = session_factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        raise
+    finally:
+        pass  # BUG_16: session not closed.

@@ -1,0 +1,1 @@
+Exclude non-retryable 4xx status codes (400, 401, 403, 404, 422) from default retryable set per HTTP resilience guiding principle.

@@ -1,0 +1,187 @@
+{
+  "run_id": "20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG02",
+  "task_name": "http_backoff_uses_jitter",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_agents_md",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "http_resilience",
+  "task_difficulty": "easy",
+  "task_line_start": 8,
+  "task_line_end": 23,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+    "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG02\nTask Name: http_backoff_uses_jitter\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\nDo not add randomness; jitter must be deterministic for repeatable tests.\n\nTask Description:\nFix sleep computation to apply configured jitter deterministically as a positive additive offset.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_02\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff output is deterministic and strictly greater than base when jitter_seconds > 0.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nskills.md + agents.md combined, no live tools",
+    "context_surface": "skills_agents_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (0 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- none\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer.",
+      "SKILL.md": "# VoltSnip Skill — HTTP Resilience Bug-Fix Memory\n\nYou are fixing an **http_resilience** bug: retry logic, exponential backoff, jitter, circuit\nbreakers, or idempotency handling.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## HTTP Resilience Retrieval Guidance\n\n**What to look for:** retry decorators, backoff schedules with jitter, idempotency key propagation,\nstatus-code retry sets (5xx + 429 + 408), circuit-breaker open/half-open transitions.\n\n**Targeted search queries:**\n- `\"retry exponential backoff jitter idempotent\"`\n- `\"circuit breaker timeout half-open\"`\n- `\"retry on 429 503 408 status code\"`\n- `\"requests session retry adapter max attempts\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Snippet Keys for This Task\n\n0 canonical snippet(s) identified for this task:\n\n- none\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused HTTP resilience query.\n3. Apply the retrieved retry/backoff pattern directly — adapt only variable/class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "AGENTS.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (0 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- none\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer."
+    }
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG02\nTask Name: http_backoff_uses_jitter\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\nDo not add randomness; jitter must be deterministic for repeatable tests.\n\nTask Description:\nFix sleep computation to apply configured jitter deterministically as a positive additive offset.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_02\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff output is deterministic and strictly greater than base when jitter_seconds > 0.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nskills.md + agents.md combined, no live tools"
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    @dataclass\\n    class RetryPolicy:\\n        max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n        backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n        jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n        retryable_status_codes: set[int] = field(\\n            default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n        )\\n        retryable_methods: set[str] = field(\\n            default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n            | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n        )\\n\\n        def compute_sleep(self, attempt: int) -> float:\\n            base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\\n            return base + self.jitter_seconds  # BUG_02: jitter_seconds configured but not added to sleep.\", \"comments\": \"Add jitter_seconds as a deterministic positive offset to the computed sleep time.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    @dataclass\\n    class RetryPolicy:\\n        max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n        backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n        jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n        retryable_status_codes: set[int] = field(\\n            default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n        )\\n        retryable_methods: set[str] = field(\\n            default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n            | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n        )\\n\\n        def compute_sleep(self, attempt: int) -> float:\\n            base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\\n            return base + self.jitter_seconds  # BUG_02: jitter_seconds configured but not added to sleep.\", \"comments\": \"Add jitter_seconds as a deterministic positive offset to the computed sleep time.\"}\n```",
+  "parsed_output": {
+    "code": "    @dataclass\n    class RetryPolicy:\n        max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n        backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n        jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n        retryable_status_codes: set[int] = field(\n            default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n        )\n        retryable_methods: set[str] = field(\n            default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n            | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n        )\n\n        def compute_sleep(self, attempt: int) -> float:\n            base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n            return base + self.jitter_seconds  # BUG_02: jitter_seconds configured but not added to sleep.",
+    "comments": "Add jitter_seconds as a deterministic positive offset to the computed sleep time."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:33:11.821531Z",
+    "finished_at": "2026-02-28T05:33:27.738758Z",
+    "latency_ms": 15917
+  },
+  "summary_metrics": {
+    "latency_ms": 15917,
+    "prompt_chars": 3877,
+    "output_chars": 987,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 2827,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 15916,
+    "model_request_started_at": "2026-02-28T05:33:11.822033Z",
+    "model_request_finished_at": "2026-02-28T05:33:27.738683Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5651,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053311821328Z__bug02__p6__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "deterministic_backoff"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "deterministic_backoff",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "Yes—the computed sleep is deterministic and it incorporates the configured jitter_seconds as a fixed offset.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 4,
+    "passed": false,
+    "stdout": "",
+    "stderr": "ImportError while loading conftest '/workspace/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from service.app import create_app\nservice/app.py:7: in <module>\n    from service.app_http import make_http_client\nservice/app_http.py:5: in <module>\n    from orgops.http import OrgHTTPClient, RetryPolicy\norgops/http/__init__.py:2: in <module>\n    from .org_http_client import OrgHTTPClient\norgops/http/org_http_client.py:9: in <module>\n    from .request_config import resolve_request_config\norgops/http/request_config.py:3: in <module>\n    from .retry_policy import RetryPolicy\nE     File \"/workspace/orgops/http/retry_policy.py\", line 8\nE       @dataclass\nE   IndentationError: unexpected indent\n",
+    "duration_ms": 1375,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

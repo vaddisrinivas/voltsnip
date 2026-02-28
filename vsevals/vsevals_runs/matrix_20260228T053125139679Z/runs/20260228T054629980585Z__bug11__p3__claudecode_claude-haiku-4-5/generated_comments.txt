@@ -1,0 +1,1 @@
+Convert non-serializable exception object in details to canonical exception_type string key per error contracts.

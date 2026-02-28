@@ -1,0 +1,1 @@
+Fixed BUG_15: Use requested log level in payload instead of hardcoding INFO, and route to appropriate logger method based on level.

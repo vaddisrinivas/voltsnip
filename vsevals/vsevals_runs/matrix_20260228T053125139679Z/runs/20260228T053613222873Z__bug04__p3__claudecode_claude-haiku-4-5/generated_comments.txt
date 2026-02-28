@@ -1,0 +1,1 @@
+Honor per-request max_attempts override by checking if provided before falling back to retry_policy default.

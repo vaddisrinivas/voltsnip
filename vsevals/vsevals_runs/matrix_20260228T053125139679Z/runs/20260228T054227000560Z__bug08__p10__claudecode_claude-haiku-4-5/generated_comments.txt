@@ -1,0 +1,1 @@
+Fixed schema serialization: changed legacy 'error_code' key to canonical 'code' and added missing 'trace_id' to the returned dict, ensuring consistent and complete error response contract.

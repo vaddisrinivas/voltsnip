@@ -1,0 +1,1 @@
+Moved commit after yield to occur after work completes, added rollback on exception, and close session in finally block.

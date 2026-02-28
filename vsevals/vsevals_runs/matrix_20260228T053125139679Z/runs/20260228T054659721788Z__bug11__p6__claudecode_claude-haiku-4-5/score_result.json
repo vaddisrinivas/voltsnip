@@ -1,0 +1,53 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug11_failure_absent"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug11_failure_absent"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug11_failure_absent"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug11_failure_absent"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug11_failure_absent"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug11_failure_absent",
+      "passed": false,
+      "llm_verdict": true,
+      "judge_reason": "The implementation uses details as an empty dict, which is JSON-serializable, so it does not retain non-serializable details.",
+      "expected": false,
+      "voltsnip_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1"
+    }
+  ],
+  "passed": false
+}

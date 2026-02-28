@@ -1,0 +1,1 @@
+Added session.rollback() in the except block to properly rollback on exception.

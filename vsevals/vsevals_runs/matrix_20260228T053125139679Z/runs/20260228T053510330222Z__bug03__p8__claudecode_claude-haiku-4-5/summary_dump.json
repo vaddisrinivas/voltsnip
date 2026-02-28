@@ -1,0 +1,110 @@
+{
+  "run_id": "20260228T053510330222Z__bug03__p8__claudecode_claude-haiku-4-5",
+  "task_id": "BUG03",
+  "task_name": "http_backoff_exponential",
+  "variant_id": "P8",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 32602,
+    "prompt_chars": 4041,
+    "output_chars": 1271,
+    "prompt_system_chars": 1195,
+    "prompt_user_chars": 2846,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 32583,
+    "model_request_started_at": "2026-02-28T05:35:10.348934Z",
+    "model_request_finished_at": "2026-02-28T05:35:42.932760Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10131,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug03_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug03_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "No; compute_sleep uses exponential backoff (2 ** (attempt - 1)) instead of linear, so the linear-backoff failure mode is not present.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 4,
+    "passed": false,
+    "stdout": "",
+    "stderr": "ImportError while loading conftest '/workspace/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from service.app import create_app\nservice/app.py:7: in <module>\n    from service.app_http import make_http_client\nservice/app_http.py:5: in <module>\n    from orgops.http import OrgHTTPClient, RetryPolicy\norgops/http/__init__.py:2: in <module>\n    from .org_http_client import OrgHTTPClient\norgops/http/org_http_client.py:9: in <module>\n    from .request_config import resolve_request_config\norgops/http/request_config.py:3: in <module>\n    from .retry_policy import RetryPolicy\nE     File \"/workspace/orgops/http/retry_policy.py\", line 8\nE       @dataclass\nE   IndentationError: unexpected indent\n",
+    "duration_ms": 1356,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

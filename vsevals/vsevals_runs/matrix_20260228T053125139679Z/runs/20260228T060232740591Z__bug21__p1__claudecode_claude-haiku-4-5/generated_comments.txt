@@ -1,0 +1,1 @@
+Fixed BUG_21: inverted TTL expiry condition from < to >= so stale entries are recomputed instead of returned.

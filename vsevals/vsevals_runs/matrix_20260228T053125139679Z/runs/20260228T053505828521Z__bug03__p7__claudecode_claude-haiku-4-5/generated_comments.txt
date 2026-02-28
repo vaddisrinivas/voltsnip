@@ -1,0 +1,1 @@
+Fix BUG_03: apply exponential backoff formula backoff_seconds * 2^(attempt-1) instead of linear multiplication.

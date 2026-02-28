@@ -1,0 +1,1 @@
+Fix: per-key locking (threading.Lock) prevents concurrent builder executions on cache miss; correct TTL check from < to > for fresh entries.

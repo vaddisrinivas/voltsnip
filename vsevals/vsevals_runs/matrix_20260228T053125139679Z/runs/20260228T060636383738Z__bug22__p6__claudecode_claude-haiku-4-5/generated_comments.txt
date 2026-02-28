@@ -1,0 +1,1 @@
+Added per-key threading.Lock with atomic setdefault to prevent cache stampede; fixed BUG_21 by correcting TTL comparison from < to > to prevent returning stale values

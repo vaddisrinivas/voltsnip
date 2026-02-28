@@ -1,0 +1,53 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug19_failure_absent"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug19_failure_absent"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug19_failure_absent"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug19_failure_absent"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug19_failure_absent"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug19_failure_absent",
+      "passed": false,
+      "llm_verdict": true,
+      "judge_reason": "The implementation uses a single query with an IN clause, eliminating the N+1 query pattern.",
+      "expected": false,
+      "voltsnip_key": "voltsnip/bug22/category/db_patterns/guiding_principle/v1"
+    }
+  ],
+  "passed": false
+}

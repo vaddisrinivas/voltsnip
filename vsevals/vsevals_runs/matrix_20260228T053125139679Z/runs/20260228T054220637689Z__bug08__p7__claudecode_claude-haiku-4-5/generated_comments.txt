@@ -1,0 +1,1 @@
+Fix inconsistent key naming (error_code→code) and add required trace_id field to serialized error payload.

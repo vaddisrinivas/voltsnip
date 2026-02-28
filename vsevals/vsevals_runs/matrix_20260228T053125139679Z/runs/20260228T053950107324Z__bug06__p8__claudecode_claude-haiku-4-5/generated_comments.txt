@@ -1,0 +1,1 @@
+Remove POST from retryable_methods default set—POST is non-idempotent and must not be retried automatically.

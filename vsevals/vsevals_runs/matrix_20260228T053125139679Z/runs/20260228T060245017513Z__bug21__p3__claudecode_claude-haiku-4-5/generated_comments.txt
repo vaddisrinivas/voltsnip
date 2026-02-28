@@ -1,0 +1,1 @@
+Changed expiry check from < to > so expired entries (now >= expires_at) trigger rebuild instead of returning stale value.

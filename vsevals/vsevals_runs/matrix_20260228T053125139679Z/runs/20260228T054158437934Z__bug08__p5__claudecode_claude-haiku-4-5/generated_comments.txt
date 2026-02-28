@@ -1,0 +1,1 @@
+Standardize error schema serialization keys from 'error_code' to 'code' and include trace_id in the payload.

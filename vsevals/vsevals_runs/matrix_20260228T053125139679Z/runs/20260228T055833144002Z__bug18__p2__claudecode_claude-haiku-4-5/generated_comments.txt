@@ -1,0 +1,1 @@
+Moved session.commit() to after yield so commit happens after unit of work completes, not before.

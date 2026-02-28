@@ -1,0 +1,220 @@
+{
+  "run_id": "20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG14",
+  "task_name": "logging_request_id_inclusion",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "medium",
+  "task_line_start": 13,
+  "task_line_end": 28,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/bug22/category/logging_privacy/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG14\nTask Name: logging_request_id_inclusion\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix request_id propagation into log payload.\n\nTarget File: orgops/logging/structured.py\n\nTarget Lines:\n13-28 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 13-28 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_logging_privacy.py -k bug_14\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nExpected Output:\nPayload includes request_id sourced from logging context when set via set_request_id().\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/bug22/category/logging_privacy/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG14\nTask Name: logging_request_id_inclusion\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix request_id propagation into log payload.\n\nTarget File: orgops/logging/structured.py\n\nTarget Lines:\n13-28 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 13-28 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_logging_privacy.py -k bug_14\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nExpected Output:\nPayload includes request_id sourced from logging context when set via set_request_id().\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/bug22/category/logging_privacy/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG14\nTask Name: logging_request_id_inclusion\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix request_id propagation into log payload.\n\nTarget File: orgops/logging/structured.py\n\nTarget Lines:\n13-28 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 13-28 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_logging_privacy.py -k bug_14\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nimport json\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom orgops.logging.context import get_request_id\nfrom orgops.logging.redaction import redact_fields\n\n\nMAX_LOG_BODY = 256\n\n\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    # BUG_14: request_id from context never propagated into payload.\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):\n        payload[\"response_body\"] = payload[\"response_body\"]  # BUG_13: full response body logged without truncation.\n    logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.\n```\n\nExpected Output:\nPayload includes request_id sourced from logging context when set via set_request_id().\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools only — raw tool use, zero guidance\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"\\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\\n    payload = {\\n        \\\"event\\\": event,\\n        \\\"level\\\": \\\"INFO\\\",  # BUG_15: ignores requested log level.\\n        \\\"ts\\\": datetime.now(timezone.utc).isoformat(),\\n    }\\n    sanitized = redact_fields(fields)\\n    payload.update(sanitized)\\n    request_id = get_request_id()\\n    if request_id:\\n        payload[\\\"request_id\\\"] = request_id\\n    return payload\\n\\n\\ndef log_event(logger: Any, event: str, level: str = \\\"INFO\\\", **fields: Any) -> None:\\n    payload = build_payload(event, level, **fields)\\n    if \\\"response_body\\\" in payload and isinstance(payload[\\\"response_body\\\"], str):\",\n  \"comments\": \"Added request_id retrieval via get_request_id() and conditional inclusion in payload to fix BUG14 propagation issue.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"\\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\\n    payload = {\\n        \\\"event\\\": event,\\n        \\\"level\\\": \\\"INFO\\\",  # BUG_15: ignores requested log level.\\n        \\\"ts\\\": datetime.now(timezone.utc).isoformat(),\\n    }\\n    sanitized = redact_fields(fields)\\n    payload.update(sanitized)\\n    request_id = get_request_id()\\n    if request_id:\\n        payload[\\\"request_id\\\"] = request_id\\n    return payload\\n\\n\\ndef log_event(logger: Any, event: str, level: str = \\\"INFO\\\", **fields: Any) -> None:\\n    payload = build_payload(event, level, **fields)\\n    if \\\"response_body\\\" in payload and isinstance(payload[\\\"response_body\\\"], str):\",\n  \"comments\": \"Added request_id retrieval via get_request_id() and conditional inclusion in payload to fix BUG14 propagation issue.\"\n}\n```",
+  "parsed_output": {
+    "code": "\ndef build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:\n    payload = {\n        \"event\": event,\n        \"level\": \"INFO\",  # BUG_15: ignores requested log level.\n        \"ts\": datetime.now(timezone.utc).isoformat(),\n    }\n    sanitized = redact_fields(fields)\n    payload.update(sanitized)\n    request_id = get_request_id()\n    if request_id:\n        payload[\"request_id\"] = request_id\n    return payload\n\n\ndef log_event(logger: Any, event: str, level: str = \"INFO\", **fields: Any) -> None:\n    payload = build_payload(event, level, **fields)\n    if \"response_body\" in payload and isinstance(payload[\"response_body\"], str):",
+    "comments": "Added request_id retrieval via get_request_id() and conditional inclusion in payload to fix BUG14 propagation issue."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:51:33.900232Z",
+    "finished_at": "2026-02-28T05:52:08.214352Z",
+    "latency_ms": 34313
+  },
+  "summary_metrics": {
+    "latency_ms": 34313,
+    "prompt_chars": 4435,
+    "output_chars": 838,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 3302,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 34294,
+    "model_request_started_at": "2026-02-28T05:51:33.919516Z",
+    "model_request_finished_at": "2026-02-28T05:52:08.214175Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10940,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T055133900044Z__bug14__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug14_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug14_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug14_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "build_payload calls get_request_id() and conditionally adds payload['request_id'] when present, ensuring request IDs are included in logs rather than always missing.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/logging_privacy/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2123,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

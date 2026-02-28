@@ -1,0 +1,1 @@
+Fixed inverted circuit breaker gate condition by adding 'not' operator to allow_request() check, which now correctly raises error only when circuit is actually open.

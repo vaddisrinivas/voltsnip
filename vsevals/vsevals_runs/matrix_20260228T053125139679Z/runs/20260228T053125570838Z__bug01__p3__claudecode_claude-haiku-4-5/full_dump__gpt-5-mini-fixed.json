@@ -1,0 +1,218 @@
+{
+  "run_id": "20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG01",
+  "task_name": "http_no_retry_on_non_retryable_4xx",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "easy",
+  "task_line_start": 8,
+  "task_line_end": 19,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+    "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/bug22/category/http_resilience/guiding_principle/v1\nTitle: BUG22 http_resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Safety\n- Only retry on idempotent HTTP methods (GET, HEAD, PUT, DELETE, OPTIONS) by default.\n- Never retry POST or PATCH without explicit opt-in; they are not idempotent.\n- Only retry on transient status codes: 408, 429, 500, 502, 503, 504.\n- Never retry on client errors (4xx) that indicate a permanent problem (e.g. 400, 401, 403, 404, 422).\n\n## Backoff Semantics\n- Use exponential backoff: delay = backoff_seconds * 2^(attempt-1).\n- Add a deterministic positive jitter offset to avoid thundering-herd.\n- Cap maximum delay to prevent unbounded growth.\n\n## Timeout Correctness\n- Forward caller-supplied timeout to all request methods, not just GET.\n- Apply per-request timeout overrides before falling back to retry-policy defaults.\n```\n\nSnippet 2: voltsnip/bug22/category/http_resilience/oracle_playbook/v2\nTitle: BUG22 http_resilience oracle playbook\nCode:\n```\n# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n\n```\n\nGuiding Snippet Keys:\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG01\nTask Name: http_no_retry_on_non_retryable_4xx\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix retryable status defaults to exclude non-retryable 4xx.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-19 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-19 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_01\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\n404 is not retried by default.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nMemory injected (implicit)\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "35394b52-6e64-4ac5-95bc-fa779c025d93",
+      "canonical_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "title": "BUG22 http_resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "http_resilience",
+        "guiding-principle",
+        "retry"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry safety, backoff semantics, and timeout correctness.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Safety\n- Only retry on idempotent HTTP methods (GET, HEAD, PUT, DELETE, OPTIONS) by default.\n- Never retry POST or PATCH without explicit opt-in; they are not idempotent.\n- Only retry on transient status codes: 408, 429, 500, 502, 503, 504.\n- Never retry on client errors (4xx) that indicate a permanent problem (e.g. 400, 401, 403, 404, 422).\n\n## Backoff Semantics\n- Use exponential backoff: delay = backoff_seconds * 2^(attempt-1).\n- Add a deterministic positive jitter offset to avoid thundering-herd.\n- Cap maximum delay to prevent unbounded growth.\n\n## Timeout Correctness\n- Forward caller-supplied timeout to all request methods, not just GET.\n- Apply per-request timeout overrides before falling back to retry-policy defaults.\n"
+    },
+    {
+      "id": "05c9c8bd-9acb-4cd5-b680-3238dcf7067f",
+      "canonical_key": "voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+      "title": "BUG22 http_resilience oracle playbook",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "http_resilience",
+        "oracle-playbook",
+        "retry"
+      ],
+      "description": "Generic oracle-aligned checklist for HTTP resilience tasks: idempotent retries, bounded backoff, and timeout correctness.",
+      "code": "# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/bug22/category/http_resilience/guiding_principle/v1\nTitle: BUG22 http_resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Safety\n- Only retry on idempotent HTTP methods (GET, HEAD, PUT, DELETE, OPTIONS) by default.\n- Never retry POST or PATCH without explicit opt-in; they are not idempotent.\n- Only retry on transient status codes: 408, 429, 500, 502, 503, 504.\n- Never retry on client errors (4xx) that indicate a permanent problem (e.g. 400, 401, 403, 404, 422).\n\n## Backoff Semantics\n- Use exponential backoff: delay = backoff_seconds * 2^(attempt-1).\n- Add a deterministic positive jitter offset to avoid thundering-herd.\n- Cap maximum delay to prevent unbounded growth.\n\n## Timeout Correctness\n- Forward caller-supplied timeout to all request methods, not just GET.\n- Apply per-request timeout overrides before falling back to retry-policy defaults.\n```\n\nSnippet 2: voltsnip/bug22/category/http_resilience/oracle_playbook/v2\nTitle: BUG22 http_resilience oracle playbook\nCode:\n```\n# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n\n```\n\nGuiding Snippet Keys:\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG01\nTask Name: http_no_retry_on_non_retryable_4xx\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix retryable status defaults to exclude non-retryable 4xx.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-19 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-19 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_01\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\n404 is not retried by default.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nMemory injected (implicit)\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\",\n  \"comments\": \"Exclude 404 from retryable status codes to prevent retrying permanent client errors.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\",\n  \"comments\": \"Exclude 404 from retryable status codes to prevent retrying permanent client errors.\"\n}\n```",
+  "parsed_output": {
+    "code": "@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )",
+    "comments": "Exclude 404 from retryable status codes to prevent retrying permanent client errors."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:31:25.571241Z",
+    "finished_at": "2026-02-28T05:31:58.376354Z",
+    "latency_ms": 32804
+  },
+  "summary_metrics": {
+    "latency_ms": 32804,
+    "prompt_chars": 5457,
+    "output_chars": 686,
+    "prompt_system_chars": 2953,
+    "prompt_user_chars": 2504,
+    "snippet_injected_chars": 1302,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 79,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 32652,
+    "model_request_started_at": "2026-02-28T05:31:25.723892Z",
+    "model_request_finished_at": "2026-02-28T05:31:58.376295Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7392,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053125570838Z__bug01__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "retry_404_policy"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "retry_404_policy",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The default retryable_status_codes uses set(...)-{404}, explicitly excluding 404 so it will not be retried by default.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2094,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

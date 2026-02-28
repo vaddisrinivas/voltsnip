@@ -1,0 +1,1 @@
+Fix HTTP status codes: TimeoutError→504, ValueError→422, unknown→500 per error semantics contract.

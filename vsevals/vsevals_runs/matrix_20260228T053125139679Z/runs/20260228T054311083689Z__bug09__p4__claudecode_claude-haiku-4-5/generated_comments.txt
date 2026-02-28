@@ -1,0 +1,1 @@
+TimeoutError now maps to 504 (gateway timeout) and ValueError to 422 (unprocessable entity/validation error).

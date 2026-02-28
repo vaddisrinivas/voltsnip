@@ -1,0 +1,1 @@
+Fixed TimeoutError to map to 504 Gateway Timeout and ValueError to map to 400 Bad Request.

@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from typing import Any, Mapping
+
+
+def redact_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
+    result = {}
+    sensitive_patterns = {'password', 'token', 'api_key', 'secret', 'credential', 'auth', 'bearer'}
+    for key, value in fields.items():
+        if any(pattern in key.lower() for pattern in sensitive_patterns):
+            result[key] = '***REDACTED***'
+        else:
+            result[key] = value
+    return result

@@ -1,0 +1,1 @@
+Remove method == 'GET' condition to apply timeout to all HTTP methods instead of only GET.

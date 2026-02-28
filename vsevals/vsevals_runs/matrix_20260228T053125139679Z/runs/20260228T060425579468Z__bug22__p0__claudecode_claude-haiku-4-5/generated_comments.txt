@@ -1,0 +1,1 @@
+Add per-key locking and double-check pattern to prevent cache stampede on concurrent misses.

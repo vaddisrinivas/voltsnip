@@ -1,0 +1,1 @@
+Remove GET-only restriction to apply timeout uniformly to all HTTP methods, per org resilience principle.

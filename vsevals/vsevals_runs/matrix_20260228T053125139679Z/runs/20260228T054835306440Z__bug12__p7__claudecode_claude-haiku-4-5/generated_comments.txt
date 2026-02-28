@@ -1,0 +1,1 @@
+Redact sensitive fields (password, token, api_key, authorization, secret) to exact literal ***REDACTED*** per org logging privacy principle.

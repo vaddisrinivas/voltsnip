@@ -1,0 +1,230 @@
+{
+  "run_id": "20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG03",
+  "task_name": "http_backoff_exponential",
+  "variant_id": "P9",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_agents_md",
+  "variant_max_tool_roundtrips": 8,
+  "task_category": "http_resilience",
+  "task_difficulty": "easy",
+  "task_line_start": 8,
+  "task_line_end": 23,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+    "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+    "user_prompt": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + agents.md + MCP tools — combined static context + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 8\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "skills_agents_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer.",
+      "SKILL.md": "# VoltSnip Skill — HTTP Resilience Bug-Fix Memory\n\nYou are fixing an **http_resilience** bug: retry logic, exponential backoff, jitter, circuit\nbreakers, or idempotency handling.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## HTTP Resilience Retrieval Guidance\n\n**What to look for:** retry decorators, backoff schedules with jitter, idempotency key propagation,\nstatus-code retry sets (5xx + 429 + 408), circuit-breaker open/half-open transitions.\n\n**Targeted search queries:**\n- `\"retry exponential backoff jitter idempotent\"`\n- `\"circuit breaker timeout half-open\"`\n- `\"retry on 429 503 408 status code\"`\n- `\"requests session retry adapter max attempts\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused HTTP resilience query.\n3. Apply the retrieved retry/backoff pattern directly — adapt only variable/class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "AGENTS.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer."
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+    "user_prompt": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + agents.md + MCP tools — combined static context + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 8\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "skills_agents_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer.",
+      "SKILL.md": "# VoltSnip Skill — HTTP Resilience Bug-Fix Memory\n\nYou are fixing an **http_resilience** bug: retry logic, exponential backoff, jitter, circuit\nbreakers, or idempotency handling.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## HTTP Resilience Retrieval Guidance\n\n**What to look for:** retry decorators, backoff schedules with jitter, idempotency key propagation,\nstatus-code retry sets (5xx + 429 + 408), circuit-breaker open/half-open transitions.\n\n**Targeted search queries:**\n- `\"retry exponential backoff jitter idempotent\"`\n- `\"circuit breaker timeout half-open\"`\n- `\"retry on 429 503 408 status code\"`\n- `\"requests session retry adapter max attempts\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused HTTP resilience query.\n3. Apply the retrieved retry/backoff pattern directly — adapt only variable/class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "AGENTS.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer."
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG03\nTask Name: http_backoff_exponential\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix backoff formula to be exponential by attempt.\n\nTarget File: orgops/http/retry_policy.py\n\nTarget Lines:\n8-23 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 8-23 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_03\n\nContext Code:\n```python\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\n\nfrom orgops.policy import standards\n\n\n@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * attempt  # BUG_03: linear backoff, not exponential.\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\n```\n\nExpected Output:\nBackoff at attempt 3 is exponential.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + agents.md + MCP tools — combined static context + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 8\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\\n\\n    def compute_sleep(self, attempt: int) -> float:\\n        base = self.backoff_seconds * (2 ** (attempt - 1))\\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\", \"comments\": \"Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)) to fix BUG_03.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"@dataclass\\nclass RetryPolicy:\\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\\n    retryable_status_codes: set[int] = field(\\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\\n    )\\n    retryable_methods: set[str] = field(\\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\\n        | {\\\"POST\\\"}  # BUG_06: retries non-idempotent POST by default.\\n    )\\n\\n    def compute_sleep(self, attempt: int) -> float:\\n        base = self.backoff_seconds * (2 ** (attempt - 1))\\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.\", \"comments\": \"Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)) to fix BUG_03.\"}\n```",
+  "parsed_output": {
+    "code": "@dataclass\nclass RetryPolicy:\n    max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS\n    backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS\n    jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS\n    retryable_status_codes: set[int] = field(\n        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}\n    )\n    retryable_methods: set[str] = field(\n        default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)\n        | {\"POST\"}  # BUG_06: retries non-idempotent POST by default.\n    )\n\n    def compute_sleep(self, attempt: int) -> float:\n        base = self.backoff_seconds * (2 ** (attempt - 1))\n        return base  # BUG_02: jitter_seconds configured but not added to sleep.",
+    "comments": "Changed backoff formula from linear (attempt) to exponential (2 ** (attempt - 1)) to fix BUG_03."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:35:24.702048Z",
+    "finished_at": "2026-02-28T05:36:05.830755Z",
+    "latency_ms": 41128
+  },
+  "summary_metrics": {
+    "latency_ms": 41128,
+    "prompt_chars": 4062,
+    "output_chars": 889,
+    "prompt_system_chars": 1195,
+    "prompt_user_chars": 2867,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 41109,
+    "model_request_started_at": "2026-02-28T05:35:24.721175Z",
+    "model_request_finished_at": "2026-02-28T05:36:05.830384Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10632,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T053524701862Z__bug03__p9__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug03_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug03_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug03_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "compute_sleep multiplies backoff_seconds by 2 ** (attempt - 1), making the backoff exponential rather than linear, so the linear-backoff failure is absent.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2305,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

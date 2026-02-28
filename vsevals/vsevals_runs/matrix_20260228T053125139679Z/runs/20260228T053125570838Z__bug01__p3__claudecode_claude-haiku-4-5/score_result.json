@@ -1,0 +1,45 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "retry_404_policy"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "retry_404_policy",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code excludes 404 from retryable_status_codes, so 404 will not be retried by default.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+    }
+  ],
+  "passed": true
+}

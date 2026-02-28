@@ -1,0 +1,1 @@
+Moved session.commit() to after yield so it commits after unit of work completes, fixing BUG_18 premature commit before any work executes.

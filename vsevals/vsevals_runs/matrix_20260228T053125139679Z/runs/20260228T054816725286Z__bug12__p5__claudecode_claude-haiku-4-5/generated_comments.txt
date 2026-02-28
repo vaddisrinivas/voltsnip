@@ -1,0 +1,1 @@
+Redact sensitive field values by checking for common patterns in field names (password, token, api_key, secret) and replacing matched values with ***REDACTED***.

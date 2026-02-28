@@ -1,0 +1,1 @@
+Inverted comparison from < to > so valid (non-expired) entries are returned and stale entries trigger rebuild.

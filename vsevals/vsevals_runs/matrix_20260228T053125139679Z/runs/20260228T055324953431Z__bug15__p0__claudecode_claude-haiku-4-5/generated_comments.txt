@@ -1,0 +1,1 @@
+Use level parameter in payload and route logger method based on level instead of hardcoding INFO.

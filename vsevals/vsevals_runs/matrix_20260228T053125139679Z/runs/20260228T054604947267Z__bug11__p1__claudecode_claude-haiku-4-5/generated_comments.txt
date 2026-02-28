@@ -1,0 +1,1 @@
+Replace non-serializable exception object with its class name string to make details JSON serializable.

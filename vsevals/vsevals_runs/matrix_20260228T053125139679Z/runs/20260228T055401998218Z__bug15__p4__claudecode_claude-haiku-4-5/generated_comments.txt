@@ -1,0 +1,1 @@
+Fixed BUG_15: use requested log level parameter in payload dict and route logger method calls dynamically based on level.

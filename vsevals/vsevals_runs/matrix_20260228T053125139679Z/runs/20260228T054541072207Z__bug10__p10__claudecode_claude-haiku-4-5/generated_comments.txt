@@ -1,0 +1,1 @@
+Sanitize message field by replacing raw exception text with generic safe string, preventing sensitive exception details from leaking to clients per error contract guidance.

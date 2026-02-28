@@ -1,0 +1,1 @@
+Exclude 404 from default retryable status codes to prevent retry of not-found errors.

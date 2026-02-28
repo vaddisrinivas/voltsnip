@@ -1,0 +1,1 @@
+Replace raw exception string (str(exc)) with exception class name to prevent sensitive information leakage in client error messages.

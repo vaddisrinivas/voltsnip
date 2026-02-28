@@ -1,0 +1,1 @@
+Replace N+1 loop with single set-based query using .in_() filter.

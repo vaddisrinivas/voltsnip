@@ -1,0 +1,1 @@
+Fetch request_id from context and add to payload when available to fix BUG_14 request_id propagation.

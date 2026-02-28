@@ -1,0 +1,50 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_bug_22_cache_should_prevent_stampede_under_concurrency __________
+
+    def test_bug_22_cache_should_prevent_stampede_under_concurrency() -> None:
+        cache = TTLCache(ttl_seconds=60.0)
+        barrier = threading.Barrier(5)
+        counter = {"calls": 0}
+    
+        def builder() -> str:
+            counter["calls"] += 1
+            time.sleep(0.02)
+            return "value"
+    
+        def worker() -> None:
+            barrier.wait()
+            cache.get_or_set("shared", builder)
+    
+        threads = [threading.Thread(target=worker) for _ in range(5)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    
+>       assert counter["calls"] == 1
+E       assert 5 == 1
+
+tests/unit/test_concurrency_cache.py:69: AssertionError
+=============================== warnings summary ===============================
+service/app_lifecycle.py:7
+  /workspace/service/app_lifecycle.py:7: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579
+  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_concurrency_cache.py::test_bug_22_cache_should_prevent_stampede_under_concurrency

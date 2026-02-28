@@ -1,0 +1,1 @@
+Replace N+1 query loop with single set-based query using .in_() operator to fetch all users in one database query

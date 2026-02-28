@@ -1,0 +1,1 @@
+Redact sensitive fields (password/token/api_key/secret/auth) by checking key names and replacing values with ***REDACTED***.

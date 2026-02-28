@@ -1,0 +1,1 @@
+Move commit after yield, add rollback on exception, and close session in finally block per db_patterns lifecycle requirements.

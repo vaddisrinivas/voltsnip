@@ -1,0 +1,1 @@
+Move commit to after successful yield; add rollback on exception for correct transaction semantics.

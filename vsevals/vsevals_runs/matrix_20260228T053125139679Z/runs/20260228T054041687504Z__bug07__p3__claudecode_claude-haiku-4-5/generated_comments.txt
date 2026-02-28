@@ -1,0 +1,1 @@
+Fixed inverted circuit breaker gate condition by negating allow_request() check; circuit now correctly allows requests when closed and blocks when open.

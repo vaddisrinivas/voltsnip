@@ -1,0 +1,222 @@
+{
+  "run_id": "20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG08",
+  "task_name": "errors_schema_contract_keys",
+  "variant_id": "P7",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_md",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "medium",
+  "task_line_start": 7,
+  "task_line_end": 20,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+    "voltsnip/bug22/category/error_contracts/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG08\nTask Name: errors_schema_contract_keys\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix serialized error schema keys and required trace_id.\n\nTarget File: orgops/errors/schema.py\n\nTarget Lines:\n7-20 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 7-20 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_error_contracts.py -k bug_08\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nExpected Output:\nError schema exposes standard keys code/message/details/trace_id (no legacy error_code key) and includes trace_id in payload.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + MCP tools — skill guidance + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.\n\nRelevant snippet keys: voltsnip/bug22/category/error_contracts/guiding_principle/v1, voltsnip/bug22/category/error_contracts/oracle_playbook/v2",
+    "context_surface": "skills_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+      "voltsnip/bug22/category/error_contracts/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "CLAUDE.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "AGENTS.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`."
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG08\nTask Name: errors_schema_contract_keys\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix serialized error schema keys and required trace_id.\n\nTarget File: orgops/errors/schema.py\n\nTarget Lines:\n7-20 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 7-20 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_error_contracts.py -k bug_08\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nExpected Output:\nError schema exposes standard keys code/message/details/trace_id (no legacy error_code key) and includes trace_id in payload.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + MCP tools — skill guidance + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.\n\nRelevant snippet keys: voltsnip/bug22/category/error_contracts/guiding_principle/v1, voltsnip/bug22/category/error_contracts/oracle_playbook/v2",
+    "context_surface": "skills_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+      "voltsnip/bug22/category/error_contracts/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "CLAUDE.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`.",
+      "AGENTS.md": "# VoltSnip Skill — Error Contracts Bug-Fix Memory\n\nYou are fixing an **error_contracts** bug: error response payloads, HTTP status code mapping,\nconsistent JSON error shapes, or exception-to-response serialization.\n\n## You MUST retrieve before writing\n\nBefore producing any code fix, call at least one retrieval tool:\n- `voltsnip_fetch_by_canonical_keys` — fetch by exact key (fastest, use when keys are listed below)\n- `voltsnip_semantic_search` — search by intent (use when keys are not listed or you need more context)\n\n---\n\n## Error Contracts Retrieval Guidance\n\n**What to look for:** standardized error response schemas (`{\"error\": ..., \"detail\": ...}`),\nHTTP status code mappings (400/401/403/404/422/500), exception handlers that produce consistent\nJSON, typed error payloads with `code`/`message`/`details` fields.\n\n**Targeted search queries:**\n- `\"error response contract status code mapping\"`\n- `\"consistent error payload JSON serializable\"`\n- `\"exception handler HTTP status code FastAPI\"`\n- `\"error schema code message detail typed\"`\n\n**Key prefix for this category:** `voltsnip/bug22/category/error_contracts/`\n\n---\n\n## Snippet Keys for This Task\n\n2 canonical snippet(s) identified for this task:\n\n- voltsnip/bug22/category/error_contracts/guiding_principle/v1\n- voltsnip/bug22/category/error_contracts/oracle_playbook/v2\n\nFetch these first with `voltsnip_fetch_by_canonical_keys`.\nIf a key returns nothing, fall back to `voltsnip_semantic_search` using one of the queries above.\n\n---\n\n## Execution Contract\n\n1. Call `voltsnip_fetch_by_canonical_keys` with the listed keys above.\n2. If results are sparse, call `voltsnip_semantic_search` with a focused error contracts query.\n3. Apply the retrieved error-payload/status-mapping pattern directly — adapt only class names.\n4. Keep your fix minimal and localized to the stated bug target lines.\n5. Emit exactly one JSON: `{\"code\": \"<full file>\", \"comments\": \"<one-line rationale>\"}`."
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG08\nTask Name: errors_schema_contract_keys\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix serialized error schema keys and required trace_id.\n\nTarget File: orgops/errors/schema.py\n\nTarget Lines:\n7-20 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 7-20 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_error_contracts.py -k bug_08\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"error_code\": self.code,  # BUG_08: inconsistent key naming for contract.\n            \"message\": self.message,\n            \"details\": self.details,\n            # BUG_08: required trace_id missing from serialized payload.\n        }\n```\n\nExpected Output:\nError schema exposes standard keys code/message/details/trace_id (no legacy error_code key) and includes trace_id in payload.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nskills.md + MCP tools — skill guidance + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.\n\nRelevant snippet keys: voltsnip/bug22/category/error_contracts/guiding_principle/v1, voltsnip/bug22/category/error_contracts/oracle_playbook/v2"
+    },
+    {
+      "role": "assistant",
+      "content": "Now I'll apply the fix based on the guidance. The error contracts principle requires:\n1. **Canonical keys**: use `code` (not `error_code`)\n2. **Required fields**: include `trace_id` in the serialized payload\n\n```json\n{\"code\": \"@dataclass\\nclass ErrorSchema:\\n    code: str\\n    message: str\\n    details: Any = None\\n    trace_id: str | None = None\\n\\n    def to_dict(self) -> dict[str, Any]:\\n        return {\\n            \\\"code\\\": self.code,\\n            \\\"message\\\": self.message,\\n            \\\"details\\\": self.details,\\n            \\\"trace_id\\\": self.trace_id,\\n        }\", \"comments\": \"Fix inconsistent key naming (error_code→code) and add required trace_id field to serialized error payload.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "Now I'll apply the fix based on the guidance. The error contracts principle requires:\n1. **Canonical keys**: use `code` (not `error_code`)\n2. **Required fields**: include `trace_id` in the serialized payload\n\n```json\n{\"code\": \"@dataclass\\nclass ErrorSchema:\\n    code: str\\n    message: str\\n    details: Any = None\\n    trace_id: str | None = None\\n\\n    def to_dict(self) -> dict[str, Any]:\\n        return {\\n            \\\"code\\\": self.code,\\n            \\\"message\\\": self.message,\\n            \\\"details\\\": self.details,\\n            \\\"trace_id\\\": self.trace_id,\\n        }\", \"comments\": \"Fix inconsistent key naming (error_code→code) and add required trace_id field to serialized error payload.\"}\n```",
+  "parsed_output": {
+    "code": "@dataclass\nclass ErrorSchema:\n    code: str\n    message: str\n    details: Any = None\n    trace_id: str | None = None\n\n    def to_dict(self) -> dict[str, Any]:\n        return {\n            \"code\": self.code,\n            \"message\": self.message,\n            \"details\": self.details,\n            \"trace_id\": self.trace_id,\n        }",
+    "comments": "Fix inconsistent key naming (error_code→code) and add required trace_id field to serialized error payload."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:42:20.638133Z",
+    "finished_at": "2026-02-28T05:42:36.549711Z",
+    "latency_ms": 15911
+  },
+  "summary_metrics": {
+    "latency_ms": 15911,
+    "prompt_chars": 3465,
+    "output_chars": 705,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 2415,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 15892,
+    "model_request_started_at": "2026-02-28T05:42:20.657255Z",
+    "model_request_finished_at": "2026-02-28T05:42:36.549532Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8757,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054220637689Z__bug08__p7__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug08_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug08_failure_absent",
+        "passed": true,
+        "llm_verdict": false,
+        "judge_reason": "The dataclass and to_dict use the normalized 'code' key (not legacy 'error_code'), so the inconsistent/legacy error_code naming is not present.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1"
+      }
+    ],
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2190,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

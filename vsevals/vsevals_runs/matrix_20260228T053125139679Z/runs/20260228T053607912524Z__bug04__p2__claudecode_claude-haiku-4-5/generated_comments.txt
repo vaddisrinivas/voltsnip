@@ -1,0 +1,1 @@
+Use per-request max_attempts override when provided, otherwise fall back to retry_policy.max_attempts.

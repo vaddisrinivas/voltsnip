@@ -1,0 +1,1 @@
+Invert gate condition by adding `not` operator to block requests only when `allow_request()` returns False.

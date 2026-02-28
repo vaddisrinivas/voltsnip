@@ -1,0 +1,1 @@
+Changed error_code key to code for contract consistency and added missing trace_id to serialized payload.

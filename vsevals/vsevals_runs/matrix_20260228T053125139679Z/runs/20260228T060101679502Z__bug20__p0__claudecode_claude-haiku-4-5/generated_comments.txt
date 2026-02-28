@@ -1,0 +1,1 @@
+Use threading.local() for thread-isolated request ID storage instead of global mutable state.

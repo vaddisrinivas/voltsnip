@@ -1,0 +1,1 @@
+Replaced str(exc) with generic sanitized message to prevent raw exception leakage to clients, per error contract guiding principle.

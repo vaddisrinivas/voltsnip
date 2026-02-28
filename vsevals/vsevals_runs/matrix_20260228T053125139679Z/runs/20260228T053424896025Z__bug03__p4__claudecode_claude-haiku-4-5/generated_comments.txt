@@ -1,0 +1,1 @@
+Apply exponential backoff formula (base 2) to fix BUG_03 linear backoff issue.

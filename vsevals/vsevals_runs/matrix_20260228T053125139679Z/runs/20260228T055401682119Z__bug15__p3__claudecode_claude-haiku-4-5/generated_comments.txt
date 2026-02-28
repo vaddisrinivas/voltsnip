@@ -1,0 +1,1 @@
+Fix BUG15: use requested level parameter in payload and route logger calls to matching method (INFO→info, ERROR→error, etc.) instead of always using INFO/logger.info.

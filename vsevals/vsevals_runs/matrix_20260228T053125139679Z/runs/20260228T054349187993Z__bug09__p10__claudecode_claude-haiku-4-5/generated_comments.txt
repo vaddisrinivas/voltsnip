@@ -1,0 +1,1 @@
+Fixed BUG_09: TimeoutError now maps to 504 (Gateway Timeout) and ValueError now maps to 422 (Unprocessable Entity) per org error contract guiding principle.

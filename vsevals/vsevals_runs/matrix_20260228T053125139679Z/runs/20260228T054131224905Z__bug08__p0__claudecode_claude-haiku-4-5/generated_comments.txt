@@ -1,0 +1,1 @@
+Fix inconsistent error_code key to code and add missing trace_id to serialized payload.

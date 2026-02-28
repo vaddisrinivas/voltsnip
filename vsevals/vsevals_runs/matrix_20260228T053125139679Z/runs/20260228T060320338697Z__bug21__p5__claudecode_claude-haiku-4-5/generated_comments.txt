@@ -1,0 +1,1 @@
+Fix inverted TTL expiry check: return cached value when NOT expired (expires_at > now), not when expired.

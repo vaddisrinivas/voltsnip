@@ -1,0 +1,1 @@
+Add session.rollback() in the exception handler to properly rollback uncommitted changes when an exception occurs.

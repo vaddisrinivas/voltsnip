@@ -1,0 +1,1 @@
+Changed backoff formula from linear (backoff_seconds * attempt) to exponential (backoff_seconds * (2 ** attempt)) to provide proper exponential backoff scaling with each retry attempt.

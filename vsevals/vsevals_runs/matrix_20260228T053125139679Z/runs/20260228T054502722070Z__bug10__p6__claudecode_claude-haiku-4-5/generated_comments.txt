@@ -1,0 +1,1 @@
+Sanitize error messages to prevent leaking raw exception text; map exceptions to safe, non-sensitive messages instead of using str(exc).

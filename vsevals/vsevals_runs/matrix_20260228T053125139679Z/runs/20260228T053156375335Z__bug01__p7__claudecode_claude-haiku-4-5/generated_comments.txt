@@ -1,0 +1,1 @@
+Exclude non-retryable 404 status code from default retryable set per HTTP resilience principle.

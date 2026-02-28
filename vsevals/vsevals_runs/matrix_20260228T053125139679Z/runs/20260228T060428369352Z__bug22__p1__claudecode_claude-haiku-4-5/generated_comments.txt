@@ -1,0 +1,1 @@
+Add per-key locking and double-check pattern to serialize cache misses; prevent stampede by coalescing concurrent builder calls to one execution.

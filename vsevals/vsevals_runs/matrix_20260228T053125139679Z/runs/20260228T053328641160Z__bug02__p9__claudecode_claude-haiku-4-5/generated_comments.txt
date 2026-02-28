@@ -1,0 +1,1 @@
+Added jitter_seconds as deterministic positive offset to compute_sleep return value to fix BUG_02.

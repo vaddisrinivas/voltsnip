@@ -1,0 +1,1 @@
+Invert circuit breaker gate condition to raise error only when request is NOT allowed (circuit open).

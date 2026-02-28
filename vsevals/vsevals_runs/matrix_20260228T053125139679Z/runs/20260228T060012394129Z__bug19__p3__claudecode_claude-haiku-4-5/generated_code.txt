@@ -1,0 +1,2 @@
+def fetch_users_by_ids(session: Any, user_model: Any, user_ids: list[int]) -> list[Any]:
+    return session.query(user_model).filter(user_model.id.in_(user_ids)).all()

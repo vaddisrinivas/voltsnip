@@ -1,0 +1,1 @@
+Fixed BUG_15: use level parameter in payload instead of hardcoding 'INFO', and route logger calls through getattr to respect the requested log level.

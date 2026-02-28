@@ -1,0 +1,228 @@
+{
+  "run_id": "20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs",
+  "task_id": "BUG07",
+  "task_name": "http_circuit_breaker_gate_condition",
+  "variant_id": "P8",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "medium",
+  "task_line_start": 1,
+  "task_line_end": 9,
+  "required_snippet_keys": [
+    "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+    "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+    "user_prompt": "Task ID: BUG07\nTask Name: http_circuit_breaker_gate_condition\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix circuit breaker gate condition in request loop.\n\nTarget File: orgops/http/circuit_guard.py\n\nTarget Lines:\n1-9 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 1-9 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_07\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nExpected Output:\nClosed circuit allows request flow.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nagents.md + MCP tools — richer sidecar + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "agents_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer.",
+      "AGENTS.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer."
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+    "user_prompt": "Task ID: BUG07\nTask Name: http_circuit_breaker_gate_condition\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix circuit breaker gate condition in request loop.\n\nTarget File: orgops/http/circuit_guard.py\n\nTarget Lines:\n1-9 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 1-9 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_07\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nExpected Output:\nClosed circuit allows request flow.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nagents.md + MCP tools — richer sidecar + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed.",
+    "context_surface": "agents_md",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget",
+      "snippet_keys"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer.",
+      "AGENTS.md": "# VoltSnip Agent — HTTP Resilience | Full Memory + Tool Access\n\nYou are in **full-augmentation agent mode** for an **http_resilience** bug.\nCategory focus: retry logic, exponential backoff with jitter, circuit breakers, idempotency.\n\n---\n\n## Repository Policy\n\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.\n\n---\n\n## Agent Workflow\n\n```\n1. READ MEMORY      → Read pre-fetched retry/backoff snippets below (primary reference).\n2. VERIFY COVERAGE  → Confirm snippet covers: backoff schedule, jitter, retry status codes,\n                       idempotency key handling.\n3. AUGMENT IF NEEDED → Call voltsnip_fetch_by_canonical_keys or voltsnip_semantic_search ONLY\n                       if memory is missing the specific retry primitive required.\n                       Best queries:\n                         \"retry exponential backoff jitter idempotent\"\n                         \"circuit breaker timeout half-open\"\n                         \"retry on 429 503 408 status code\"\n4. APPLY PATTERN    → Use the retrieved code directly; adapt variable names only.\n5. VERIFY FIT       → Confirm fix: correct status-code set, jitter present, idempotency safe.\n6. OUTPUT           → Emit exactly {\"code\": \"<full rewritten file>\", \"comments\": \"<rationale>\"}.\n```\n\nDo NOT call retrieval tools redundantly — one targeted fetch beats three exploratory searches.\n\n---\n\n## Pre-fetched Snippet Memory (2 snippet(s))\n\nnone\n\n---\n\n## Additional Canonical Keys Available for This Task\n\nIf the pre-fetched memory above does not fully address the bug, fetch these:\n\n- voltsnip/bug22/category/http_resilience/guiding_principle/v1\n- voltsnip/bug22/category/http_resilience/oracle_playbook/v2\n\nKey prefix for fresh searches: `voltsnip/bug22/category/http_resilience/`\n\n---\n\n## Execution Contract\n\n- Prefer memory over fresh retrieval — use tools only for genuine gaps.\n- Output must be the **complete rewritten file** when a target file is provided.\n- No diffs, no partials, no prose outside the JSON object.\n- Keep changes minimal and deterministic; do not speculate or over-engineer."
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nRelevant snippet keys: voltsnip/bug22/category/http_resilience/guiding_principle/v1, voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG07\nTask Name: http_circuit_breaker_gate_condition\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix circuit breaker gate condition in request loop.\n\nTarget File: orgops/http/circuit_guard.py\n\nTarget Lines:\n1-9 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 1-9 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_http_resilience.py -k bug_07\n\nContext Code:\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nTarget File Content (full file):\n```python\nfrom __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and circuit_breaker.allow_request():\n        # BUG_07: inverted circuit breaker check; blocks when request should be allowed.\n        raise CircuitOpenError(\"circuit open\")\n```\n\nExpected Output:\nClosed circuit allows request flow.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nagents.md + MCP tools — richer sidecar + live retrieval\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.\n\nTool Guidance:\nSnippet retrieval tools are available if additional context is needed."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"from __future__ import annotations\\n\\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\\n\\n\\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\\n    if circuit_breaker is not None and not circuit_breaker.allow_request():\\n        raise CircuitOpenError(\\\"circuit open\\\")\",\n  \"comments\": \"Invert circuit breaker condition: raise error only when allow_request() returns False (circuit is open), not when it returns True.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"from __future__ import annotations\\n\\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\\n\\n\\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\\n    if circuit_breaker is not None and not circuit_breaker.allow_request():\\n        raise CircuitOpenError(\\\"circuit open\\\")\",\n  \"comments\": \"Invert circuit breaker condition: raise error only when allow_request() returns False (circuit is open), not when it returns True.\"\n}\n```",
+  "parsed_output": {
+    "code": "from __future__ import annotations\n\nfrom .contracts import CircuitBreakerHook, CircuitOpenError\n\n\ndef enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:\n    if circuit_breaker is not None and not circuit_breaker.allow_request():\n        raise CircuitOpenError(\"circuit open\")",
+    "comments": "Invert circuit breaker condition: raise error only when allow_request() returns False (circuit is open), not when it returns True."
+  },
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0
+  },
+  "timings": {
+    "started_at": "2026-02-28T05:41:09.778790Z",
+    "finished_at": "2026-02-28T05:41:22.470704Z",
+    "latency_ms": 12691
+  },
+  "summary_metrics": {
+    "latency_ms": 12691,
+    "prompt_chars": 3112,
+    "output_chars": 478,
+    "prompt_system_chars": 1195,
+    "prompt_user_chars": 1917,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 12672,
+    "model_request_started_at": "2026-02-28T05:41:09.798038Z",
+    "model_request_finished_at": "2026-02-28T05:41:22.470539Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6935,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260228T053125139679Z/runs/20260228T054109778642Z__bug07__p8__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug07_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug07_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug07_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug07_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug07_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug07_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "The code only raises CircuitOpenError when allow_request() returns False; it does not raise for an allowed request.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\nservice/app_lifecycle.py:7\n  /workspace/service/app_lifecycle.py:7: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579\n  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    return self.router.on_event(event_type)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+    "stderr": "",
+    "duration_ms": 2535,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

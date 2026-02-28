@@ -1,0 +1,1 @@
+Fixed BUG_03: changed backoff formula from linear (attempt) to exponential (2^(attempt-1)) per org HTTP resilience guiding principle for bounded exponential backoff.

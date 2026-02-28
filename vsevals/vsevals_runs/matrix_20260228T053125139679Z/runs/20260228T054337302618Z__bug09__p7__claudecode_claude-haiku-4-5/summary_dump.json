@@ -1,0 +1,110 @@
+{
+  "run_id": "20260228T054337302618Z__bug09__p7__claudecode_claude-haiku-4-5",
+  "task_id": "BUG09",
+  "task_name": "errors_mapping_status_codes",
+  "variant_id": "P7",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 15950,
+    "prompt_chars": 3686,
+    "output_chars": 961,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 2636,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 15929,
+    "model_request_started_at": "2026-02-28T05:43:37.323352Z",
+    "model_request_finished_at": "2026-02-28T05:43:53.252735Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9349,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug09_failure_absent"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug09_failure_absent"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug09_failure_absent"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug09_failure_absent"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug09_failure_absent"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug09_failure_absent",
+        "passed": false,
+        "llm_verdict": true,
+        "judge_reason": "The status mapping in the candidate code assigns TimeoutError to 504 and ValueError to 422, which matches the specified contract, so it does not exhibit the incorrect mapping failure.",
+        "expected": false,
+        "voltsnip_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1"
+      }
+    ],
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 4,
+    "passed": false,
+    "stdout": "",
+    "stderr": "ImportError while loading conftest '/workspace/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from service.app import create_app\nservice/app.py:6: in <module>\n    from service.app_errors import register_exception_handlers\nservice/app_errors.py:6: in <module>\n    from orgops.errors import map_exception\norgops/errors/__init__.py:1: in <module>\n    from .mapping import map_exception\nE     File \"/workspace/orgops/errors/mapping.py\", line 7\nE       if isinstance(exc, TimeoutError):\nE   IndentationError: unexpected indent\n",
+    "duration_ms": 1596,
+    "error": null,
+    "docker_image": "moltsnip-hybrid-pytest:latest",
+    "patched_file": null
+  },
+  "error": null
+}

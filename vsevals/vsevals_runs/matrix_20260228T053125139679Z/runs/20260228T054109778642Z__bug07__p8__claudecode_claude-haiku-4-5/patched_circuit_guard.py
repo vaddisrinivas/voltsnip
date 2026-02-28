@@ -1,0 +1,8 @@
+from __future__ import annotations
+
+from .contracts import CircuitBreakerHook, CircuitOpenError
+
+
+def enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:
+    if circuit_breaker is not None and not circuit_breaker.allow_request():
+        raise CircuitOpenError("circuit open")

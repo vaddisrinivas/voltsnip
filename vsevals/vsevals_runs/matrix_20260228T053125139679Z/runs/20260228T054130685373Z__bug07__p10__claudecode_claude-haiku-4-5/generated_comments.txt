@@ -1,0 +1,1 @@
+Inverted circuit breaker gate condition: raise error only when allow_request() returns False (circuit open), not when True (circuit closed).

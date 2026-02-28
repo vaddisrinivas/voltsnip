@@ -1,0 +1,18 @@
+def build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:
+    payload = {
+        "event": event,
+        "level": level.upper(),
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+    sanitized = redact_fields(fields)
+    payload.update(sanitized)
+    # BUG_14: request_id from context never propagated into payload.
+    return payload
+
+
+def log_event(logger: Any, event: str, level: str = "INFO", **fields: Any) -> None:
+    payload = build_payload(event, level, **fields)
+    if "response_body" in payload and isinstance(payload["response_body"], str):
+        payload["response_body"] = payload["response_body"]  # BUG_13: full response body logged without truncation.
+    level_method = getattr(logger, level.lower(), logger.info)
+    level_method(json.dumps(payload, default=str))

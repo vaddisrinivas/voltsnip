@@ -1,0 +1,1 @@
+Route log level to matching logger method (info/warning/error) and use requested level in payload instead of hardcoded INFO.

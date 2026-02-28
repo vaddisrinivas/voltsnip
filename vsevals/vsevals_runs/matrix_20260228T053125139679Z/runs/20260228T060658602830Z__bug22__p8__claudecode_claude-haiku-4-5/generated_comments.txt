@@ -1,0 +1,1 @@
+Fixed BUG_21: corrected TTL expiry check (expires_at > now means not expired). Fixed BUG_22: added per-key locking with double-check pattern to coalesce concurrent misses and prevent stampede.

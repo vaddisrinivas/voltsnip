@@ -1,0 +1,37 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_03_backoff_should_be_exponential ___________________
+
+    def test_bug_03_backoff_should_be_exponential() -> None:
+        policy = RetryPolicy(backoff_seconds=0.5, jitter_seconds=0.0)
+        delay = policy.compute_sleep(3)
+>       assert delay == pytest.approx(2.0)
+E       assert 4.0 == 2.0 ± 2.0e-06
+E         
+E         comparison failed
+E         Obtained: 4.0
+E         Expected: 2.0 ± 2.0e-06
+
+tests/unit/test_http_resilience.py:68: AssertionError
+=============================== warnings summary ===============================
+service/app_lifecycle.py:7
+  /workspace/service/app_lifecycle.py:7: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+../opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579
+  /opt/hybrid-example/.venv/lib/python3.12/site-packages/fastapi/applications.py:4579: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_http_resilience.py::test_bug_03_backoff_should_be_exponential

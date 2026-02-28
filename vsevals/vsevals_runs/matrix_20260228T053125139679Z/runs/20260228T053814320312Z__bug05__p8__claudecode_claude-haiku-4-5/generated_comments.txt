@@ -1,0 +1,1 @@
+Apply timeout consistently to all HTTP methods by removing the GET-only condition.

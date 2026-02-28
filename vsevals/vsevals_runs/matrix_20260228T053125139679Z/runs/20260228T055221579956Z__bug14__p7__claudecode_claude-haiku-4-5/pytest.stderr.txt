@@ -1,0 +1,12 @@
+ImportError while loading conftest '/workspace/tests/conftest.py'.
+tests/conftest.py:8: in <module>
+    from service.app import create_app
+service/app.py:9: in <module>
+    from service.app_middleware import register_correlation_middleware
+service/app_middleware.py:9: in <module>
+    from orgops.logging import set_request_id
+orgops/logging/__init__.py:3: in <module>
+    from .structured import build_payload, log_event
+E     File "/workspace/orgops/logging/structured.py", line 32
+E       payload["response_body"] = payload["response_body"]  # BUG_13: full response body logged without truncation.
+E   IndentationError: unexpected indent

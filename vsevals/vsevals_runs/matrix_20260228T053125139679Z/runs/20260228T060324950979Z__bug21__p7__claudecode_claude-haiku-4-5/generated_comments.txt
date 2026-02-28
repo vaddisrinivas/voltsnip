@@ -1,0 +1,1 @@
+Fix BUG21: Invert TTL expiry check from < to >= so expired entries (expires_at <= now) trigger rebuild instead of returning stale values.

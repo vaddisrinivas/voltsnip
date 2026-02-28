@@ -1,0 +1,1 @@
+Replace N+1 loop with single set-based IN query to fetch all users in one database call.

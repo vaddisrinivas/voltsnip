@@ -1,0 +1,1 @@
+Replace N+1 loop-based queries with single set-based IN-clause query per db_patterns guiding principle.

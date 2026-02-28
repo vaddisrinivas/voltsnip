@@ -1,0 +1,1 @@
+Add per-key threading.Event synchronization to prevent cache stampede; fix TTL expiry check from < to >; coalesce concurrent misses to single builder call.

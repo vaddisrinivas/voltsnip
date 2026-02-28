@@ -1,0 +1,1 @@
+Map TimeoutError to 504 (Gateway Timeout) and ValueError to 400 (Bad Request) to fix HTTP status code semantics.

@@ -1,0 +1,1 @@
+Add request_id from context to log payload when set via get_request_id().
