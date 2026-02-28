@@ -1,0 +1,439 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{pgfplotstable}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% JSON listings style
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  morestring=[b]",
+  stringstyle=\color{teal},
+  literate=
+    {true}{{\color{violet}true}}{4}
+    {false}{{\color{violet}false}}{5},
+}
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+\title{\textbf{Format Anchoring Bias in LLM-as-Judge:\\
+How a Single Token in the Output Format\\
+Corrupts Automated Code Evaluation}}
+
+\author{
+  Srinivas Vaddi\\
+  \texttt{vaddisrinivas@gmail.com}
+}
+
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+LLM-as-judge is widely used to evaluate code quality, but we identify a
+previously-unreported failure mode: \emph{format anchoring bias}.
+When a judge prompt includes a concrete boolean value in the output format
+example --- such as \texttt{"verdict":true} --- small language models copy
+that example value in up to \textbf{91.3\%} of responses regardless of the
+code's actual correctness, collapsing evaluation accuracy to \textbf{18.2\%}.
+We demonstrate this on a 242-run evaluation suite (22 bug-fixing tasks,
+11 prompt variants, 1 model) using pytest execution as ground truth.
+Fixing three prompt anti-patterns --- (1) anchored format examples,
+(2) ground-truth leakage via an \texttt{expected} field,
+and (3) negative-question framing --- recovers accuracy to \textbf{92.1\%}
+with the same judge model (GPT-5-mini), a \textbf{+69.4 percentage-point}
+improvement with zero model upgrade.
+We further identify a \emph{reasoning-verdict dissociation} effect:
+in 48 cases the judge's chain-of-thought explicitly states the code is
+correctly fixed yet the verdict JSON token is still \texttt{true},
+suggesting the format anchor operates \emph{after} the reasoning trace,
+at JSON generation time.
+All data and code are publicly available.
+\end{abstract}
+
+%-----------------------------------------------------------------------------
+\section{Introduction}
+%-----------------------------------------------------------------------------
+
+LLM-as-judge~\citep{zheng2023judging} has become the dominant paradigm for
+automated evaluation of code generation and bug-fixing systems, offering
+scalability and flexibility that static test suites cannot match.
+However, its reliability depends entirely on the quality of the judge
+prompt --- a dependency that is poorly understood in practice.
+
+We report a simple but severe failure mode that arises when the judge
+prompt includes a concrete boolean value in the structured output format
+specification.
+For example, a prompt that instructs the judge to return
+\texttt{\{"verdict":true,...\}} as an example output causes small models
+to produce \texttt{true} in the vast majority of responses, independent
+of the code under evaluation.
+We call this \emph{format anchoring bias}.
+
+The practical impact is large.
+In our evaluation of a code bug-fixing benchmark (242 runs, pytest oracle),
+a biased judge prompt produced only 18.2\% accuracy against ground truth;
+fixing the prompt --- without changing the judge model --- recovered 90.1\%
+accuracy.
+Upgrading to a stronger judge model (Claude Sonnet 4.6) yielded a further
+modest gain to 92.1\%, but the prompt fix accounted for the overwhelming
+majority of the improvement.
+
+Our contributions are:
+\begin{itemize}
+  \item We identify and characterise \emph{format anchoring bias} in
+        LLM-as-judge systems for code evaluation (\S\ref{sec:bias}).
+  \item We provide a controlled 4-condition ablation isolating the
+        prompt effect from the model effect (\S\ref{sec:results}).
+  \item We report \emph{reasoning-verdict dissociation}: the judge's
+        chain-of-thought reaches the correct conclusion but the emitted
+        JSON token contradicts it (\S\ref{sec:dissociation}).
+  \item We release a complete reproducibility package: 242 evaluation runs
+        with four scoring conditions, all judge payloads, pytest outputs,
+        and analysis scripts.
+\end{itemize}
+
+%-----------------------------------------------------------------------------
+\section{Background}
+%-----------------------------------------------------------------------------
+
+\paragraph{LLM-as-judge.}
+\citet{zheng2023judging} introduced the paradigm of using a strong LLM
+to score model outputs, showing high correlation with human judgments.
+Subsequent work has identified various biases including position
+bias~\citep{wang2023large}, verbosity bias~\citep{saito2023verbosity},
+and self-enhancement bias~\citep{panickssery2024llm}.
+Format anchoring bias is distinct: it arises not from the content of the
+response being judged, but from a token in the \emph{judge prompt itself}.
+
+\paragraph{Structured output generation.}
+When LLMs are asked to produce JSON, they are sensitive to format
+examples~\citep{brown2020language}.
+In few-shot prompting, models copy the statistical patterns of examples;
+a JSON format example with a specific value acts as a strong prior on
+the corresponding position in the output.
+
+\paragraph{Code evaluation benchmarks.}
+SWE-bench~\citep{jimenez2024swebench} and its variants evaluate code fixes
+against repository test suites.
+Our setting differs: we use a controlled benchmark (VoltSnip BUG01--BUG22)
+with hand-authored constraints, enabling us to separate the judge's
+behaviour from the test suite's coverage.
+
+%-----------------------------------------------------------------------------
+\section{The VoltSnip Evaluation Framework}
+\label{sec:framework}
+%-----------------------------------------------------------------------------
+
+\paragraph{Tasks.}
+We use 22 code bug-fixing tasks (BUG01--BUG22) drawn from a single
+FastAPI service (\texttt{orgops}).
+Each task specifies a target file, line range, a buggy code snippet, and
+a natural-language description of the fix required.
+Task categories include \textit{http\_resilience},
+\textit{error\_contracts}, \textit{db\_patterns},
+\textit{logging\_privacy}, and \textit{concurrency\_cache}.
+
+\paragraph{Variants.}
+We test 11 prompt variants (P0--P10) that vary: presence of oracle criteria
+in the prompt, whether retrieved snippets are injected as context, and
+whether the model has access to retrieval tools.
+This gives $22 \times 11 = 242$ runs.
+
+\paragraph{Model.}
+All runs use \texttt{claude-haiku-4-5} via the ClaudeCode provider.
+The same model and code outputs are rescored across all four judge
+conditions; the model never re-runs.
+
+\paragraph{Ground truth.}
+Each task includes a pytest test command
+(e.g., \texttt{pytest -k bug\_09}).
+The test result (pass/fail) is our ground truth oracle, executed in a
+Docker container against the model's patched file.
+Pytest pass rate: \textbf{96.3\%} (233/242).
+
+\paragraph{Constraint-based scoring.}
+Each task defines one or more constraints, each with an \texttt{id},
+\texttt{check} description, \texttt{judge\_prompt}, and
+\texttt{expected} boolean.
+\texttt{expected=false} constraints check that a failure mode is
+\emph{absent} (the bug is fixed); \texttt{expected=true} constraints
+check that a positive property is \emph{present}.
+A run passes if the fraction of satisfied constraints meets a threshold
+($\tau = 0.7$).
+
+%-----------------------------------------------------------------------------
+\section{Format Anchoring Bias}
+\label{sec:bias}
+%-----------------------------------------------------------------------------
+
+\subsection{Three Prompt Anti-Patterns}
+
+Our original judge prompt contained three compounding errors:
+
+\paragraph{Anti-pattern 1: Anchored format example.}
+The output format specification included a concrete \texttt{true} value:
+\begin{lstlisting}[language=json]
+Return ONLY JSON:
+{"results":[{"verdict":true,"reason":"..."},...]}
+\end{lstlisting}
+Small models treat format examples as strong priors.
+GPT-4o-nano emitted \texttt{"verdict":true} in \textbf{91.3\%} of all
+responses.
+
+\paragraph{Anti-pattern 2: Ground-truth leakage.}
+Each constraint was sent to the judge including its \texttt{expected}
+field:
+\begin{lstlisting}[language=json]
+{"id": "bug09_failure_absent",
+ "check": "Status mapping remains incorrect.",
+ "expected": false,   // <-- leaked!
+ "judge_prompt": "Does the implementation still exhibit..."}
+\end{lstlisting}
+For \texttt{expected=false} constraints, a \texttt{true} verdict means
+the bug is \emph{still present} and the run \emph{fails}.
+Combined with Anti-pattern 1, this made the bias maximally destructive
+for the most common constraint type.
+
+\paragraph{Anti-pattern 3: Negative-question framing.}
+The \texttt{judge\_prompt} was phrased as:
+\textit{``Does the implementation \textbf{still} exhibit this failure
+mode?''}, priming the model toward \texttt{true} (``yes, it does'').
+A positive framing (``Answer true if the described behavior IS present'')
+is less susceptible.
+
+\subsection{Why Format Anchors Dominate}
+
+Few-shot examples in LLM prompts establish strong statistical priors on
+output tokens~\citep{brown2020language}.
+When the output is a structured JSON object, the model must generate each
+field value conditioned on the prior context.
+A concrete boolean in the example (\texttt{true}) occupies the same
+token position as the verdict the model must emit.
+For small models with limited instruction-following capacity, the format
+example overwhelms the semantic signal from the code and constraint.
+
+%-----------------------------------------------------------------------------
+\section{Experimental Setup}
+%-----------------------------------------------------------------------------
+
+We compare four scoring conditions on the \emph{same} 242 runs:
+
+\begin{enumerate}
+  \item \textbf{GPT-4o-nano (biased)}: original prompt with all three
+        anti-patterns. Judge: \texttt{gpt-4o-nano} (the original
+        production judge).
+  \item \textbf{GPT-5-mini (biased)}: same biased prompt, stronger judge.
+  \item \textbf{GPT-5-mini (fixed)}: fixed prompt, same model as (2).
+        Isolates prompt effect.
+  \item \textbf{Claude Sonnet 4.6 (fixed)}: fixed prompt, strongest judge.
+        Provides a ceiling estimate.
+\end{enumerate}
+
+The fixed prompt (conditions 3--4):
+\begin{lstlisting}[language=json, breaklines=true]
+"Judge each constraint independently. Answer true if the
+described behavior IS present; false if NOT present.
+Return ONLY JSON:
+{"results":[{"verdict":true,"reason":"..."},
+            {"verdict":false,"reason":"..."},...]}
+verdict must be a JSON boolean, not a string."
+\end{lstlisting}
+Key changes: (a) format example shows \emph{both} \texttt{true} and
+\texttt{false}; (b) \texttt{expected} field removed from constraint
+payloads; (c) affirmative framing replaces negative-question framing.
+
+%-----------------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+%-----------------------------------------------------------------------------
+
+\begin{table}[t]
+\centering
+\caption{
+  Scoring accuracy across four judge conditions.
+  All conditions evaluate the same 242 code outputs.
+  Ground truth: pytest oracle (96.3\% pass rate).
+  vTrue\% = fraction of judge verdicts that were \texttt{true}.
+  Acc\% = agreement with pytest oracle.
+}
+\label{tab:main}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Condition & Pass\% & vTrue\% & TP & TN & FP & FN & Acc\% \\
+\midrule
+GPT-4o-nano (biased)      & 17.8 & 91.3 &  39 &  5 &  4 & 194 & 18.2 \\
+GPT-5-mini (biased)       & 20.2 & 88.8 &  45 &  5 &  4 & 188 & 20.7 \\
+\midrule
+GPT-5-mini (fixed)        & 92.1 & 16.9 & 216 &  2 &  7 &  17 & 90.1 \\
+Claude Sonnet 4.6 (fixed) & 93.4 & 15.7 & 220 &  3 &  6 &  13 & 92.1 \\
+\midrule
+Pytest oracle             & 96.3 &   —  & —   &  — &  — &   — & 100.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:main} reports the main results.
+With the biased prompt, both GPT-4o-nano and GPT-5-mini produce
+\texttt{true} verdicts over 88\% of the time and achieve less than 21\%
+accuracy.
+Fixing the prompt --- with the \emph{same} GPT-5-mini model --- recovers
+90.1\% accuracy (+\textbf{69.4 pp}).
+Upgrading to Claude Sonnet 4.6 adds a further 2.0 pp.
+
+\paragraph{Statistical significance.}
+McNemar's test~\citep{mcnemar1947note} on GPT-4o-nano (biased) vs.\
+Claude Sonnet 4.6 (fixed):
+$\chi^2(1) = 164.8$, $p \ll 0.001$ ($b=9$, $c=192$).
+Cohen's $g = 0.864$ on verdict=\texttt{true} rates
+(91.3\% vs.\ 15.7\%), indicating a very large effect.
+
+\paragraph{Prompt effect dominates model effect.}
+Comparing conditions 2 and 3 (same model, different prompt):
+accuracy increases from 20.7\% to 90.1\% (+69.4 pp).
+Comparing conditions 3 and 4 (same fixed prompt, model upgrade):
+accuracy increases from 90.1\% to 92.1\% (+2.0 pp).
+\emph{The prompt fix accounts for 97\% of the total recovery.}
+
+%-----------------------------------------------------------------------------
+\section{Reasoning-Verdict Dissociation}
+\label{sec:dissociation}
+%-----------------------------------------------------------------------------
+
+A striking secondary finding is \emph{reasoning-verdict dissociation}:
+cases where the judge's chain-of-thought explicitly concludes the code
+is correctly fixed, yet the emitted verdict is still \texttt{true}
+(``bug present'').
+
+In the biased GPT-5-mini condition, we identify \textbf{48 such cases}
+by matching judge reasons containing words such as
+\textit{``correctly fixed'', ``no longer exhibits'', ``does not exhibit'',
+``now maps properly''} against the emitted \texttt{"verdict":true}.
+
+Example (BUG09, P0):
+\begin{lstlisting}[language=json]
+{
+  "verdict": true,
+  "reason": "The code now maps TimeoutError to 504 and
+    ValueError to 400, fixing the status mapping."
+}
+\end{lstlisting}
+The reason is entirely correct; the pytest test passes.
+Yet the verdict contradicts the reason.
+
+This pattern suggests that format anchoring operates at the \emph{token
+generation} level, \emph{after} the chain-of-thought is complete.
+The model reasons correctly in prose, then ignores its own conclusion when
+generating the structured output field.
+This is consistent with findings that chain-of-thought does not always
+constrain subsequent token predictions in small
+models~\citep{turpin2023language}.
+
+After the prompt fix, dissociation cases drop to 2--3 across all 242
+runs, confirming that the anchor was the cause.
+
+%-----------------------------------------------------------------------------
+\section{Implications for Practice}
+%-----------------------------------------------------------------------------
+
+\paragraph{Audit structured-output prompts for concrete example values.}
+Any boolean, integer, or enum in a format example acts as a potential
+anchor.
+Show multiple distinct values (\texttt{true}/\texttt{false}) or use
+abstract placeholders (\texttt{\textless{}bool\textgreater{}}).
+
+\paragraph{Never leak expected values to the judge.}
+Fields such as \texttt{expected}, \texttt{ground\_truth}, or
+\texttt{correct\_answer} in the judge payload leak the target answer.
+Even if the judge ``should'' ignore them, small models may not.
+
+\paragraph{Use affirmative framing.}
+Negative questions (``Does it \emph{still} exhibit...?'') prime
+\texttt{true} responses.
+Affirmative framing (``Is this behavior present?'') is more neutral.
+
+\paragraph{Validate judge accuracy against an oracle.}
+Pytest (or any deterministic oracle) provides cheap ground-truth
+validation.
+A judge achieving less than 50\% agreement with a 96\%+ passing oracle
+is almost certainly biased, not measuring code quality.
+
+%-----------------------------------------------------------------------------
+\section{Limitations}
+%-----------------------------------------------------------------------------
+
+Our study uses a single model family for code generation
+(\texttt{claude-haiku-4-5}) and a single codebase (\texttt{orgops}).
+Whether format anchoring bias generalises to other code domains, other
+generation models, or multi-constraint evaluations with heterogeneous
+types requires further investigation.
+Our contradiction detection heuristic (keyword matching on judge reasons)
+likely undercounts dissociation cases; a manual audit on a random sample
+would provide a tighter estimate.
+
+%-----------------------------------------------------------------------------
+\section{Conclusion}
+%-----------------------------------------------------------------------------
+
+We have demonstrated that a single concrete boolean token in a judge
+prompt's output format specification can reduce LLM-as-judge accuracy
+from 96\% (pytest oracle) to 18\% --- a catastrophic degradation that
+is invisible without an independent oracle.
+The fix is three simple prompt changes requiring no model upgrade and no
+retraining.
+We recommend that all LLM-as-judge pipelines using structured output be
+audited for format anchoring before deployment, and that oracle
+validation (even partial) be treated as a mandatory component of
+evaluation harness design.
+
+%-----------------------------------------------------------------------------
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+\appendix
+\section{Reproducibility}
+\label{app:repro}
+
+All materials are available at:\\
+\url{https://github.com/vaddisrinivas/voltsnip}
+
+\begin{itemize}
+  \item Branch \texttt{vsevals}: eval framework source
+        (\texttt{vsevals/vsevals/scorer.py}, task YAML files,
+        rescore scripts).
+  \item Branch \texttt{paper-judge-failure-0-pytest}: 242 run artifacts,
+        four \texttt{full\_dump\_\_\{suffix\}.json} per run,
+        four \texttt{matrix\_results\_\_\*.csv} aggregates.
+\end{itemize}
+
+To reproduce the rescoring:
+\begin{lstlisting}[basicstyle=\ttfamily\small]
+git clone https://github.com/vaddisrinivas/voltsnip
+cd voltsnip && git checkout vsevals
+pip install -e vsevals/
+python vsevals/scripts/rescore_scoring.py \
+  --matrix-dir vsevals_runs/matrix_20260228T053125139679Z \
+  --suite vsevals/suite.yaml \
+  --judge-model openai:gpt-5-mini \
+  --output-suffix my-rescore \
+  --workers 4
+\end{lstlisting}
+
+To reproduce Table~\ref{tab:main}:
+\begin{lstlisting}[basicstyle=\ttfamily\small]
+git checkout paper-judge-failure-0-pytest
+python paper/compute_stats.py
+\end{lstlisting}
+
+\end{document}

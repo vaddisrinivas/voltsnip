@@ -1,0 +1,77 @@
+{
+  "nano_biased": {
+    "label": "GPT-4o-nano (biased prompt)",
+    "total": 242,
+    "passed": 43,
+    "pass_pct": 17.8,
+    "verdict_true": 221,
+    "verdict_false": 21,
+    "verdict_true_pct": 91.3,
+    "tp": 39,
+    "tn": 5,
+    "fp": 4,
+    "fn": 194,
+    "accuracy_pct": 18.2,
+    "contradictions": 16
+  },
+  "mini_biased": {
+    "label": "GPT-5-mini (biased prompt)",
+    "total": 242,
+    "passed": 49,
+    "pass_pct": 20.2,
+    "verdict_true": 215,
+    "verdict_false": 27,
+    "verdict_true_pct": 88.8,
+    "tp": 45,
+    "tn": 5,
+    "fp": 4,
+    "fn": 188,
+    "accuracy_pct": 20.7,
+    "contradictions": 48
+  },
+  "mini_fixed": {
+    "label": "GPT-5-mini (fixed prompt)",
+    "total": 242,
+    "passed": 223,
+    "pass_pct": 92.1,
+    "verdict_true": 41,
+    "verdict_false": 201,
+    "verdict_true_pct": 16.9,
+    "tp": 216,
+    "tn": 2,
+    "fp": 7,
+    "fn": 17,
+    "accuracy_pct": 90.1,
+    "contradictions": 2
+  },
+  "sonnet_fixed": {
+    "label": "Claude Sonnet 4.6 (fixed prompt)",
+    "total": 242,
+    "passed": 226,
+    "pass_pct": 93.4,
+    "verdict_true": 38,
+    "verdict_false": 204,
+    "verdict_true_pct": 15.7,
+    "tp": 220,
+    "tn": 3,
+    "fp": 6,
+    "fn": 13,
+    "accuracy_pct": 92.1,
+    "contradictions": 3
+  },
+  "pytest": {
+    "label": "Pytest oracle",
+    "total": 242,
+    "passed": 233,
+    "pass_pct": 96.3
+  },
+  "mcnemar": {
+    "b": 9,
+    "c": 192,
+    "chi2": 164.8,
+    "n": 201
+  },
+  "cohens_g": 0.864,
+  "prompt_effect_accuracy_delta": 69.4,
+  "prompt_effect_pass_delta": 71.9
+}
