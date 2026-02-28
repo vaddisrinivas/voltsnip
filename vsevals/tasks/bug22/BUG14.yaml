@@ -20,6 +20,7 @@ tasks:
       from datetime import datetime, timezone
       from typing import Any
 
+      from orgops.logging.context import get_request_id
       from orgops.logging.redaction import redact_fields
 
 
@@ -34,7 +35,8 @@ tasks:
           }
           sanitized = redact_fields(fields)
           payload.update(sanitized)
-          return payload  # BUG_14: correlation/request id is never included.
+          # BUG_14: request_id from context never propagated into payload.
+          return payload
 
 
       def log_event(logger: Any, event: str, level: str = "INFO", **fields: Any) -> None:

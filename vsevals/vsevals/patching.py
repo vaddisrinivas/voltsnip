@@ -60,6 +60,9 @@ def _ignore_patterns(src: str, names: list[str]) -> set[str]:
             continue
         if name.endswith(".egg-info"):
             ignored.add(name)
+            continue
+        if any(name.startswith(prefix) for prefix in _SKIP_DIR_PREFIXES):
+            ignored.add(name)
     return ignored
 
 
@@ -171,3 +174,43 @@ def cleanup_overlay(overlay_root: Path) -> None:
         LOGGER.debug("overlay cleaned up  path=%s", overlay_root)
     except Exception as exc:  # pragma: no cover
         LOGGER.warning("overlay cleanup failed  path=%s  err=%s", overlay_root, exc)
+
+
+def apply_line_range_rewrite(
+    *,
+    code: str,
+    original_path: Path,
+    line_start: int | None,
+    line_end: int | None,
+) -> str:
+    """Produce the full patched file content by applying the generated code.
+
+    If line_start and line_end are set and original_path exists, replaces only
+    those lines (1-indexed, inclusive) with the generated code; lines outside
+    the range are preserved verbatim.
+
+    If no line range is given, returns ``code`` as-is (full file replacement).
+
+    Parameters
+    ----------
+    code:
+        The LLM-generated code block.
+    original_path:
+        Path to the original source file on the host (read-only; never modified).
+    line_start / line_end:
+        1-indexed inclusive line range to replace.  Both must be set to
+        activate targeted rewrite.
+
+    Returns
+    -------
+    str
+        Full file content to write to the patched file.
+    """
+    if line_start is not None and line_end is not None and original_path.exists():
+        existing_lines = original_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        before = existing_lines[:line_start - 1]
+        after = existing_lines[line_end:]  # line_end is inclusive → skip it
+        new_block = code if code.endswith("\n") else code + "\n"
+        return "".join(before) + new_block + "".join(after)
+
+    return code

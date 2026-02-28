@@ -66,7 +66,7 @@ class VariantConfig(BaseModel):
     tools_enabled: bool
     retrieval_mode: Literal["injected", "agent_decides", "none"]
     instruction_mode: Literal["none", "explicit"]
-    context_surface: Literal["system", "user", "tools_only", "skills_md", "skills_md_no_keys", "agents_md"]
+    context_surface: Literal["system", "user", "tools_only", "skills_md", "skills_md_no_keys", "agents_md", "skills_agents_md", "fetch_skill"]
     max_tool_roundtrips: int = Field(default=4, ge=1, le=32)
     include_oracle: bool = False
     note: str | None = None
@@ -227,7 +227,7 @@ class PromptBundle(BaseModel):
 
     system_prompt: str
     user_prompt: str
-    context_surface: Literal["system", "user", "tools_only", "skills_md", "skills_md_no_keys", "agents_md", "fetch_skill"]
+    context_surface: Literal["system", "user", "tools_only", "skills_md", "skills_md_no_keys", "agents_md", "skills_agents_md", "fetch_skill"]
     visible_sections: list[str] = Field(default_factory=list)
     injected_snippet_keys: list[str] = Field(default_factory=list)
     injected_repo_policy: bool = False
@@ -283,7 +283,6 @@ class RunArtifactPaths(BaseModel):
     summary_dump_json: str
     code_output: str
     comments_output: str
-    rewrite_output: str
 
 
 class SummaryMetrics(BaseModel):
@@ -351,7 +350,7 @@ class PytestResult(BaseModel):
     duration_ms: int | None = None
     error: str | None = None
     docker_image: str | None = None
-    overlay_path: str | None = None
+    patched_file: str | None = None  # host path to the patched file that was injected
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +474,6 @@ class RunConfig(BaseModel):
     pytest_docker_image: str = "moltsnip-pytest:latest"
     pytest_docker_workdir: str = "/workspace"
     pytest_timeout_seconds: int = Field(default=300, ge=1)
-    unapply_patch_after_test: bool = True
 
     # LLM call limits
     # max_tokens caps the *output* side (maps to max_completion_tokens / max_tokens per provider).
@@ -502,3 +500,93 @@ def _assert_unique(values: list[str], label: str) -> None:
         seen.add(key)
     if duplicates:
         raise ValueError(f"duplicate {label}: {', '.join(sorted(duplicates))}")
+
+# ---------------------------------------------------------------------------
+# Provider Output & Cost Definitions
+# ---------------------------------------------------------------------------
+
+_PRICING: dict[str, tuple[float, float]] = {
+    "gpt-5.2":          (15.00,  60.00),
+    "gpt-5":            (15.00,  60.00),
+    "gpt-5.3-codex":    (15.00,  60.00),
+    "gpt-5.2-codex":    (15.00,  60.00),
+    "gpt-5.1-codex":    (15.00,  60.00),
+    "gpt-5-mini":       ( 0.40,   1.60),
+    "gpt-5-nano":       ( 0.10,   0.40),
+    "gpt-4o":           ( 2.50,  10.00),
+    "gpt-4o-mini":      ( 0.15,   0.60),
+    "o3":               (10.00,  40.00),
+    "o3-mini":          ( 1.10,   4.40),
+    "o1":               (15.00,  60.00),
+    "o1-mini":          ( 3.00,  12.00),
+    "claude-opus-4-6":  (15.00,  75.00),
+    "claude-opus-4-5":  (15.00,  75.00),
+    "claude-sonnet-4-6": (3.00,  15.00),
+    "claude-sonnet-4-5": (3.00,  15.00),
+    "claude-haiku-4-5": ( 0.80,   4.00),
+    "claude-haiku-4-4": ( 0.25,   1.25),
+}
+
+def compute_cost(model_id: str, prompt_tokens: int, completion_tokens: int, cached_tokens: int = 0) -> float | None:
+    pricing = _PRICING.get(model_id)
+    if pricing is None:
+        return None
+    in_rate, out_rate = pricing
+
+    if cached_tokens > 0:
+        cache_discount = 0.10 if "claude" in model_id else 0.50
+        cache_rate = in_rate * cache_discount
+        standard_in_tokens = max(0, prompt_tokens - cached_tokens)
+        cost = (
+            (standard_in_tokens * in_rate) +
+            (cached_tokens * cache_rate) +
+            (completion_tokens * out_rate)
+        ) / 1_000_000
+    else:
+        cost = (prompt_tokens * in_rate + completion_tokens * out_rate) / 1_000_000
+
+    return round(cost, 8)
+
+
+class LLMResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    raw_output: str
+    parsed_output: GeneratedPayload
+    token_usage: TokenUsage
+    structured_output_attempted: bool
+    structured_output_succeeded: bool
+    fallback_parser_used: bool
+    request_started_at: datetime | None
+    request_finished_at: datetime | None
+    request_latency_ms: int | None
+    request_id: str | None
+    finish_reason: str | None
+    tool_traces: list[ToolTrace] = Field(default_factory=list)
+    subprocess_stdout: str = ""
+    subprocess_stderr: str = ""
+    api_response_raw: str = ""
+
+def parse_model(model_name: str) -> tuple[str, str]:
+    if ":" in model_name:
+        provider, model_id = model_name.split(":", 1)
+    else:
+        provider, model_id = "openai", model_name
+    norm = {
+        "openai": "openai", "anthropic": "anthropic",
+        "claudecode": "claudecode", "codex": "codex", "mock": "mock",
+    }.get(provider.strip().lower(), provider.strip().lower())
+    return norm, model_id.strip()
+
+def resolve_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> str | None:
+    import os
+    if cfg.api_key:
+        return cfg.api_key
+    if provider in cfg.provider_api_keys:
+        return cfg.provider_api_keys[provider]
+    if provider == "openai":
+        return os.environ.get("OPENAI_API_KEY")
+    if provider == "anthropic":
+        return os.environ.get("ANTHROPIC_API_KEY")
+    return None
+

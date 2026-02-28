@@ -40,6 +40,13 @@ class TestSnippetsApi(unittest.TestCase):
         """
         pass
 
+    def test_read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get(self) -> None:
+        """Test case for read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get
+
+        Read Snippet By Canonical Key
+        """
+        pass
+
     def test_view_snippet_api_v1_snippets_snippet_id_view_post(self) -> None:
         """Test case for view_snippet_api_v1_snippets_snippet_id_view_post
 

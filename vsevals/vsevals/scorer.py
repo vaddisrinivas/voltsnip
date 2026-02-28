@@ -159,6 +159,22 @@ def score_one(
     provider_keys: dict[str, str],
 ) -> ScoreResult:
     """Score a completed run against its oracle definition (LLM judge only)."""
+    # Guard: empty output must score zero — no code produced = nothing to evaluate.
+    code = (run_result.parsed_output.code or "").strip()
+    if not code:
+        LOGGER.warning("score_one: empty code output, returning zero score")
+        zero_dim = ScoreDimension(matched=0, total=1, score=0.0, notes=["no code produced"])
+        neutral = ScoreDimension(matched=0, total=0, score=1.0, notes=[])
+        return ScoreResult(
+            overall_score=0.0,
+            passed=False,
+            hidden_requirements=zero_dim,
+            success_indicators=neutral,
+            failure_modes=neutral,
+            evaluation_criteria=neutral,
+            constraint_scoring_used=False,
+        )
+
     scoring_mode = (cfg.scoring_match_mode or "llm").lower()
     endpoint = (cfg.scoring_primary_endpoint or "auto").lower()
 
@@ -235,13 +251,36 @@ def _score_constraints(
     dim = ScoreDimension(matched=passed_count, total=total, score=overall, notes=[f"missing: {m}" for m in misses])
     neutral = ScoreDimension(matched=0, total=0, score=1.0, notes=[])
 
+    def _slice_dim(prefix: str) -> ScoreDimension:
+        # Filter the unified notes list for items that start with our prefix
+        notes = [n for n in dim.notes if f"missing: {prefix}" in n]
+        count = sum(1 for c in constraints if c.id.startswith(prefix))
+        if count == 0:
+            return ScoreDimension(matched=0, total=0, score=1.0, notes=[])
+        failures = sum(1 for n in notes if "missing:" in n)
+        # For inverted requirements (failures), matched = how many we successfully AVOIDED
+        matched = count - failures
+        score = round(matched / count, 4) if count > 0 else 1.0
+        return ScoreDimension(matched=matched, total=count, score=score, notes=notes)
+
+    if cfg.auto_constraints_from_legacy_oracle and any(c.id.startswith("auto_") for c in constraints):
+        hidden_dim = _slice_dim("auto_hidden_")
+        success_dim = _slice_dim("auto_success_")
+        failure_dim = _slice_dim("auto_failure_INVERT_")
+        criteria_dim = _slice_dim("auto_criteria_")
+    else:
+        hidden_dim = dim
+        success_dim = dim
+        failure_dim = dim
+        criteria_dim = dim
+
     return ScoreResult(
         overall_score=overall,
         passed=overall >= threshold,
-        hidden_requirements=dim,
-        success_indicators=dim,
-        failure_modes=neutral,
-        evaluation_criteria=dim,
+        hidden_requirements=hidden_dim,
+        success_indicators=success_dim,
+        failure_modes=failure_dim,
+        evaluation_criteria=criteria_dim,
         evaluation_criteria_notes=[c.id for c in constraints],
         constraint_scoring_used=True,
         constraint_checks_passed=passed_count,
@@ -267,15 +306,20 @@ def _judge_constraints(
     payload = {
         "candidate": {"code": run_result.parsed_output.code, "comments": run_result.parsed_output.comments},
         "constraints": [
-            {"id": c.id, "voltsnip_key": c.voltsnip_key, "check": c.check, "judge_prompt": c.judge_prompt, "expected": c.expected}
+            # NOTE: "expected" is intentionally omitted — leaking the expected verdict
+            # to the judge anchors small models (e.g. gpt-5-mini) to copy it, corrupting
+            # ~91% of expected=false verdicts due to format-example bias.
+            {"id": c.id, "voltsnip_key": c.voltsnip_key, "check": c.check, "judge_prompt": c.judge_prompt}
             for c in constraints
         ],
     }
     instructions = (
         "Judge each constraint independently as pass/fail for this candidate output. "
         "Use judge_prompt as the primary decision rule. "
-        'Return ONLY JSON: {"results":[{"verdict":true,"reason":"1-sentence explanation"},...]} '
-        "in the same order as input constraints."
+        "Answer true if the described behavior IS present; false if it is NOT present. "
+        'Return ONLY JSON: {"results":[{"verdict":false,"reason":"1-sentence explanation"},...]} '
+        "in the same order as input constraints. "
+        "verdict must be a JSON boolean (true or false), not a string."
     )
     user_json = json.dumps(payload, ensure_ascii=False)
 
@@ -319,6 +363,8 @@ def _judge_constraints(
         return None
     if len(verdict_lists) == 1:
         return verdict_lists[0]
+
+    # Merge ensemble results per constraint
     return _merge_constraint_verdicts(verdict_lists, constraints)
 
 
@@ -472,17 +518,38 @@ def _select_constraints(
 
 
 def _synthetic_constraints(oracle: TaskOracle) -> list[OracleConstraint]:
-    """Synthesize binary constraints from hidden_requirements when no explicit constraints exist."""
+    """Synthesize binary constraints from legacy oracle dimensions when no explicit constraints exist."""
     constraints: list[OracleConstraint] = []
-    for i, req in enumerate(oracle.hidden_requirements):
-        req = req.strip()
-        if not req:
-            continue
-        constraints.append(OracleConstraint(
-            id=f"auto_hidden_{i}",
-            check=req,
-            judge_prompt=f"Does the implementation satisfy: {req}",
-        ))
+    
+    def _add_set(items: list[str], prefix: str, prompt_template: str) -> None:
+        for i, item in enumerate(items):
+            item = item.strip()
+            if not item:
+                continue
+            constraints.append(OracleConstraint(
+                id=f"{prefix}_{i}",
+                check=item,
+                judge_prompt=prompt_template.format(item=item),
+            ))
+
+    _add_set(oracle.hidden_requirements, "auto_hidden", "Does the implementation satisfy: {item}")
+    _add_set(oracle.success_indicators.as_lines(), "auto_success", "Does the implementation include: {item}")
+    # For failures, we want the LLM to return FALSE if the failure behavior is present (meaning it failed the constraint)
+    # The runner prompts check "Does the implementation exhibit..." and we will invert the boolean later.
+    def _add_failure_set(items: list[str], prefix: str, prompt_template: str) -> None:
+        for i, item in enumerate(items):
+            item = item.strip()
+            if not item:
+                continue
+            constraints.append(OracleConstraint(
+                id=f"{prefix}_{i}",
+                check=item,
+                judge_prompt=prompt_template.format(item=item),
+                expected=False,
+            ))
+    _add_failure_set(oracle.failure_modes, "auto_failure_INVERT", "Does the implementation exhibit this failure mode: {item}")
+    _add_set(oracle.evaluation_criteria, "auto_criteria", "Does the implementation satisfy this criteria: {item}")
+    
     return constraints
 
 
@@ -502,12 +569,12 @@ def _has_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> bo
 
 
 def _judge_has_key(judge_model: str, cfg: RunConfig, provider_keys: dict[str, str]) -> bool:
-    """Return True if the judge model's provider has an accessible API key (or uses claudecode)."""
+    """Return True if the judge model's provider has a usable credential."""
     provider = judge_model.split(":")[0].lower() if ":" in judge_model else "openai"
-    if provider == "claudecode":
-        return True  # claudecode uses stored auth, no key check needed here
-    if provider not in {"openai", "anthropic"}:
-        return False
+    # subprocess providers use stored CLI auth — always available
+    if provider in ("claudecode", "codex", "mock"):
+        return True
+    # API providers require a key
     return _has_key(provider, cfg, provider_keys)
 
 

@@ -6,6 +6,7 @@ Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**create_snippet_api_v1_snippets_post**](SnippetsApi.md#create_snippet_api_v1_snippets_post) | **POST** /api/v1/snippets/ | Create Snippet
 [**read_snippet_api_v1_snippets_snippet_id_get**](SnippetsApi.md#read_snippet_api_v1_snippets_snippet_id_get) | **GET** /api/v1/snippets/{snippet_id} | Read Snippet
+[**read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get**](SnippetsApi.md#read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get) | **GET** /api/v1/snippets/by-key/{canonical_key} | Read Snippet By Canonical Key
 [**view_snippet_api_v1_snippets_snippet_id_view_post**](SnippetsApi.md#view_snippet_api_v1_snippets_snippet_id_view_post) | **POST** /api/v1/snippets/{snippet_id}/view | View Snippet
 [**vote_snippet_api_v1_snippets_snippet_id_vote_post**](SnippetsApi.md#vote_snippet_api_v1_snippets_snippet_id_vote_post) | **POST** /api/v1/snippets/{snippet_id}/vote | Vote Snippet
 
@@ -122,6 +123,75 @@ with voltsnip_client.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **snippet_id** | **UUID**|  | 
+
+### Return type
+
+[**SnippetDetailResponse**](SnippetDetailResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | Successful Response |  -  |
+**422** | Validation Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get**
+> SnippetDetailResponse read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get(canonical_key)
+
+Read Snippet By Canonical Key
+
+Retrieve a snippet by its canonical_key (slash-delimited path).
+
+### Example
+
+
+```python
+import voltsnip_client
+from voltsnip_client.models.snippet_detail_response import SnippetDetailResponse
+from voltsnip_client.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to http://localhost
+# See configuration.py for a list of all supported configuration parameters.
+configuration = voltsnip_client.Configuration(
+    host = "http://localhost"
+)
+
+
+# Enter a context with an instance of the API client
+with voltsnip_client.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = voltsnip_client.SnippetsApi(api_client)
+    canonical_key = 'canonical_key_example' # str | 
+
+    try:
+        # Read Snippet By Canonical Key
+        api_response = api_instance.read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get(canonical_key)
+        print("The response of SnippetsApi->read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling SnippetsApi->read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **canonical_key** | **str**|  | 
 
 ### Return type
 

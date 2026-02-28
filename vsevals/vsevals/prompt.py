@@ -1,19 +1,23 @@
-"""Prompt assembly for P0–P6a variant execution.
+"""Prompt assembly for P0–P9 variant execution.
 
 Entry point: build_prompt(task, variant, retrieved_snippets, ...)
 Returns a PromptBundle with system_prompt + user_prompt.
 
 Context surface per variant:
-  P0 / P1        — "user"               : no injected snippets
-  P2 / P3        — "system"             : injected snippets in system prompt
-  P4             — "tools_only"         : MCP tools, zero guidance
-  P5b            — "skills_md_no_keys"  : skill docs (how to use VoltSnip) only; no key hints
-  P5a            — "skills_md"          : skill docs + specific keys; model knows exactly what to fetch
-  P6b / P6a      — "agents_md"          : agents.md sidecar; P6b has no pre-fetch, P6a has memory
+  P0             — "user"               : raw baseline, no memory, no tools
+  P1             — "user"               : baseline + explicit instruction
+  P2             — "tools_only"         : tools only, no guidance
+  P3             — "system"             : injected memory in system prompt
+  P4             — "skills_md"          : skills.md context only, no tools
+  P5             — "agents_md"          : agents.md context only, no tools
+  P6             — "skills_agents_md"   : skills.md + agents.md, no tools
+  P7             — "skills_md"          : skills.md + MCP tools
+  P8             — "agents_md"          : agents.md + MCP tools
+  P9             — "skills_agents_md"   : skills.md + agents.md + MCP tools (ceiling)
   (ext)          — "fetch_skill"        : REST API endpoint + key hints, no MCP tools
 
-Tool ladder (ablation): P4 → P5b → P5a → P6b → P6a
-Each step adds exactly one thing for clean attribution.
+Tool ladder (ablation): P2 → P7 → P8 → P9
+Context ladder: P4 → P5 → P6 (static); P7 → P8 → P9 (live retrieval)
 
 Template resolution order (skills_md / agents_md / fetch_skill):
   1. category-specific file   skills/{category}.md  /  agents/{category}.md  /  fetch_skills/{category}.md
@@ -32,13 +36,15 @@ from vsevals.models import PromptBundle, RetrievedSnippet, SuiteTask, VariantCon
 
 BASE_SYSTEM_PROMPT = """You are a senior software engineer executing a controlled code-fix evaluation.
 
-Non-negotiable output contract:
-- Return exactly one JSON object with required string field "code" and optional string field "comments".
-- Valid shape only: {"code":"...","comments":"..."}
-- No markdown fences, no prose outside JSON, no extra keys.
+Output format:
+Return ONLY valid JSON — no markdown fences, preamble, or trailing text:
+{"code": "<see editing contract below>", "comments": "<one-sentence explanation of the change>"}
 
 Editing contract:
-- If Target File is provided, "code" must be the full rewritten file content.
+- When NO Target Lines are given: "code" must be the complete rewritten file content.
+- When Target Lines ARE given: "code" must contain ONLY the replacement for that line range.
+  The file header, imports, and all content outside the range are preserved automatically.
+  Do NOT include them — outputting the full file will corrupt the target file.
 - Never return a diff, patch, pseudocode, placeholder, or partial line fragment.
 - Keep changes minimal and localized to the stated bug objective.
 - Preserve public behavior unless the task explicitly requires a change.
@@ -106,7 +112,13 @@ def build_prompt(
     if task.task.target_file:
         b.add_user_visible("target_file", f"Target File: {task.task.target_file}")
         if task.task.line_start is not None:
-            b.add_user_visible("target_span", "Target Lines:", f"{task.task.line_start}-{task.task.line_end} (1-based, inclusive)")
+            b.add_user_visible(
+                "target_span",
+                "Target Lines:",
+                f"{task.task.line_start}-{task.task.line_end} (1-based, inclusive)",
+                f"IMPORTANT: Output ONLY the replacement for lines {task.task.line_start}-{task.task.line_end} in \"code\".",
+                "Do NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.",
+            )
         if task.task.test_command:
             b.add_user_visible("test_command", "Test Command:", task.task.test_command)
 
@@ -196,6 +208,17 @@ def build_prompt(
         b.inject_system("snippet_keys", _snippet_key_hint(snippet_keys))
         # Sidecars: CLAUDE.md for claude auto-load, AGENTS.md for codex auto-load.
         b.sidecar_files["CLAUDE.md"] = rendered_agents
+        b.sidecar_files["AGENTS.md"] = rendered_agents
+    elif surface == "skills_agents_md":
+        # Combined: skills.md (tool how-to) + agents.md (workflow + memory).
+        rendered_agents = _render_agents(repo_policy_text, snippet_keys, retrieved_snippets, category=task.task.category)
+        rendered_skills = _render_skills(snippet_keys, category=task.task.category)
+        b.inject_system("snippet_keys", _snippet_key_hint(snippet_keys))
+        # CLAUDE.md = agents.md (primary sidecar for claude auto-load);
+        # SKILL.md = skills.md (tool how-to, alongside it);
+        # AGENTS.md = agents.md for codex auto-load.
+        b.sidecar_files["CLAUDE.md"] = rendered_agents
+        b.sidecar_files["SKILL.md"] = rendered_skills
         b.sidecar_files["AGENTS.md"] = rendered_agents
     elif surface == "fetch_skill":
         rendered_fetch = _render_fetch_skill(snippet_keys, category=task.task.category, voltsnip_base_url=voltsnip_base_url)
@@ -408,7 +431,6 @@ def _oracle_rows(task: SuiteTask) -> list[str]:
     return rows
 
 
-@lru_cache(maxsize=32)  # 5 categories × 3 template types × 2 (skill+agent) + fallbacks
 def _load_template(path: Path) -> str | None:
     if not path.exists():
         return None

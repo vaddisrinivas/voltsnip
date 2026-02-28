@@ -6,9 +6,6 @@ suite:
   default_repo_root: usecases/hybrid-example
 
 models:
-  # ── Test stub ──────────────────────────────────────────
-  - mock:echo
-
   # ── Claude Code (stored OAuth — no API key needed) ─────
   - claudecode:claude-haiku-4-5
   - claudecode:claude-sonnet-4-6
@@ -43,28 +40,6 @@ variants:
 
   - id: P2
     mode: agent
-    memory_enabled: true
-    tools_enabled: false
-    retrieval_mode: injected
-    instruction_mode: none
-    context_surface: system
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Memory injected (implicit)"
-
-  - id: P3
-    mode: agent
-    memory_enabled: true
-    tools_enabled: false
-    retrieval_mode: injected
-    instruction_mode: explicit
-    context_surface: system
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Memory injected (explicit instruction)"
-
-  - id: P4
-    mode: agent
     memory_enabled: false
     tools_enabled: true
     retrieval_mode: agent_decides
@@ -74,60 +49,93 @@ variants:
     include_oracle: false
     purpose: "Tools only — raw tool use, zero guidance"
 
-  - id: P5b
-    mode: agent
-    memory_enabled: false
-    tools_enabled: true
-    retrieval_mode: agent_decides
-    instruction_mode: none
-    context_surface: skills_md
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Skill docs (no keys) + tools — knows how to use VoltSnip, decides what to fetch"
-
-  - id: P5a
-    mode: agent
-    memory_enabled: false
-    tools_enabled: true
-    retrieval_mode: agent_decides
-    instruction_mode: none
-    context_surface: skills_md
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Skill docs + specific keys + tools — knows exactly which keys to fetch"
-
-  - id: P6b
-    mode: agent
-    memory_enabled: false
-    tools_enabled: true
-    retrieval_mode: agent_decides
-    instruction_mode: none
-    context_surface: agents_md
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Agents.md sidecar + keys + tools — richer context, no pre-fetched snippets"
-
-  - id: P6a
+  - id: P3
     mode: agent
     memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: none
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Memory injected (implicit)"
+
+  - id: P4
+    mode: agent
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: skills_md
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "skills.md context only, no live tools"
+
+  - id: P5
+    mode: agent
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: agents_md
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "agents.md context only, no live tools"
+
+  - id: P6
+    mode: agent
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: skills_agents_md
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "skills.md + agents.md combined, no live tools"
+
+  - id: P7
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_md
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "skills.md + MCP tools — skill guidance + live retrieval"
+
+  - id: P8
+    mode: agent
+    memory_enabled: false
     tools_enabled: true
     retrieval_mode: agent_decides
     instruction_mode: none
     context_surface: agents_md
     max_tool_roundtrips: 4
     include_oracle: false
-    purpose: "Full: agents.md sidecar + pre-fetched snippets + tools"
+    purpose: "agents.md + MCP tools — richer sidecar + live retrieval"
 
-  - id: P6c
+  - id: P9
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_agents_md
+    max_tool_roundtrips: 8
+    include_oracle: false
+    purpose: "skills.md + agents.md + MCP tools — combined static context + live retrieval"
+
+  - id: P10
     mode: agent
     memory_enabled: false
     tools_enabled: true
     retrieval_mode: agent_decides
     instruction_mode: explicit
-    context_surface: agents_md
+    context_surface: skills_agents_md
     max_tool_roundtrips: 8
     include_oracle: false
-    purpose: "Agents.md sidecar + explicit MUST-call-tools instruction — forces at least one VoltSnip MCP call before output"
+    purpose: "P9 + explicit MUST-retrieve instruction — forced tool use with full static context"
 
 task_files:
   - tasks/bug22/BUG01.yaml

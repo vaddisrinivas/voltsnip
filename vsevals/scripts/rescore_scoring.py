@@ -25,7 +25,7 @@ Typical workflow
   python scripts/run_matrix.py --suite suite.yaml \\
       --models claudecode:claude-sonnet-4-6,codex:gpt-5.1-codex
 
-  # Pass 2 — re-score with a better ensemble judge
+  # Pass 2 — re-score with a better ensemble judge (writes matrix_results__gpt-5.2+claude-opus-4-6.csv)
   python scripts/rescore_scoring.py \\
       --matrix-dir ./vsevals_runs/matrix_20260226T120000Z \\
       --suite suite.yaml \\
@@ -42,6 +42,12 @@ Typical workflow
       --matrix-dir ./vsevals_runs/matrix_20260226T120000Z \\
       --suite suite.yaml \\
       --judge-model openai:gpt-5.3 --force
+
+  # Pass 2 — override the output filename suffix (writes matrix_results__myrun.csv)
+  python scripts/rescore_scoring.py \\
+      --matrix-dir ./vsevals_runs/matrix_20260226T120000Z \\
+      --suite suite.yaml \\
+      --judge-model openai:gpt-5.3 --output-suffix myrun
 
   # Dry-run: list rows that would be rescored without running anything
   python scripts/rescore_scoring.py \\
@@ -105,13 +111,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--variants", default=None, help="Comma-separated variant IDs to process (default: all)")
     p.add_argument("--models",   default=None, help="Comma-separated model names to process (default: all)")
 
+    # Output naming
+    p.add_argument("--output-suffix", default=None,
+                   help="Suffix for output files: matrix_results__{suffix}.csv and "
+                        "full_dump__{suffix}.json per run dir.  "
+                        "Defaults to a slug derived from --judge-model.  "
+                        "Pass '' (empty string) to overwrite originals (legacy behaviour).")
+
     # Behaviour
     p.add_argument("--force", action="store_true", default=False,
                    help="Re-score even rows that already have overall_score set")
     p.add_argument("--skip-error-rows", action="store_true", default=True,
                    help="Skip rows with status=error (default: True)")
-    p.add_argument("--workers", type=int, default=1,
-                   help="Number of parallel scoring workers (default: 1 = sequential)")
+    p.add_argument("--workers", type=int, default=4,
+                   help="Number of parallel scoring workers (default: 4)")
+    p.add_argument("--stagger-seconds", type=float, default=0.5,
+                   help="Minimum seconds between consecutive judge API calls across all workers "
+                        "(default: 0.5).  Use 0 to disable.")
+    p.add_argument("--checkpoint-every", type=int, default=10,
+                   help="Write the output CSV after every N completed rows (default: 10).  "
+                        "Use 0 to disable checkpointing (write only at the end).")
     p.add_argument("--dry-run", action="store_true", default=False,
                    help="Print which rows would be processed without running anything")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
@@ -180,8 +199,16 @@ def _compute_process_passed(run_result: RunResult) -> tuple[bool, str]:
     return True, ""
 
 
-def _score_fields_from_result(score, scoring_latency_ms: int | None = None) -> dict[str, Any]:
-    """Extract all scoring CSV columns from a ScoreResult object."""
+def _score_fields_from_result(
+    score,
+    scoring_latency_ms: int | None = None,
+    cfg: RunConfig | None = None,
+) -> dict[str, Any]:
+    """Extract all scoring CSV columns from a ScoreResult object.
+
+    scoring_judge_model / scoring_mode / judge_model_count / judge_ensemble_used are NOT
+    attributes of ScoreResult — they live on RunConfig and are populated here from cfg.
+    """
     s = score
     passed_constraint_ids = ";".join(r["id"] for r in s.constraint_results if r.get("passed"))
     failed_constraint_ids = ";".join(r["id"] for r in s.constraint_results if not r.get("passed"))
@@ -196,13 +223,20 @@ def _score_fields_from_result(score, scoring_latency_ms: int | None = None) -> d
     llm_verdict_count = sum(1 for r in s.constraint_results if r.get("llm_verdict") is not None)
     vs = _voltsnip_constraint_split(s.constraint_results)
 
+    # Derive judge metadata from cfg (not ScoreResult)
+    judge_model_str = cfg.scoring_judge_model if cfg else None
+    scoring_mode_str = (cfg.scoring_match_mode or "llm") if cfg else None
+    judge_specs = [p.strip() for p in judge_model_str.split("+") if p.strip()] if judge_model_str else []
+    judge_model_count = len(judge_specs)
+    judge_ensemble_used = judge_model_count > 1
+
     fields: dict[str, Any] = {
         "overall_score":               s.overall_score,
         "passed":                      s.passed,
-        "scoring_judge_model":         s.scoring_judge_model,
-        "scoring_mode":                s.scoring_mode,
-        "judge_model_count":           s.judge_model_count,
-        "judge_ensemble_used":         s.judge_ensemble_used,
+        "scoring_judge_model":         judge_model_str,
+        "scoring_mode":                scoring_mode_str,
+        "judge_model_count":           judge_model_count or None,
+        "judge_ensemble_used":         judge_ensemble_used,
         "constraint_scoring_used":     s.constraint_scoring_used,
         "constraint_checks_passed":    s.constraint_checks_passed,
         "constraint_checks_total":     s.constraint_checks_total,
@@ -243,6 +277,56 @@ def _score_fields_from_result(score, scoring_latency_ms: int | None = None) -> d
 
 
 # ---------------------------------------------------------------------------
+# Output-file naming helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_rate_limiter(stagger_seconds: float):
+    """Return a thread-safe callable that enforces a minimum gap between API calls.
+
+    All parallel workers share the same rate-limiter instance so the stagger
+    applies globally (not per-worker).  Returns None when stagger_seconds <= 0.
+    """
+    import threading as _threading
+
+    if stagger_seconds <= 0:
+        return None
+
+    _lock = _threading.Lock()
+    _state = {"last_call": 0.0}
+
+    def _wait():
+        with _lock:
+            now = time.monotonic()
+            wait = _state["last_call"] + stagger_seconds - now
+            if wait > 0:
+                time.sleep(wait)
+            _state["last_call"] = time.monotonic()
+
+    return _wait
+
+
+def _model_slug(judge_model: str) -> str:
+    """Derive a filesystem-safe slug from a judge model string.
+
+    Examples:
+        "openai:gpt-5.2"                             → "gpt-5.2"
+        "anthropic:claude-opus-4-6"                  → "claude-opus-4-6"
+        "openai:gpt-5.2+anthropic:claude-opus-4-6"  → "gpt-5.2+claude-opus-4-6"
+    """
+    import re
+    parts = judge_model.split("+")
+    slugs = []
+    for p in parts:
+        # Strip provider prefix (everything up to and including the first colon)
+        model_part = p.split(":", 1)[-1].strip()
+        # Replace characters unsafe in filenames with "-"
+        model_part = re.sub(r"[^\w.\-+]", "-", model_part)
+        slugs.append(model_part)
+    return "+".join(slugs)
+
+
+# ---------------------------------------------------------------------------
 # Core per-row logic
 # ---------------------------------------------------------------------------
 
@@ -252,8 +336,16 @@ def _rescore_row(
     suite,
     cfg: RunConfig,
     provider_keys: dict[str, str],
+    dump_suffix: str | None = None,
+    rate_limit_fn=None,
 ) -> tuple[dict, str | None]:
-    """Re-score one matrix row.  Returns (updated_row, error_msg|None)."""
+    """Re-score one matrix row.  Returns (updated_row, error_msg|None).
+
+    dump_suffix:    if set (non-empty), write full_dump__{dump_suffix}.json instead of
+                    overwriting the original full_dump.json.  Pass None/"" to overwrite.
+    rate_limit_fn:  optional callable() that blocks until the next API call is allowed
+                    (shared across all workers for global stagger enforcement).
+    """
     task_id   = row.get("task_id", "")
     run_dir   = row.get("run_dir", "")
     full_dump = row.get("full_dump_json", "")
@@ -284,6 +376,10 @@ def _rescore_row(
     if not task:
         return row, f"task {task_id!r} not found in suite"
 
+    # Enforce global stagger before hitting the judge API
+    if rate_limit_fn is not None:
+        rate_limit_fn()
+
     # Run score_one
     t0 = time.perf_counter()
     try:
@@ -299,7 +395,7 @@ def _rescore_row(
     scoring_latency_ms = int((time.perf_counter() - t0) * 1000)
 
     # Update row with new score fields
-    row.update(_score_fields_from_result(score, scoring_latency_ms=scoring_latency_ms))
+    row.update(_score_fields_from_result(score, scoring_latency_ms=scoring_latency_ms, cfg=cfg))
 
     # Recompute process compliance now that outcome score is fresh
     run_result.score = score   # set first so _compute_process_passed sees updated outcome
@@ -310,14 +406,19 @@ def _rescore_row(
         "full_pass":           bool(score.passed and process_passed),
     })
 
-    # Also write the updated full_dump.json so the on-disk artifact stays in sync
+    # Write the scored full_dump to disk.
+    # If dump_suffix is set, write to full_dump__{suffix}.json to preserve the original.
+    if dump_suffix:
+        out_dump_path = Path(run_dir) / f"full_dump__{dump_suffix}.json"
+    else:
+        out_dump_path = dump_path
     try:
-        dump_path.write_text(
+        out_dump_path.write_text(
             json.dumps(run_result.model_dump(mode="json"), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
     except Exception as exc:
-        LOGGER.warning("could not update full_dump.json for %s: %s", run_dir, exc)
+        LOGGER.warning("could not write %s for %s: %s", out_dump_path.name, run_dir, exc)
 
     status = "PASS" if score.passed else "FAIL"
     LOGGER.info(
@@ -373,9 +474,38 @@ def main() -> None:
     )
 
     matrix_dir = Path(args.matrix_dir)
+
+    # Compute output suffix for separate-file mode.
+    # --output-suffix "" means overwrite originals (legacy); omitting it auto-derives from judge.
+    if args.output_suffix is not None:
+        output_suffix = args.output_suffix  # may be "" → overwrite mode
+    elif args.judge_model:
+        output_suffix = _model_slug(args.judge_model)
+    else:
+        output_suffix = ""  # no judge override → overwrite mode
+
+    # Input CSV is always the canonical matrix_results.csv
     csv_path = matrix_dir / "matrix_results.csv"
     if not csv_path.exists():
         parser.error(f"matrix CSV not found: {csv_path}")
+
+    # Output CSV uses suffix when set
+    out_csv_path = (
+        matrix_dir / f"matrix_results__{output_suffix}.csv"
+        if output_suffix
+        else csv_path
+    )
+    if output_suffix:
+        LOGGER.info("output CSV → %s", out_csv_path.name)
+
+    # Build rate limiter (shared across all workers)
+    rate_limit_fn = _make_rate_limiter(args.stagger_seconds)
+    if rate_limit_fn:
+        LOGGER.info(
+            "rate limiter: stagger=%.2fs  workers=%d  → max ~%d calls/min",
+            args.stagger_seconds, args.workers,
+            int(60 / args.stagger_seconds),
+        )
 
     suite = load_suite(args.suite)
 
@@ -454,6 +584,13 @@ def main() -> None:
     import threading
 
     errors: list[str] = []
+    checkpoint_every = args.checkpoint_every
+
+    def _maybe_checkpoint(completed: int) -> None:
+        """Write CSV if this completion count hits the checkpoint interval."""
+        if checkpoint_every > 0 and completed % checkpoint_every == 0:
+            LOGGER.info("checkpoint: writing %d rows → %s", len(rows), out_csv_path.name)
+            _write_csv(out_csv_path, rows)
 
     if args.workers <= 1:
         for idx, i in enumerate(to_process, 1):
@@ -463,16 +600,19 @@ def main() -> None:
                 idx, len(to_process),
                 row.get("task_id"), row.get("variant_id"), row.get("model_name"),
             )
-            rows[i], err = _rescore_row(row, suite, cfg, provider_keys)
+            rows[i], err = _rescore_row(row, suite, cfg, provider_keys,
+                                         dump_suffix=output_suffix, rate_limit_fn=rate_limit_fn)
             if err:
                 errors.append(f"{row.get('task_id')}/{row.get('variant_id')}: {err}")
                 LOGGER.error("  ✗ %s", err)
+            _maybe_checkpoint(idx)
     else:
         results_lock = threading.Lock()
         task_queue: _queue.Queue = _queue.Queue()
         for i in to_process:
             task_queue.put(i)
         started_count = [0]
+        completed_count = [0]
 
         def _worker() -> None:
             while True:
@@ -490,12 +630,15 @@ def main() -> None:
                         n, len(to_process),
                         row.get("task_id"), row.get("variant_id"), row.get("model_name"),
                     )
-                    updated, err = _rescore_row(row, suite, cfg, provider_keys)
+                    updated, err = _rescore_row(row, suite, cfg, provider_keys,
+                                                dump_suffix=output_suffix, rate_limit_fn=rate_limit_fn)
                     with results_lock:
                         rows[i] = updated
                         if err:
                             errors.append(f"{row.get('task_id')}/{row.get('variant_id')}: {err}")
                             LOGGER.error("  ✗ %s", err)
+                        completed_count[0] += 1
+                        _maybe_checkpoint(completed_count[0])
                 except Exception as exc:
                     LOGGER.error("unhandled worker exception: %s", exc)
                 finally:
@@ -511,8 +654,8 @@ def main() -> None:
         for t in threads:
             t.join(timeout=5.0)
 
-    # Write results back
-    _write_csv(csv_path, rows)
+    # Final write (captures any rows after the last checkpoint)
+    _write_csv(out_csv_path, rows)
 
     # Summary
     processed = len(to_process)

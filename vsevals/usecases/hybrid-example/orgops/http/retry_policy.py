@@ -11,7 +11,7 @@ class RetryPolicy:
     backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS
     jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS
     retryable_status_codes: set[int] = field(
-        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.
+        default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES) - {404}
     )
     retryable_methods: set[str] = field(
         default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)

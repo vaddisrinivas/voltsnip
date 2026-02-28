@@ -6,6 +6,7 @@ All URIs are relative to *http://localhost*
 |------------- | ------------- | -------------|
 | [**createSnippetApiV1SnippetsPost**](SnippetsApi.md#createsnippetapiv1snippetspost) | **POST** /api/v1/snippets/ | Create Snippet |
 | [**readSnippetApiV1SnippetsSnippetIdGet**](SnippetsApi.md#readsnippetapiv1snippetssnippetidget) | **GET** /api/v1/snippets/{snippet_id} | Read Snippet |
+| [**readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet**](SnippetsApi.md#readsnippetbycanonicalkeyapiv1snippetsbykeycanonicalkeyget) | **GET** /api/v1/snippets/by-key/{canonical_key} | Read Snippet By Canonical Key |
 | [**viewSnippetApiV1SnippetsSnippetIdViewPost**](SnippetsApi.md#viewsnippetapiv1snippetssnippetidviewpost) | **POST** /api/v1/snippets/{snippet_id}/view | View Snippet |
 | [**voteSnippetApiV1SnippetsSnippetIdVotePost**](SnippetsApi.md#votesnippetapiv1snippetssnippetidvotepost) | **POST** /api/v1/snippets/{snippet_id}/vote | Vote Snippet |
 
@@ -119,6 +120,74 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **snippetId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+[**SnippetDetailResponse**](SnippetDetailResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `application/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | Successful Response |  -  |
+| **422** | Validation Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet
+
+> SnippetDetailResponse readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet(canonicalKey)
+
+Read Snippet By Canonical Key
+
+Retrieve a snippet by its canonical_key (slash-delimited path).
+
+### Example
+
+```ts
+import {
+  Configuration,
+  SnippetsApi,
+} from '@vaddisrinivas/voltsnip-client';
+import type { ReadSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRequest } from '@vaddisrinivas/voltsnip-client';
+
+async function example() {
+  console.log("🚀 Testing @vaddisrinivas/voltsnip-client SDK...");
+  const api = new SnippetsApi();
+
+  const body = {
+    // string
+    canonicalKey: canonicalKey_example,
+  } satisfies ReadSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRequest;
+
+  try {
+    const data = await api.readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **canonicalKey** | `string` |  | [Defaults to `undefined`] |
 
 ### Return type
 

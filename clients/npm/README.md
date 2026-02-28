@@ -60,6 +60,7 @@ All URIs are relative to *http://localhost*
 *SearchApi* | [**semanticSearchApiV1SearchSemanticGet**](docs/SearchApi.md#semanticsearchapiv1searchsemanticget) | **GET** /api/v1/search/semantic | Semantic Search
 *SnippetsApi* | [**createSnippetApiV1SnippetsPost**](docs/SnippetsApi.md#createsnippetapiv1snippetspost) | **POST** /api/v1/snippets/ | Create Snippet
 *SnippetsApi* | [**readSnippetApiV1SnippetsSnippetIdGet**](docs/SnippetsApi.md#readsnippetapiv1snippetssnippetidget) | **GET** /api/v1/snippets/{snippet_id} | Read Snippet
+*SnippetsApi* | [**readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet**](docs/SnippetsApi.md#readsnippetbycanonicalkeyapiv1snippetsbykeycanonicalkeyget) | **GET** /api/v1/snippets/by-key/{canonical_key} | Read Snippet By Canonical Key
 *SnippetsApi* | [**viewSnippetApiV1SnippetsSnippetIdViewPost**](docs/SnippetsApi.md#viewsnippetapiv1snippetssnippetidviewpost) | **POST** /api/v1/snippets/{snippet_id}/view | View Snippet
 *SnippetsApi* | [**voteSnippetApiV1SnippetsSnippetIdVotePost**](docs/SnippetsApi.md#votesnippetapiv1snippetssnippetidvotepost) | **POST** /api/v1/snippets/{snippet_id}/vote | Vote Snippet
 *StatsApi* | [**getStatsApiV1StatsGet**](docs/StatsApi.md#getstatsapiv1statsget) | **GET** /api/v1/stats | Get Stats

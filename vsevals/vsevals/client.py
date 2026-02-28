@@ -68,28 +68,20 @@ class VoltSnipClient:
 
         wanted = set(keys)
         found: dict[str, dict[str, Any]] = {}
-        page_size = 200
-        offset = 0
 
-        while len(found) < len(wanted):
-            rows = self._call("GET", "/api/v1/search/", query={"limit": str(page_size), "offset": str(offset)})
-            if not isinstance(rows, list) or not rows:
-                break
-            for meta in rows:
-                if not isinstance(meta, dict):
-                    continue
-                key = _str(meta.get("canonical_key"))
-                if key not in wanted or key in found:
-                    continue
-                sid = _str(meta.get("id"))
-                if not sid:
-                    continue
-                detail = self._call("GET", f"/api/v1/snippets/{sid}")
+        # Fetch individually by ID/slug instead of relying on bulk query parameters
+        import httpx
+        for key in wanted:
+            if key in found:
+                continue
+            try:
+                detail = self._call("GET", f"/api/v1/snippets/by-key/{key}")
                 if isinstance(detail, dict):
                     found[key] = detail
-            if len(rows) < page_size:
-                break
-            offset += page_size
+            except httpx.HTTPError:
+                LOGGER.debug("Snippet %s not found remotely", key)
+            except Exception as e:
+                LOGGER.warning("Error fetching snippet %s: %s", key, e)
 
         return [_to_snippet(found[k], max_chars) for k in keys if k in found]
 

@@ -59,8 +59,9 @@ if str(_here) not in sys.path:
 
 from vsevals.loader import load_suite
 from vsevals.models import PytestResult, RunConfig
-from vsevals.patching import apply_rewrite, cleanup_overlay, materialize_overlay
-from vsevals.pytest_runner import run_pytest_in_docker
+from vsevals.patching import apply_line_range_rewrite
+from vsevals.pytest_runner import docker_cp, run_pytest_in_docker, start_test_container, stop_test_container
+from vsevals.runner import _container_file_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -227,40 +228,56 @@ def _run_pytest_for_row(
     if not repo_root.exists():
         return row, f"repo_root does not exist: {repo_root}"
 
-    # Determine overlay location — use run_dir so overlay is co-located with artifacts
-    overlay_root = Path(run_dir) / "_pytest_overlay"
-
-    # Compute Docker mount root (same logic as runner._compute_mount_root)
-    from vsevals.runner import _compute_mount_root
-    mount_root = _compute_mount_root(repo_root=repo_root, docker_workdir=cfg.pytest_docker_workdir)
-
-    LOGGER.info(
-        "  pytest  task=%s  target=%s  overlay=%s",
-        task_id, task.task.target_file, overlay_root,
-    )
-    t0 = time.time()
-    pr: PytestResult
+    target_file = task.task.target_file
+    original_path = (repo_root / target_file).resolve()
     try:
-        materialize_overlay(repo_root=mount_root, overlay_root=overlay_root)
-        apply_rewrite(
+        patched_content = apply_line_range_rewrite(
             code=code,
-            target_file=task.task.target_file,
-            repo_root=repo_root,
-            overlay_root=overlay_root,
-            mount_root=mount_root,
+            original_path=original_path,
             line_start=task.task.line_start,
             line_end=task.task.line_end,
         )
+    except Exception as exc:
+        return row, f"could not produce patched file: {exc}"
+
+    patched_filename = "patched_" + Path(target_file).name
+    patched_host_path = Path(run_dir) / patched_filename
+    patched_host_path.write_text(patched_content, encoding="utf-8")
+
+    container_path = _container_file_path(
+        workdir=cfg.pytest_docker_workdir,
+        target_file=target_file,
+    )
+    LOGGER.info(
+        "  pytest  task=%s  inject=%s→%s",
+        task_id, patched_host_path, container_path,
+    )
+    t0 = time.time()
+    pr: PytestResult
+    container: str | None = None
+    try:
+        container = start_test_container(
+            image=cfg.pytest_docker_image,
+            workdir=cfg.pytest_docker_workdir,
+            timeout_seconds=cfg.pytest_timeout_seconds,
+        )
+        docker_cp(patched_host_path, container, container_path)
         pr = run_pytest_in_docker(
+            container_name=container,
             test_command=task.task.test_command,
-            overlay_root=overlay_root,
             cfg=cfg,
         )
+        if original_path.exists():
+            try:
+                docker_cp(original_path, container, container_path)
+            except Exception:
+                LOGGER.debug("restore cp failed (non-fatal)")
     except Exception as exc:
         LOGGER.exception("patch+test raised for task=%s", task_id)
-        pr = PytestResult(ran=False, error=str(exc), overlay_path=str(overlay_root))
+        pr = PytestResult(ran=False, error=str(exc))
     finally:
-        cleanup_overlay(overlay_root)
+        if container:
+            stop_test_container(container)
 
     duration_ms = int((time.time() - t0) * 1000)
 
@@ -356,12 +373,12 @@ def main() -> None:
     # Use suite-level Docker config if present, CLI overrides win
     if args.pytest_docker_image:
         cfg_kwargs["pytest_docker_image"] = args.pytest_docker_image
-    elif suite.pytest_docker_image:
-        cfg_kwargs["pytest_docker_image"] = suite.pytest_docker_image
+    elif suite.suite.pytest_docker_image:
+        cfg_kwargs["pytest_docker_image"] = suite.suite.pytest_docker_image
     if args.pytest_docker_workdir:
         cfg_kwargs["pytest_docker_workdir"] = args.pytest_docker_workdir
-    elif suite.pytest_docker_workdir:
-        cfg_kwargs["pytest_docker_workdir"] = suite.pytest_docker_workdir
+    elif suite.suite.pytest_docker_workdir:
+        cfg_kwargs["pytest_docker_workdir"] = suite.suite.pytest_docker_workdir
     cfg = RunConfig(**cfg_kwargs)
 
     # Load CSV

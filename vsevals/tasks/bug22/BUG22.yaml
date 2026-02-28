@@ -6,8 +6,8 @@ tasks:
     category: concurrency_cache
     difficulty: medium
     target_file: service/cache.py
-    line_start: 8
-    line_end: 22
+    line_start: 1
+    line_end: 21
     test_command: uv run pytest -q tests/unit/test_concurrency_cache.py -k bug_22
     user_prompt: |
       Apply only this task fix using configured target file and line range.
@@ -30,11 +30,10 @@ tasks:
           def get_or_set(self, key: str, builder: Callable[[], Any]) -> Any:
               now = self.time_fn()
               entry = self._entries.get(key)
-              if entry is not None and entry["expires_at"] < now:
-                  return entry["value"]  # BUG_21: returns stale value after TTL expiry.
-
+              if entry is not None and entry["expires_at"] < now:  # BUG_21: inverted — returns stale value after TTL expiry.
+                  return entry["value"]
               value = builder()  # BUG_22: no synchronization; concurrent misses can stampede.
-              self._entries[key] = {"value": value, "expires_at": now + self.ttl_seconds}
+              self._entries[key] = {"value": value, "expires_at": self.time_fn() + self.ttl_seconds}
               return value
     expected_output: Concurrent misses coalesce to one builder execution without deadlock or unbounded waiting.
   voltsnip:

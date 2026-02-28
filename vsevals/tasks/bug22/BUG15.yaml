@@ -7,7 +7,7 @@ tasks:
     difficulty: medium
     target_file: orgops/logging/structured.py
     line_start: 13
-    line_end: 28
+    line_end: 30
     test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_15
     user_prompt: |
       Apply only this task fix using configured target file and line range.
@@ -20,6 +20,7 @@ tasks:
       from datetime import datetime, timezone
       from typing import Any
 
+      from orgops.logging.context import get_request_id
       from orgops.logging.redaction import redact_fields
 
 
@@ -34,7 +35,8 @@ tasks:
           }
           sanitized = redact_fields(fields)
           payload.update(sanitized)
-          return payload  # BUG_14: correlation/request id is never included.
+          # BUG_14: request_id from context never propagated into payload.
+          return payload
 
 
       def log_event(logger: Any, event: str, level: str = "INFO", **fields: Any) -> None:

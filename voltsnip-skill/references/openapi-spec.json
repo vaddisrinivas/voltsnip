@@ -456,6 +456,49 @@
         }
       }
     },
+    "/api/v1/snippets/by-key/{canonical_key}": {
+      "get": {
+        "tags": [
+          "snippets"
+        ],
+        "summary": "Read Snippet By Canonical Key",
+        "description": "Retrieve a snippet by its canonical_key (slash-delimited path).",
+        "operationId": "read_snippet_by_canonical_key_api_v1_snippets_by_key__canonical_key__get",
+        "parameters": [
+          {
+            "name": "canonical_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Canonical Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnippetDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/snippets/{snippet_id}": {
       "get": {
         "tags": [

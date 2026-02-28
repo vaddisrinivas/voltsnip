@@ -10,8 +10,8 @@ run_one(task, variant)  │ 1. Load task + variant from suite                   
                         │ 3. [memory variants] retrieve seed snippets         │
                         │ 4. Build prompt via prompt.build_prompt()           │
                         │ 5. Call LLM via dispatch.call_llm()                 │
-                        │    • direct/no-tools (P0-P3): single LLM call       │
-                        │    • tool-enabled (P4-P6a): LLM call with tool loop │
+                        │    • direct/no-tools (P0-P1, P3-P6): single call    │
+                        │    • tool-enabled (P2, P7-P9): LLM + tool loop      │
                         │       (openai: Responses API + remote MCP)          │
                         │       (anthropic: SDK tool loop, Python-side)       │
                         │       (claudecode/codex: subprocess MCP tool loop;  │
@@ -27,7 +27,7 @@ run_one(task, variant)  │ 1. Load task + variant from suite                   
                         │ 9. Write artifacts (full_dump.json, summary, etc.)  │
                         └─────────────────────────────────────────────────────┘
 
-Convenience wrappers: run_p0() … run_p6a(), run_hypothesis()
+Convenience wrappers: run_p0() … run_p10(), run_hypothesis()
 """
 
 from __future__ import annotations
@@ -42,7 +42,10 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from vsevals.client import VoltSnipClient
-from vsevals.dispatch import LLMResult, call_llm, voltsnip_tool_schemas
+from vsevals.dispatch import (
+    call_llm,
+    voltsnip_tool_schemas,
+)
 from vsevals.loader import load_suite
 from vsevals.models import (
     GeneratedPayload,
@@ -61,19 +64,22 @@ from vsevals.models import (
     TokenUsage,
     ToolTrace,
     VariantConfig,
+    LLMResult
 )
-from vsevals.patching import apply_rewrite, cleanup_overlay, materialize_overlay
+import tempfile
+
+from vsevals.patching import apply_line_range_rewrite, apply_rewrite, cleanup_overlay, materialize_overlay
 from vsevals.prompt import DEFAULT_REPO_POLICY, build_prompt
-from vsevals.pytest_runner import run_pytest_in_docker
+from vsevals.pytest_runner import run_pytest_in_docker, start_test_container, stop_test_container
 from vsevals.scorer import score_one
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
-DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8011"
+DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8000"
 
-HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a"]
-HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5b", "P5a", "P6b", "P6a")
+HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9"]
+HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9")
 
 
 # ---------------------------------------------------------------------------
@@ -105,16 +111,16 @@ def run_hypothesis(
 
 
 _VARIANT_DOCS: dict[str, str] = {
-    "P0":  "Baseline: direct call, no memory, no tools.",
-    "P1":  "Baseline + explicit instruction (no memory, no tools).",
-    "P2":  "Memory injected (implicit guidance).",
-    "P3":  "Memory injected + explicit instruction.",
-    "P4":  "Tools only — raw tool use, zero guidance.",
-    "P5b": "Skill docs (no keys) + tools — knows how to use VoltSnip, decides what to fetch.",
-    "P5a": "Skill docs + specific keys + tools — knows exactly which keys to fetch.",
-    "P6b": "Agents.md sidecar + keys + tools — richer context, no pre-fetched snippets.",
-    "P6a": "Full: agents.md sidecar + pre-fetched snippets + tools.",
-    "P6c": "Agents.md sidecar + explicit MUST-call-tools instruction — forces at least one VoltSnip MCP call before output.",
+    "P0": "Baseline: direct call, no memory, no tools.",
+    "P1": "Baseline + explicit instruction (no memory, no tools).",
+    "P2": "Tools only — raw tool use, zero guidance.",
+    "P3": "Memory injected, no tools.",
+    "P4": "skills.md context only, no live tools.",
+    "P5": "agents.md context only, no live tools.",
+    "P6": "skills.md + agents.md combined context, no live tools.",
+    "P7": "skills.md + MCP tools — skill guidance + live retrieval.",
+    "P8": "agents.md + MCP tools — richer sidecar + live retrieval.",
+    "P9": "skills.md + agents.md + MCP tools — combined static context + live retrieval.",
 }
 for _vid, _doc in _VARIANT_DOCS.items():
     def _f(*, task_id: str, model_name: str, suite_path: str, output_dir: str, _v: str = _vid, **kw: Any) -> RunResult:
@@ -179,6 +185,8 @@ def run_one(
     model_latency_ms: int | None = None
 
     try:
+        provider, _ = _parse_provider(model_name)
+
         provider_keys = _load_provider_keys(resolved_cfg)
         voltsnip = _make_client(variant, resolved_cfg)
         repo_root_path = _resolve_repo_root(
@@ -190,11 +198,9 @@ def run_one(
 
         # Step 3: retrieve seed snippets (memory variants only).
         # Pre-fetch whenever memory_enabled=true, regardless of retrieval_mode.
-        #   retrieval_mode=injected  → fetch, inject into prompt, no tools (P2/P3)
-        #   retrieval_mode=agent_decides, memory_enabled=true → fetch as seed
-        #     AND give tools so agent can retrieve more (P6a = full)
+        #   retrieval_mode=injected  → fetch, inject into prompt, no tools (P3)
         #   retrieval_mode=agent_decides, memory_enabled=false → no pre-fetch;
-        #     agent must use tools to get snippets (P4/P5b/P5a/P6b)
+        #     agent must use tools to get snippets (P2, P7, P8, P9)
         if variant.memory_enabled:
             t_ret = time.perf_counter()
             retrieved_snippets = _retrieve_snippets(task=task, variant=variant, voltsnip=voltsnip, cfg=resolved_cfg)
@@ -211,7 +217,7 @@ def run_one(
                 cfg=resolved_cfg, provider_keys=provider_keys,
                 voltsnip=voltsnip, seed_snippets=retrieved_snippets,
                 target_file_content=target_file_content, repo_policy=repo_policy,
-                repo_root=repo_root_path,
+                repo_root=repo_root_path, run_dir=artifacts.run_dir,
             )
         else:
             prompt = build_prompt(
@@ -239,11 +245,11 @@ def run_one(
     finished_at = datetime.now(timezone.utc)
     llm_result = llm_result or _empty_llm_result()
 
+    provider, model_id = _parse_provider(model_name)
+
     # Write raw subprocess / API artifacts immediately — before scoring + pytest —
     # so they are on disk even when later stages fail.
-    _write_raw_llm_artifacts(llm_result=llm_result, run_dir=artifacts.run_dir)
-
-    provider, model_id = _parse_provider(model_name)
+    _write_raw_llm_artifacts(llm_result=llm_result, run_dir=artifacts.run_dir, provider=provider)
 
     sys_chars = len(prompt.system_prompt)
     usr_chars = len(prompt.user_prompt)
@@ -332,7 +338,7 @@ def run_one(
     # Step 8: patch + Docker pytest (optional)
     if status == "ok" and resolved_cfg.auto_apply_patch:
         repo_root_for_patch = _resolve_repo_root(
-            repo_root or task.task.repo_root, suite_path=suite_path
+            repo_root or task.task.repo_root or suite.suite.default_repo_root, suite_path=suite_path
         )
         run_result.pytest_result = _run_patch_and_test(
             run_result=run_result,
@@ -371,6 +377,7 @@ def _run_agent(
     target_file_content: str | None,
     repo_policy: str,
     repo_root: "Path | None" = None,
+    run_dir: str | None = None,
 ) -> tuple[LLMResult, PromptBundle, PromptBundle, list[RetrievedSnippet], list[ToolTrace]]:
     snippets = _dedup_snippets(seed_snippets)
     tool_traces: list[ToolTrace] = []
@@ -384,30 +391,30 @@ def _run_agent(
         voltsnip_base_url=cfg.voltsnip_base_url,
     )
 
-    provider, _ = _parse_provider(model_name)
+    provider, model_id = _parse_provider(model_name)
 
     # claudecode / codex: subprocess MCP tool loop — tool_traces parsed from stdout JSONL
     if provider in ("claudecode", "codex"):
-        from vsevals.dispatch import _call_claudecode, _call_codex, _parse_model
-        _, model_id = _parse_model(model_name)
+        from vsevals.providers.claudecode import call_claudecode
+        from vsevals.providers.codex import call_codex
         tools = voltsnip_tool_schemas() if variant.tools_enabled else None
         # Strict guardrail: do not add hidden turn buffers beyond variant budget.
         turns = max(1, variant.max_tool_roundtrips)
         if provider == "claudecode":
-            llm_result = _call_claudecode(
+            llm_result = call_claudecode(
                 model_id=model_id, system_prompt=prompt_sent.system_prompt,
                 user_prompt=prompt_sent.user_prompt, cfg=cfg,
                 tool_schemas=tools, max_tool_turns=turns,
                 sidecar_files=prompt_sent.sidecar_files or None,
-                repo_root=repo_root,
+                run_dir=run_dir,
             )
         else:
-            llm_result = _call_codex(
+            llm_result = call_codex(
                 model_id=model_id, system_prompt=prompt_sent.system_prompt,
                 user_prompt=prompt_sent.user_prompt, cfg=cfg,
                 tool_schemas=tools, max_tool_turns=turns,
                 sidecar_files=prompt_sent.sidecar_files or None,
-                repo_root=repo_root,
+                run_dir=run_dir,
             )
         # Merge tool_traces parsed from the subprocess JSONL stdout
         tool_traces.extend(llm_result.tool_traces)
@@ -603,11 +610,7 @@ def _retrieve_snippets(
         return []
     limit = cfg.snippet_context_limit or task.voltsnip.snippet_context_limit
     max_chars = cfg.snippet_context_max_chars or task.voltsnip.snippet_context_max_chars
-    try:
-        return voltsnip.get_by_canonical_keys(keys, limit=limit, max_chars=max_chars)
-    except Exception as exc:
-        LOGGER.warning("snippet oracle retrieval failed (P2/P3): %s", exc)
-        return []
+    return voltsnip.get_by_canonical_keys(keys, limit=limit, max_chars=max_chars)
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +627,8 @@ def _make_client(variant: VariantConfig, cfg: RunConfig) -> VoltSnipClient | Non
         timeout_seconds=cfg.voltsnip_timeout_seconds,
         retry_attempts=cfg.voltsnip_retry_attempts,
     )
-    client.preflight_check()
+    if not client.preflight_check():
+        raise RuntimeError(f"VoltSnip preflight check failed. Cannot reach API at {base_url}")
     return client
 
 
@@ -693,22 +697,16 @@ def _parse_provider(model_name: str) -> tuple[str, str]:
     return provider.strip().lower(), model_id.strip()
 
 
-def _compute_mount_root(*, repo_root: Path, docker_workdir: str) -> Path:
-    """Compute the directory to copy into the overlay (= what maps to /workspace in Docker).
+def _container_file_path(*, workdir: str, target_file: str) -> str:
+    """Compute the absolute container path for the target file.
 
-    If docker_workdir == "/workspace": mount_root = repo_root (simple case).
-    If docker_workdir == "/workspace/foo/bar": the overlay must contain the ancestor
-    that is 2 levels above repo_root, because repo_root corresponds to /workspace/foo/bar.
+    workdir is the container working directory (e.g. /workspace).
+    target_file is relative to repo_root (e.g. orgops/http/retry_policy.py).
     """
-    workdir = docker_workdir.rstrip("/")
-    if workdir == "/workspace" or not workdir.startswith("/workspace/"):
-        return repo_root
-    suffix = workdir[len("/workspace/"):]  # e.g. "voltsnip-evals/usecases/hybrid-example"
-    depth = len(Path(suffix).parts)        # number of directories to go up from repo_root
-    mount = repo_root.resolve()
-    for _ in range(depth):
-        mount = mount.parent
-    return mount
+    target = Path(target_file)
+    if target.is_absolute():
+        return str(target)
+    return workdir.rstrip("/") + "/" + str(target)
 
 
 def _dedup_snippets(snippets: list[RetrievedSnippet]) -> list[RetrievedSnippet]:
@@ -744,16 +742,16 @@ def _run_patch_and_test(
     repo_root: Path | None,
     cfg: RunConfig,
 ) -> PytestResult:
-    """Materialize an isolated overlay, apply the rewrite, run pytest in Docker.
+    """Overlay the patched file onto a full repo copy, mount it, run pytest, teardown.
 
     Steps:
-      1. Validate prerequisites (repo_root, target_file, test_command).
-      2. Determine overlay directory (inside the run artifact dir).
-      3. Copy repo into overlay (skipping .git, .venv, etc.).
-      4. Write generated code to the target file inside the overlay.
-      5. Run pytest in Docker, mounting overlay as workspace.
-      6. Cleanup overlay (always, regardless of outcome).
-      7. Return PytestResult.
+      1. Validate prerequisites.
+      2. Apply line-range rewrite → patched_content (full file).
+      3. materialize_overlay() — copy full repo to temp dir.
+      4. apply_rewrite()       — write patched file into the overlay.
+      5. start_test_container() — docker run -d -v overlay:/workspace image sleep <n>
+      6. run_pytest_in_docker() — docker exec pytest (project + tests already present)
+      7. stop_test_container() + cleanup_overlay() — always in finally
     """
     target_file = task.task.target_file
     test_command = task.task.test_command
@@ -769,41 +767,63 @@ def _run_patch_and_test(
     if not code.strip():
         return PytestResult(ran=False, error="generated code is empty — skipping pytest")
 
-    overlay_root = Path(run_result.artifacts.run_dir) / "_pytest_overlay"
-
-    # Determine mount root: if pytest_docker_workdir is a subpath of /workspace,
-    # the overlay must contain the ancestor that maps to /workspace.
-    # e.g. workdir=/workspace/voltsnip-evals/usecases/hybrid-example → go up 3 levels from repo_root
-    mount_root = _compute_mount_root(repo_root=repo_root, docker_workdir=cfg.pytest_docker_workdir)
-
+    original_path = (Path(repo_root) / target_file).resolve()
     try:
-        LOGGER.info(
-            "patch+test  task=%s  target=%s  mount_root=%s  overlay=%s",
-            task.id, target_file, mount_root, overlay_root,
-        )
-        materialize_overlay(repo_root=mount_root, overlay_root=overlay_root)
-        apply_rewrite(
+        patched_content = apply_line_range_rewrite(
             code=code,
-            target_file=target_file,
-            repo_root=repo_root,
-            overlay_root=overlay_root,
-            mount_root=mount_root,
+            original_path=original_path,
             line_start=task.task.line_start,
             line_end=task.task.line_end,
         )
-        result = run_pytest_in_docker(
-            test_command=test_command,
+    except Exception as exc:
+        return PytestResult(ran=False, error=f"could not produce patched file: {exc}")
+
+    # Also write patched file to run artifacts for inspection.
+    patched_host_path = Path(run_result.artifacts.run_dir) / ("patched_" + Path(target_file).name)
+    patched_host_path.write_text(patched_content, encoding="utf-8")
+
+    LOGGER.info("patch+test  task=%s  target=%s", task.id, target_file)
+
+    overlay_root: Path | None = None
+    container: str | None = None
+    try:
+        # Build isolated overlay: full repo copy + patch applied.
+        overlay_root = Path(tempfile.mkdtemp(prefix="vsevals_overlay_"))
+        materialize_overlay(repo_root=Path(repo_root), overlay_root=overlay_root)
+        apply_rewrite(
+            code=patched_content,
+            target_file=target_file,
+            repo_root=Path(repo_root),
             overlay_root=overlay_root,
+        )
+
+        try:
+            container = start_test_container(
+                image=cfg.pytest_docker_image,
+                workdir=cfg.pytest_docker_workdir,
+                timeout_seconds=cfg.pytest_timeout_seconds,
+                host_workdir=str(overlay_root),
+            )
+        except FileNotFoundError:
+            return PytestResult(ran=False, error="docker not found — is Docker installed and running?")
+        except RuntimeError as exc:
+            return PytestResult(ran=False, error=str(exc))
+
+        return run_pytest_in_docker(
+            container_name=container,
+            test_command=test_command,
             cfg=cfg,
         )
+
     except Exception as exc:
         LOGGER.exception("patch+test failed  task=%s", task.id)
-        result = PytestResult(ran=False, error=str(exc), overlay_path=str(overlay_root))
-    finally:
-        if cfg.unapply_patch_after_test:
-            cleanup_overlay(overlay_root)
+        return PytestResult(ran=False, error=str(exc))
 
-    return result
+    finally:
+        if container:
+            stop_test_container(container)
+        if overlay_root:
+            cleanup_overlay(overlay_root)
 
 
 # ---------------------------------------------------------------------------
@@ -870,28 +890,34 @@ def _classify_error(exc: Exception) -> str:
     return "UNKNOWN_ERROR"
 
 
-def _write_raw_llm_artifacts(*, llm_result: LLMResult, run_dir: str) -> None:
+def _write_raw_llm_artifacts(*, llm_result: LLMResult, run_dir: str, provider: str = "") -> None:
     """Write raw subprocess / API response artifacts immediately after the LLM call.
 
     Written before scoring and pytest so these files survive even if later
     pipeline stages fail.  Files only created when content is non-empty.
 
     Produced files (provider-dependent):
-      subprocess.stdout.jsonl  — full JSONL event stream from claudecode/codex
-      subprocess.stderr.txt    — stderr from claudecode/codex subprocess
-      llm_response.json        — raw API response JSON from openai/anthropic
+      subprocess.stdout.{provider}.jsonl  — full JSONL event stream from claudecode/codex
+      subprocess.stderr.{provider}.txt    — stderr from claudecode/codex subprocess
+      llm_response.{provider}.json        — raw API response JSON from openai/anthropic
     """
     rd = Path(run_dir)
+    p = f".{provider}" if provider else ""
     stdout = getattr(llm_result, "subprocess_stdout", "") or ""
     stderr = getattr(llm_result, "subprocess_stderr", "") or ""
     api_raw = getattr(llm_result, "api_response_raw", "") or ""
 
-    if stdout:
-        (rd / "subprocess.stdout.jsonl").write_text(stdout, encoding="utf-8")
-    if stderr:
-        (rd / "subprocess.stderr.txt").write_text(stderr, encoding="utf-8")
+    # Skip if already written by the provider immediately after subprocess.run()
+    # to avoid overwriting with identical content (or worse, with empty content
+    # from an _empty_llm_result() on error paths).
+    stdout_file = rd / f"subprocess.stdout{p}.jsonl"
+    stderr_file = rd / f"subprocess.stderr{p}.txt"
+    if stdout and not stdout_file.exists():
+        stdout_file.write_text(stdout, encoding="utf-8")
+    if stderr and not stderr_file.exists():
+        stderr_file.write_text(stderr, encoding="utf-8")
     if api_raw:
-        (rd / "llm_response.json").write_text(api_raw, encoding="utf-8")
+        (rd / f"llm_response{p}.json").write_text(api_raw, encoding="utf-8")
 
 
 def _make_artifact_paths(*, output_root: str, task_id: str, variant_id: str, model_name: str) -> RunArtifactPaths:
@@ -911,7 +937,6 @@ def _make_artifact_paths(*, output_root: str, task_id: str, variant_id: str, mod
         summary_dump_json=str(run_dir / "summary_dump.json"),
         code_output=str(run_dir / "generated_code.txt"),
         comments_output=str(run_dir / "generated_comments.txt"),
-        rewrite_output=str(run_dir / "generated_rewrite.txt"),
     )
 
 
@@ -936,7 +961,6 @@ def _write_artifacts(*, run_result: RunResult, score: ScoreResult | None) -> Non
     )
     Path(run_result.artifacts.code_output).write_text(run_result.parsed_output.code, encoding="utf-8")
     Path(run_result.artifacts.comments_output).write_text(run_result.parsed_output.comments, encoding="utf-8")
-    Path(run_result.artifacts.rewrite_output).write_text(run_result.parsed_output.code, encoding="utf-8")
 
     # Standalone prompt file — convenient for offline replay / re-scoring without
     # parsing the full full_dump.json.
@@ -952,6 +976,13 @@ def _write_artifacts(*, run_result: RunResult, score: ScoreResult | None) -> Non
     (run_dir / "prompt.json").write_text(
         json.dumps(prompt_data, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+    # Standalone score artifact — lets rescore/analysis tools read scores without
+    # parsing the full full_dump.json. Contains the complete ScoreResult.
+    if score:
+        (run_dir / "score_result.json").write_text(
+            json.dumps(score.model_dump(mode="json"), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     # Pytest stdout/stderr as separate files (mirrors old harness layout)
     if run_result.pytest_result and run_result.pytest_result.ran:

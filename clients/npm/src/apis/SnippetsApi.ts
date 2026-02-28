@@ -42,6 +42,10 @@ export interface ReadSnippetApiV1SnippetsSnippetIdGetRequest {
     snippetId: string;
 }
 
+export interface ReadSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRequest {
+    canonicalKey: string;
+}
+
 export interface ViewSnippetApiV1SnippetsSnippetIdViewPostRequest {
     snippetId: string;
 }
@@ -129,6 +133,45 @@ export class SnippetsApi extends runtime.BaseAPI {
      */
     async readSnippetApiV1SnippetsSnippetIdGet(requestParameters: ReadSnippetApiV1SnippetsSnippetIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SnippetDetailResponse> {
         const response = await this.readSnippetApiV1SnippetsSnippetIdGetRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Retrieve a snippet by its canonical_key (slash-delimited path).
+     * Read Snippet By Canonical Key
+     */
+    async readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRaw(requestParameters: ReadSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SnippetDetailResponse>> {
+        if (requestParameters['canonicalKey'] == null) {
+            throw new runtime.RequiredError(
+                'canonicalKey',
+                'Required parameter "canonicalKey" was null or undefined when calling readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/api/v1/snippets/by-key/{canonical_key}`;
+        urlPath = urlPath.replace(`{${"canonical_key"}}`, encodeURIComponent(String(requestParameters['canonicalKey'])));
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => SnippetDetailResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Retrieve a snippet by its canonical_key (slash-delimited path).
+     * Read Snippet By Canonical Key
+     */
+    async readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGet(requestParameters: ReadSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SnippetDetailResponse> {
+        const response = await this.readSnippetByCanonicalKeyApiV1SnippetsByKeyCanonicalKeyGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

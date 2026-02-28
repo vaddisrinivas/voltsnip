@@ -94,6 +94,7 @@ Class | Method | HTTP request | Description
 *SearchApi* | [**semantic_search_api_v1_search_semantic_get**](docs/SearchApi.md#semantic_search_api_v1_search_semantic_get) | **GET** /api/v1/search/semantic | Semantic Search
 *SnippetsApi* | [**create_snippet_api_v1_snippets_post**](docs/SnippetsApi.md#create_snippet_api_v1_snippets_post) | **POST** /api/v1/snippets/ | Create Snippet
 *SnippetsApi* | [**read_snippet_api_v1_snippets_snippet_id_get**](docs/SnippetsApi.md#read_snippet_api_v1_snippets_snippet_id_get) | **GET** /api/v1/snippets/{snippet_id} | Read Snippet
+*SnippetsApi* | [**read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get**](docs/SnippetsApi.md#read_snippet_by_canonical_key_api_v1_snippets_by_key_canonical_key_get) | **GET** /api/v1/snippets/by-key/{canonical_key} | Read Snippet By Canonical Key
 *SnippetsApi* | [**view_snippet_api_v1_snippets_snippet_id_view_post**](docs/SnippetsApi.md#view_snippet_api_v1_snippets_snippet_id_view_post) | **POST** /api/v1/snippets/{snippet_id}/view | View Snippet
 *SnippetsApi* | [**vote_snippet_api_v1_snippets_snippet_id_vote_post**](docs/SnippetsApi.md#vote_snippet_api_v1_snippets_snippet_id_vote_post) | **POST** /api/v1/snippets/{snippet_id}/vote | Vote Snippet
 *StatsApi* | [**get_stats_api_v1_stats_get**](docs/StatsApi.md#get_stats_api_v1_stats_get) | **GET** /api/v1/stats | Get Stats

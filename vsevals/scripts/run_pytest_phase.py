@@ -44,9 +44,9 @@ if str(_here) not in sys.path:
 
 from vsevals.loader import load_suite
 from vsevals.models import RunConfig, RunResult
-from vsevals.patching import apply_rewrite, cleanup_overlay, materialize_overlay
-from vsevals.pytest_runner import run_pytest_in_docker
-from vsevals.runner import _compute_mount_root, _resolve_repo_root
+from vsevals.patching import apply_line_range_rewrite
+from vsevals.pytest_runner import docker_cp, run_pytest_in_docker, start_test_container, stop_test_container
+from vsevals.runner import _container_file_path, _resolve_repo_root
 
 LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Re-run pytest even on rows that already have a pytest result")
     p.add_argument("--tasks", default=None, help="Comma-separated task IDs to limit (default: all)")
     p.add_argument("--variants", default=None, help="Comma-separated variant IDs to limit (default: all)")
+    p.add_argument("--workers", type=int, default=1,
+                   help="Number of parallel pytest workers (default: 1 = sequential)")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
     return p
 
@@ -106,7 +108,6 @@ def main() -> None:
     cfg_kwargs: dict[str, Any] = dict(
         auto_apply_patch=True,
         pytest_timeout_seconds=args.pytest_timeout,
-        unapply_patch_after_test=True,
     )
     if args.docker_image:
         cfg_kwargs["pytest_docker_image"] = args.docker_image
@@ -138,48 +139,55 @@ def main() -> None:
     fail_count = 0
     skip_count = len(rows) - len(eligible)
 
-    for i, row in enumerate(eligible, 1):
+    import queue as _queue
+    import threading
+
+    counts_lock = threading.Lock()
+
+    def _process_row(i: int, row: dict) -> None:
+        nonlocal ok_count, fail_count, skip_count
+
         task_id = row["task_id"]
         variant_id = row["variant_id"]
         model_name = row["model_name"]
         full_dump_path = Path(row["full_dump_json"])
 
-        LOGGER.info("[%d/%d] task=%s variant=%s model=%s", i, len(eligible), task_id, variant_id, model_name)
-        t0 = time.time()
-
         suite_task = suite.task_map.get(task_id)
         if suite_task is None:
             LOGGER.warning("  task %s not found in suite — skipping", task_id)
-            skip_count += 1
-            continue
+            with counts_lock:
+                skip_count += 1
+            return
 
         if not full_dump_path.exists():
             LOGGER.warning("  full_dump.json missing at %s — skipping", full_dump_path)
-            skip_count += 1
-            continue
+            with counts_lock:
+                skip_count += 1
+            return
 
-        # Load the RunResult from the dump
         try:
             run_result = RunResult.model_validate(json.loads(full_dump_path.read_text(encoding="utf-8")))
         except Exception as exc:
             LOGGER.error("  failed to load RunResult from %s: %s", full_dump_path, exc)
-            fail_count += 1
-            continue
+            with counts_lock:
+                fail_count += 1
+            return
 
         code = run_result.parsed_output.code
         if not code.strip():
             LOGGER.info("  generated code is empty — skipping pytest")
-            skip_count += 1
-            continue
+            with counts_lock:
+                skip_count += 1
+            return
 
-        # Resolve repo root
         repo_root = _resolve_repo_root(args.repo_root or suite_task.task.repo_root, suite_path=args.suite)
         if not repo_root:
             LOGGER.warning("  no repo_root for task %s — skipping", task_id)
-            skip_count += 1
-            continue
+            with counts_lock:
+                skip_count += 1
+            return
 
-        # Run patch + pytest
+        t0 = time.time()
         pytest_result = _run_patch_and_test(
             run_result=run_result,
             task=suite_task,
@@ -189,19 +197,53 @@ def main() -> None:
         elapsed = time.time() - t0
 
         status_str = "pass" if pytest_result.passed else ("fail" if pytest_result.ran else f"skip({pytest_result.error or ''})")
-        LOGGER.info("  → pytest=%s  %.1fs", status_str, elapsed)
+        LOGGER.info("[%d] task=%s variant=%s model=%s → pytest=%s  %.1fs",
+                    i, task_id, variant_id, model_name, status_str, elapsed)
 
-        if pytest_result.ran and pytest_result.passed:
-            ok_count += 1
-        else:
-            fail_count += 1
-
-        # Update run_result and re-write artifacts
         run_result.pytest_result = pytest_result
         _update_artifacts(run_result)
-
-        # Update row in-place for CSV rewrite
         row.update(_pytest_result_to_cols(run_result))
+
+        with counts_lock:
+            if pytest_result.ran and pytest_result.passed:
+                ok_count += 1
+            else:
+                fail_count += 1
+
+    if args.workers <= 1:
+        for i, row in enumerate(eligible, 1):
+            LOGGER.info("[%d/%d] task=%s variant=%s model=%s",
+                        i, len(eligible), row["task_id"], row["variant_id"], row["model_name"])
+            _process_row(i, row)
+    else:
+        task_queue: _queue.Queue = _queue.Queue()
+        for i, row in enumerate(eligible, 1):
+            task_queue.put((i, row))
+
+        def _worker() -> None:
+            while True:
+                item = task_queue.get()
+                try:
+                    if item is None:
+                        return
+                    i, row = item
+                    _process_row(i, row)
+                except Exception:
+                    LOGGER.exception("worker error on row %d", i)
+                finally:
+                    task_queue.task_done()
+
+        threads = [
+            threading.Thread(target=_worker, daemon=True, name=f"pytest-worker-{w}")
+            for w in range(args.workers)
+        ]
+        for t in threads:
+            t.start()
+        task_queue.join()
+        for _ in threads:
+            task_queue.put(None)
+        for t in threads:
+            t.join(timeout=5.0)
 
     # Rewrite the full CSV with updated rows
     _write_csv(csv_path, rows)
@@ -237,34 +279,52 @@ def _run_patch_and_test(*, run_result: RunResult, task: Any, repo_root: Path, cf
     if not code.strip():
         return PytestResult(ran=False, error="generated code is empty — skipping pytest")
 
-    overlay_root = Path(run_result.artifacts.run_dir) / "_pytest_overlay"
-    mount_root = _compute_mount_root(repo_root=repo_root, docker_workdir=cfg.pytest_docker_workdir)
-
+    original_path = (repo_root / target_file).resolve()
     try:
-        LOGGER.debug("overlay  target=%s  mount=%s  overlay=%s", target_file, mount_root, overlay_root)
-        materialize_overlay(repo_root=mount_root, overlay_root=overlay_root)
-        apply_rewrite(
+        patched_content = apply_line_range_rewrite(
             code=code,
-            target_file=target_file,
-            repo_root=repo_root,
-            overlay_root=overlay_root,
-            mount_root=mount_root,
+            original_path=original_path,
             line_start=task.task.line_start,
             line_end=task.task.line_end,
         )
+    except Exception as exc:
+        return PytestResult(ran=False, error=f"could not produce patched file: {exc}")
+
+    patched_filename = "patched_" + Path(target_file).name
+    patched_host_path = Path(run_result.artifacts.run_dir) / patched_filename
+    patched_host_path.write_text(patched_content, encoding="utf-8")
+
+    container_path = _container_file_path(
+        workdir=cfg.pytest_docker_workdir,
+        target_file=target_file,
+    )
+    LOGGER.debug("inject  target=%s  host=%s  container=%s", target_file, patched_host_path, container_path)
+
+    container: str | None = None
+    try:
+        container = start_test_container(
+            image=cfg.pytest_docker_image,
+            workdir=cfg.pytest_docker_workdir,
+            timeout_seconds=cfg.pytest_timeout_seconds,
+        )
+        docker_cp(patched_host_path, container, container_path)
         result = run_pytest_in_docker(
+            container_name=container,
             test_command=test_command,
-            overlay_root=overlay_root,
             cfg=cfg,
         )
+        if original_path.exists():
+            try:
+                docker_cp(original_path, container, container_path)
+            except Exception:
+                LOGGER.debug("restore cp failed (non-fatal)")
+        return result
     except Exception as exc:
         LOGGER.exception("patch+test failed  task=%s", task.id)
-        result = PytestResult(ran=False, error=str(exc), overlay_path=str(overlay_root))
+        return PytestResult(ran=False, error=str(exc))
     finally:
-        if cfg.unapply_patch_after_test:
-            cleanup_overlay(overlay_root)
-
-    return result
+        if container:
+            stop_test_container(container)
 
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,7 @@ tasks:
 
           def compute_sleep(self, attempt: int) -> float:
               base = self.backoff_seconds * attempt  # BUG_03: linear, not exponential backoff.
-              return base + self.jitter_seconds  # BUG_02: jitter configured but not applied.
+              return base  # BUG_02: jitter_seconds configured but not added to sleep.
     expected_output: Backoff output is deterministic and strictly greater than base when jitter_seconds > 0.
   voltsnip:
     required_snippets:

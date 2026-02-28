@@ -1,40 +1,30 @@
-"""Docker-based pytest runner.
+"""Docker primitives for pytest execution.
 
-Runs the project's test suite inside a Docker container, mounting the
-isolated overlay directory as the workspace.  The original repository is
-never touched.
+Thin layer over Docker CLI.  Container lifecycle is the caller's responsibility.
 
 Public API
 ----------
-  run_pytest_in_docker(
-      test_command, overlay_root, cfg
-  ) -> PytestResult
+  start_test_container(image, workdir, timeout_seconds) -> str
+      docker run -d ... sleep <n>   returns container name
 
-Docker command produced
------------------------
-  docker run --rm
-    -v <overlay_root>:<workdir>
-    -w <workdir>
-    <image>
-    <test_command...>
+  stop_test_container(container_name) -> None
+      docker rm -f <name>           best-effort
 
-The test_command comes from task.task.test_command in the suite YAML, e.g.:
-  "pytest tests/unit/test_retry.py -x -q"
+  docker_cp(src_host, container_name, container_path) -> None
+      docker cp <src> <name>:<path>  raises on failure
 
-Prerequisites
--------------
-  - Docker daemon must be running.
-  - The Docker image must have Python + pytest (and project deps) pre-installed.
-  - Dockerfile example:
-      FROM python:3.12-slim
-      WORKDIR /workspace
-      COPY requirements.txt .
-      RUN pip install --no-cache-dir -r requirements.txt
-      # No ENTRYPOINT; we pass the command at run time.
+  run_pytest_in_docker(container_name, test_command, cfg) -> PytestResult
+      docker exec <name> pytest ...  captures stdout/stderr
 
-Image build hint
-----------------
-  docker build -t moltsnip-pytest:latest -f Dockerfile.pytest .
+Typical caller pattern (runner._run_patch_and_test):
+------------------------------------------------------
+  container = start_test_container(image=..., workdir=..., timeout_seconds=...)
+  try:
+      docker_cp(patched_file, container, container_path)       # inject
+      result = run_pytest_in_docker(container, test_command, cfg)
+      docker_cp(original_file, container, container_path)      # restore
+  finally:
+      stop_test_container(container)
 """
 
 from __future__ import annotations
@@ -43,6 +33,7 @@ import logging
 import shlex
 import subprocess
 import time
+import uuid
 from pathlib import Path
 
 from vsevals.models import PytestResult, RunConfig
@@ -50,64 +41,103 @@ from vsevals.models import PytestResult, RunConfig
 LOGGER = logging.getLogger(__name__)
 
 
-def run_pytest_in_docker(
+def start_test_container(
     *,
-    test_command: str,
-    overlay_root: Path,
-    cfg: RunConfig,
-) -> PytestResult:
-    """Run `test_command` inside Docker with `overlay_root` mounted as the workspace.
+    image: str,
+    workdir: str,
+    timeout_seconds: int,
+    host_workdir: str | None = None,
+) -> str:
+    """Start a Docker container in the background and return its name.
+
+    The container runs ``sleep <timeout+60>`` so it stays alive long enough
+    for docker exec to complete.
 
     Parameters
     ----------
-    test_command:
-        Shell command string to run inside the container, e.g.
-        ``"pytest tests/ -x -q"``.
-    overlay_root:
-        Absolute path to the isolated overlay directory that will be mounted
-        read-write as the container's workdir.
-    cfg:
-        RunConfig — provides docker image, workdir, and timeout settings.
-
-    Returns
-    -------
-    PytestResult
+    host_workdir:
+        If provided, bind-mount this host directory at ``workdir`` inside the
+        container (read-write).  Use this to expose the full project overlay so
+        pytest can import project modules and find test files.
     """
-    image = cfg.pytest_docker_image
-    workdir = cfg.pytest_docker_workdir
-    timeout = cfg.pytest_timeout_seconds
+    name = f"moltsnip-pytest-{uuid.uuid4().hex[:12]}"
+    cmd = [
+        "docker", "run", "-d",
+        "--name", name,
+        "--workdir", workdir,
+        "--network", "none",
+    ]
+    if host_workdir:
+        cmd.extend(["-v", f"{host_workdir}:{workdir}"])
+    cmd.extend([image, "sleep", str(timeout_seconds + 60)])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"docker run failed: {result.stderr.strip()}")
+    LOGGER.debug("container started  name=%s  image=%s  host_workdir=%s", name, image, host_workdir)
+    return name
 
-    if not overlay_root.exists():
-        return PytestResult(
-            ran=False,
-            error=f"overlay_root does not exist: {overlay_root}",
-            docker_image=image,
-            overlay_path=str(overlay_root),
+
+def stop_test_container(container_name: str) -> None:
+    """Remove a running test container (best-effort, ignores errors)."""
+    subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, check=False)
+    LOGGER.debug("container removed  name=%s", container_name)
+
+
+def docker_cp(src_host: Path, container_name: str, container_path: str) -> None:
+    """Copy a file from the host into a running container.
+
+    Ensures the parent directory exists inside the container before copying.
+    Raises RuntimeError if mkdir or cp fails.
+    """
+    parent = str(Path(container_path).parent)
+    mkdir_result = subprocess.run(
+        ["docker", "exec", container_name, "mkdir", "-p", parent],
+        capture_output=True,
+        text=True,
+    )
+    if mkdir_result.returncode != 0:
+        raise RuntimeError(
+            f"docker exec mkdir -p {parent} in {container_name} failed: "
+            f"{mkdir_result.stderr.strip()}"
         )
 
-    cmd = _build_docker_command(
-        test_command=test_command,
-        overlay_root=overlay_root,
-        image=image,
-        workdir=workdir,
+    result = subprocess.run(
+        ["docker", "cp", str(src_host.resolve()), f"{container_name}:{container_path}"],
+        capture_output=True,
+        text=True,
     )
-    LOGGER.info(
-        "docker pytest  image=%s  overlay=%s  cmd=%s",
-        image, overlay_root, " ".join(cmd),
-    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"docker cp {src_host} → {container_name}:{container_path} failed: "
+            f"{result.stderr.strip()}"
+        )
+    LOGGER.debug("docker cp  src=%s  dst=%s:%s", src_host, container_name, container_path)
+
+
+def run_pytest_in_docker(
+    *,
+    container_name: str,
+    test_command: str,
+    cfg: RunConfig,
+) -> PytestResult:
+    """Run pytest in an already-running container via docker exec.
+
+    The container must already be started (start_test_container) and have
+    the target file already copied in (docker_cp).
+    """
+    image = cfg.pytest_docker_image
+    timeout = cfg.pytest_timeout_seconds
+
+    exec_cmd = ["docker", "exec", container_name] + _resolve_test_command_args(test_command)
+    LOGGER.info("docker exec  container=%s  cmd=%s", container_name, " ".join(exec_cmd[2:]))
 
     t0 = time.perf_counter()
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=timeout)
         duration_ms = int((time.perf_counter() - t0) * 1000)
         passed = proc.returncode == 0
         LOGGER.info(
-            "docker pytest done  returncode=%d  passed=%s  duration_ms=%d",
+            "docker exec done  returncode=%d  passed=%s  duration_ms=%d",
             proc.returncode, passed, duration_ms,
         )
         return PytestResult(
@@ -118,11 +148,10 @@ def run_pytest_in_docker(
             stderr=proc.stderr[:4096],
             duration_ms=duration_ms,
             docker_image=image,
-            overlay_path=str(overlay_root),
         )
     except subprocess.TimeoutExpired:
         duration_ms = int((time.perf_counter() - t0) * 1000)
-        LOGGER.warning("docker pytest timed out  timeout=%ds", timeout)
+        LOGGER.warning("docker exec timed out  timeout=%ds", timeout)
         return PytestResult(
             ran=True,
             returncode=-1,
@@ -130,29 +159,11 @@ def run_pytest_in_docker(
             error=f"timed out after {timeout}s",
             duration_ms=duration_ms,
             docker_image=image,
-            overlay_path=str(overlay_root),
-        )
-    except FileNotFoundError:
-        duration_ms = int((time.perf_counter() - t0) * 1000)
-        msg = "docker not found — is Docker installed and running?"
-        LOGGER.error(msg)
-        return PytestResult(
-            ran=False,
-            error=msg,
-            duration_ms=duration_ms,
-            docker_image=image,
-            overlay_path=str(overlay_root),
         )
     except Exception as exc:
         duration_ms = int((time.perf_counter() - t0) * 1000)
-        LOGGER.exception("docker pytest failed unexpectedly")
-        return PytestResult(
-            ran=False,
-            error=str(exc),
-            duration_ms=duration_ms,
-            docker_image=image,
-            overlay_path=str(overlay_root),
-        )
+        LOGGER.exception("docker exec failed unexpectedly")
+        return PytestResult(ran=False, error=str(exc), duration_ms=duration_ms, docker_image=image)
 
 
 # ---------------------------------------------------------------------------
@@ -160,29 +171,19 @@ def run_pytest_in_docker(
 # ---------------------------------------------------------------------------
 
 
-def _build_docker_command(
-    *,
-    test_command: str,
-    overlay_root: Path,
-    image: str,
-    workdir: str,
-) -> list[str]:
-    """Build the `docker run` command list.
+def _resolve_test_command_args(test_command: str) -> list[str]:
+    """Strip `uv run [flags...] pytest` down to `pytest ...`.
 
-    overlay_root is always mounted at /workspace.  workdir sets the working
-    directory inside the container (may be /workspace or a subpath).
-
-    The overlay directory is mounted read-write so pytest can write .pytest_cache
-    and coverage files without issues.  The container is removed after exit (--rm).
+    The image's .venv is on PATH so no runtime uv sync is needed.
     """
-    cmd: list[str] = [
-        "docker", "run", "--rm",
-        "--volume", f"{overlay_root.resolve()}:/workspace",
-        "--workdir", workdir,
-        # Security: no network access needed for pure unit tests
-        "--network", "none",
-        image,
-    ]
-    # Append the test command — split to avoid shell injection
-    cmd.extend(shlex.split(test_command))
-    return cmd
+    args = shlex.split(test_command)
+    if len(args) < 3 or args[0] != "uv" or args[1] != "run":
+        return args
+    i = 2
+    while i < len(args) and args[i].startswith("-"):
+        i += 1
+    if i < len(args) and args[i] == "pytest":
+        resolved = args[i:]
+        LOGGER.debug("normalized `%s` → `%s`", test_command, " ".join(resolved))
+        return resolved
+    return args
