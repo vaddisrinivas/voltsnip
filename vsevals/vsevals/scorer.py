@@ -213,7 +213,7 @@ def _score_constraints(
 ) -> ScoreResult:
     threshold = float(cfg.constraint_pass_threshold)
 
-    llm_verdicts = _judge_constraints(
+    llm_verdicts, judge_audit, judge_raw = _judge_constraints(
         run_result=run_result,
         constraints=constraints,
         cfg=cfg,
@@ -287,6 +287,8 @@ def _score_constraints(
         constraint_checks_total=total,
         constraint_pass_threshold=threshold,
         constraint_results=constraint_results,
+        judge_payload=judge_audit,
+        judge_raw_response=judge_raw,
     )
 
 
@@ -296,10 +298,15 @@ def _judge_constraints(
     constraints: list[OracleConstraint],
     cfg: RunConfig,
     provider_keys: dict[str, str],
-) -> list[dict] | None:
-    """Return list of {"verdict": bool, "reason": str|None} — one entry per constraint."""
+) -> tuple[list[dict] | None, dict | None, str | None]:
+    """Return (verdicts, judge_payload_audit, raw_response).
+
+    verdicts: list of {"verdict": bool, "reason": str|None} — one entry per constraint, or None.
+    judge_payload_audit: {"instructions": str, "user_json": str} — exact payload sent, for audit.
+    raw_response: raw text from judge API — for reproducibility verification.
+    """
     if not constraints:
-        return None
+        return None, None, None
 
     judge_specs = _parse_ensemble(cfg.scoring_judge_model)
 
@@ -313,34 +320,40 @@ def _judge_constraints(
             for c in constraints
         ],
     }
+    # IMPORTANT: The format example deliberately shows BOTH true and false verdicts to
+    # prevent anchoring bias.  Earlier versions used a single concrete value ("verdict":true
+    # or "verdict":false) which caused small models to copy the example ~91% of the time
+    # regardless of the actual code quality.
     instructions = (
         "Judge each constraint independently as pass/fail for this candidate output. "
         "Use judge_prompt as the primary decision rule. "
         "Answer true if the described behavior IS present; false if it is NOT present. "
-        'Return ONLY JSON: {"results":[{"verdict":false,"reason":"1-sentence explanation"},...]} '
+        'Return ONLY JSON: {"results":[{"verdict":true,"reason":"..."},{"verdict":false,"reason":"..."},...]} '
         "in the same order as input constraints. "
         "verdict must be a JSON boolean (true or false), not a string."
     )
     user_json = json.dumps(payload, ensure_ascii=False)
+    audit = {"instructions": instructions, "user_json": user_json}
 
     # Filter to judges that have API keys available
     usable_specs = [s for s in judge_specs if _judge_has_key(s, cfg, provider_keys)]
     if not usable_specs:
         LOGGER.debug("constraint judge skipped: no usable judge in spec=%s", cfg.scoring_judge_model)
-        return None
+        return None, audit, None
 
     if len(usable_specs) == 1:
         raw = _call_judge_raw(usable_specs[0], instructions, user_json, cfg, provider_keys)
         if not raw:
-            return None
+            return None, audit, None
         parsed = _parse_json(raw)
         if parsed is None:
-            return None
-        return _coerce_verdict_list(parsed.get("results"), len(constraints))
+            return None, audit, raw
+        return _coerce_verdict_list(parsed.get("results"), len(constraints)), audit, raw
 
     # Ensemble: call all judges in parallel
     verdict_lists: list[list[dict]] = []
     with ThreadPoolExecutor(max_workers=len(usable_specs)) as executor:
+        first_raw: str | None = None
         futures = {
             executor.submit(_call_judge_raw, spec, instructions, user_json, cfg, provider_keys): spec
             for spec in usable_specs
@@ -348,6 +361,8 @@ def _judge_constraints(
         for future in as_completed(futures):
             raw = future.result()
             if raw:
+                if first_raw is None:
+                    first_raw = raw
                 parsed = _parse_json(raw)
                 if parsed:
                     vl = _coerce_verdict_list(parsed.get("results"), len(constraints))
@@ -360,12 +375,12 @@ def _judge_constraints(
                         )
 
     if not verdict_lists:
-        return None
+        return None, audit, first_raw
     if len(verdict_lists) == 1:
-        return verdict_lists[0]
+        return verdict_lists[0], audit, first_raw
 
     # Merge ensemble results per constraint
-    return _merge_constraint_verdicts(verdict_lists, constraints)
+    return _merge_constraint_verdicts(verdict_lists, constraints), audit, first_raw
 
 
 # ---------------------------------------------------------------------------

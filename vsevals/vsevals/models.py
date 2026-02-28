@@ -380,6 +380,10 @@ class ScoreResult(BaseModel):
     constraint_pass_threshold: float | None = None
     # Per-constraint detail: [{id, passed, lexical_hit, llm_verdict}]
     constraint_results: list[dict] = Field(default_factory=list)
+    # Audit trail: exact payload sent to judge and raw response received.
+    # Stored so readers can independently verify the prompt that produced each verdict.
+    judge_payload: dict | None = None      # {"instructions": str, "user_json": str}
+    judge_raw_response: str | None = None  # raw text from judge API
     passed: bool
 
 
