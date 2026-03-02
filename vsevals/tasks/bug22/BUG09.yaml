@@ -1,0 +1,64 @@
+tasks:
+- task:
+    id: BUG09
+    name: errors_mapping_status_codes
+    description: Fix exception to HTTP status mapping semantics.
+    category: error_contracts
+    difficulty: medium
+    target_file: orgops/errors/mapping.py
+    line_start: 7
+    line_end: 20
+    test_command: uv run pytest -q tests/unit/test_error_contracts.py -k bug_09
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      from orgops.errors.schema import ErrorSchema
+
+
+
+      def map_exception(exc: Exception) -> tuple[int, ErrorSchema]:
+          if isinstance(exc, TimeoutError):
+              status = 400  # BUG_09: timeout should map to a 5xx gateway timeout class status.
+          elif isinstance(exc, ValueError):
+              status = 500  # BUG_09: validation errors should map to 4xx.
+          else:
+              status = 400
+
+          schema = ErrorSchema(
+              code=exc.__class__.__name__,
+              message=str(exc),  # BUG_10: leaks raw exception text to clients.
+              details={"exception": exc},  # BUG_11: embeds non-JSON-serializable objects.
+          )
+          return status, schema
+    expected_output: Timeout maps to 504 and validation maps to 4xx.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/error_contracts/guiding_principle/v1
+    - voltsnip/bug22/category/error_contracts/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Correct timeout and validation status mapping.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/error_contracts/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Timeout maps to 504 and validation maps to 4xx.
+      consistency: []
+    failure_modes:
+    - Status mapping remains incorrect.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug09_failure_absent
+      voltsnip_key: voltsnip/bug22/category/error_contracts/guiding_principle/v1
+      check: Status mapping remains incorrect.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Status mapping
+        remains incorrect.'
+      expected: false
+      trap_baseline: 0.2

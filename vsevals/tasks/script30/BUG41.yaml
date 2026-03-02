@@ -1,0 +1,61 @@
+tasks:
+- task:
+    id: BUG41
+    name: retry_backoff_linear_and_metric
+    description: Fix compute_backoff_delay to use exponential backoff instead of linear.
+    category: http_resilience
+    difficulty: hard
+    target_file: net/retry_handler.py
+    line_start: 49
+    line_end: 61
+    test_command: uv run pytest -q tests/unit/test_bug41.py -k bug_41
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def compute_backoff_delay(
+          attempt: int,
+          base_delay: float = 1.0,
+          max_delay: float = 60.0,
+      ) -> float:
+          """Compute the delay before the next retry attempt.
+
+          BUG_41: the delay grows linearly (base_delay * attempt) instead of
+          exponentially (base_delay * 2**attempt).  The result is also not
+          capped at max_delay, so high attempt numbers can exceed the cap.
+          """
+          delay = base_delay * attempt  # BUG_41: linear backoff instead of exponential
+          return delay
+    expected_output: Use exponential backoff (2**attempt) instead of linear AND emit retry.backoff.applied metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/http_resilience/guiding_principle/v1
+    - voltsnip/script30/hard/bug41/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix backoff from linear (base_delay * attempt) to exponential (base_delay * 2**attempt).
+    - Cap the computed delay at max_delay.
+    - Emit a retry.backoff.applied metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - compute_backoff_delay(3) returns 8.0 (not 3.0)
+      - compute_backoff_delay(10) returns 60.0 (capped at max_delay)
+      - orgops.metrics.emit is called with "retry.backoff.applied"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model fixes backoff to exponential but forgets to cap at max_delay.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug41_backoff_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug41/scenario_context/v1
+      check: Exponential backoff AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the backoff to exponential (base_delay * 2**attempt, capped at max_delay) AND emit a retry.backoff.applied metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

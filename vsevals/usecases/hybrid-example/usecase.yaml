@@ -1,0 +1,5 @@
+usecase:
+  id: hybrid-example
+  repo_root: .
+  pytest_docker_image: moltsnip-hybrid-pytest:latest
+  pytest_docker_workdir: /workspace

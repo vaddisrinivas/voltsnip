@@ -1,0 +1,70 @@
+tasks:
+- task:
+    id: BUG50
+    name: join_cost_double_selectivity_and_metric
+    description: Fix estimate_join_cost so it applies selectivity exactly once instead of twice.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/query_planner.py
+    line_start: 34
+    line_end: 57
+    test_command: uv run pytest -q tests/unit/test_bug50.py -k bug_50
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def estimate_join_cost(
+          self,
+          left_rows: int,
+          right_rows: int,
+          selectivity: float,
+      ) -> float:
+          """Estimate the output cardinality for a join operation.
+
+          The formula is:  left_rows * right_rows * selectivity
+
+          BUG_50: selectivity is applied twice, inflating the cost estimate
+          and causing the optimizer to reject valid hash-join plans.
+          """
+          # BUG_50: double-applies selectivity (selectivity * selectivity)
+          cost = left_rows * right_rows * selectivity * selectivity
+          self._history.append(
+              JoinStats(
+                  left_rows=left_rows,
+                  right_rows=right_rows,
+                  selectivity=selectivity,
+                  estimated_cost=cost,
+              )
+          )
+          return cost
+    expected_output: Apply selectivity exactly once AND emit query.plan.estimated_cost metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug50/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix the cost formula to apply selectivity once (left_rows * right_rows * selectivity).
+    - Emit a query.plan.estimated_cost metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - estimate_join_cost(1000, 500, 0.1) returns 50000.0 (not 5000.0)
+      - orgops.metrics.emit is called with "query.plan.estimated_cost"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math (removes duplicate selectivity) but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model changes the formula entirely instead of removing the extra selectivity factor.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug50_selectivity_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug50/scenario_context/v1
+      check: Single selectivity application AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the join cost formula to apply selectivity exactly once (left_rows * right_rows * selectivity, not selectivity * selectivity) AND emit a query.plan.estimated_cost metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

@@ -12,7 +12,12 @@ uv sync
 ```
 
 ### 2. Database Setup
-Start your Postgres server and create the database:
+Start the local Postgres + pgvector container:
+```bash
+docker compose up -d db
+```
+
+If you run Postgres outside Docker, create the database manually:
 ```bash
 createdb voltsnip
 ```
@@ -25,12 +30,12 @@ cp .env.example .env
 ```
 Ensure `.env` contains:
 ```ini
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/voltsnip
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/voltsnip
 S3_MODE=local
 STORAGE_URI=local_s3
 CORS_ORIGINS="*"
 ```
-*(Update `user:pass` to match your Postgres credentials)*
+*(Update credentials if your Postgres user/password differ)*
 *(Set `S3_MODE=local` to avoid AWS requirements)*
 
 ### 4. Run Migrations

@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/logging_privacy/body_allowed_fields/v2",
+  "title": "Org log body field allowlist \u2014 SAFE_PAYLOAD_KEYS",
+  "description": "Project policy: only fields in SAFE_PAYLOAD_KEYS may appear in structured log response bodies. Defined in orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "logging_privacy",
+    "hard-tier",
+    "allowlist"
+  ],
+  "code": "# Log Body Allowed Fields\n\nStructured log entries MUST filter response body keys to only those in `SAFE_PAYLOAD_KEYS`.\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nThe current allowlist is: frozenset({\"status_code\", \"reason\", \"request_id\"}).\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import SAFE_PAYLOAD_KEYS\n\n# The org-mandated safe keys are frozenset({\"status_code\", \"reason\", \"request_id\"}).\nfiltered = {k: v for k, v in body.items() if k in SAFE_PAYLOAD_KEYS}\n```\n\nDo NOT hardcode the set; always reference SAFE_PAYLOAD_KEYS.\n"
+}

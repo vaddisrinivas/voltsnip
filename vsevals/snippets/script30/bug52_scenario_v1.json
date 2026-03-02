@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug52/scenario_context/v1",
+  "title": "Schema type validation requires case-insensitive comparison AND compliance decision",
+  "description": "The validate_column_type function must compare types case-insensitively AND record a compliance decision via orgops.compliance.record_decision for the SOC2 audit trail.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "db_patterns", "hard-tier", "composition", "compliance"],
+  "code": "# Schema Type Validation \u2014 Two Requirements\n\n## 1. Case-Insensitive Comparison\nDatabase engines return column types in varying cases (PostgreSQL\nuses lowercase, MySQL uses uppercase).  The comparison must be\ncase-insensitive:\n```python\nreturn expected_type.upper() == actual_type.upper()\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe SOC2 audit system requires a compliance decision record whenever\na schema validation passes.  Use `orgops.compliance.record_decision`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n```\n\n## Complete Correct Pattern\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    import orgops.compliance\n    matched = expected_type.upper() == actual_type.upper()\n    if matched:\n        orgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n    return matched\n```\n\nFixing ONLY the comparison is insufficient \u2014 the SOC2 audit trail\nwill not capture schema validation events without the compliance\ndecision recording.  Both fixes are required for production correctness.\n"
+}

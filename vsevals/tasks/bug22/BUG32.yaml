@@ -1,0 +1,65 @@
+tasks:
+- task:
+    id: BUG32
+    name: http_auth_headers_forwarded_on_retry
+    description: Fix get_with_auth_headers to forward auth headers on every retry attempt.
+    category: http_resilience
+    difficulty: medium
+    target_file: orgops/http/org_http_client.py
+    line_start: 92
+    line_end: 113
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_32
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def get_with_auth_headers(
+          client_obj: OrgHTTPClient,
+          url: str,
+          auth_headers: dict[str, str],
+          *,
+          max_attempts: int = 3,
+      ) -> httpx.Response:
+          """GET *url* with *auth_headers* forwarded on every attempt including retries.
+
+          BUG_32: headers are passed only on the first attempt; retried requests omit
+          them, causing authentication failures on the retry path.
+          """
+          response = client_obj.client.request("GET", url, headers=auth_headers)
+          attempt = 1
+          while (
+              response.status_code in client_obj.retry_policy.retryable_status_codes
+              and attempt < max_attempts
+          ):
+              attempt += 1
+              client_obj.sleep_fn(client_obj.retry_policy.compute_sleep(attempt))
+              response = client_obj.client.request("GET", url)  # BUG_32: auth_headers dropped
+          return response
+    expected_output: Auth headers are included in every retry attempt.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Pass auth_headers to every client.request() call including retries.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/http_resilience/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Authorization header present in all retry attempts.
+      consistency: []
+    failure_modes:
+    - Auth headers dropped on retried requests.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug32_headers_forwarded
+      voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
+      check: Auth headers forwarded on every retry.
+      judge_prompt: Does the implementation pass auth_headers on every retry attempt, not just the first?
+      expected: true
+      trap_baseline: 0.25

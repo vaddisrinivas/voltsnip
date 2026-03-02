@@ -1,0 +1,68 @@
+tasks:
+- task:
+    id: BUG57
+    name: write_behind_interval_units_and_audit
+    description: Fix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/write_behind.py
+    line_start: 41
+    line_end: 60
+    test_command: uv run pytest -q tests/unit/test_bug57.py -k bug_57
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def schedule_flush(
+          self,
+          buffer: list[dict[str, Any]],
+          interval_seconds: float,
+      ) -> dict[str, Any]:
+          """Schedule periodic flushing of *buffer* every *interval_seconds*.
+
+          BUG_57: passes interval_seconds directly to _start_timer which
+          expects milliseconds.  A 5-second interval is misinterpreted as
+          5 ms, causing the buffer to flush ~1000x too frequently.
+          """
+          self._timer_handle = _start_timer(
+              interval_seconds,  # BUG_57: should be interval_seconds * 1000
+              callback=lambda: self._do_flush(buffer),
+          )
+          return {
+              "scheduled": True,
+              "interval_seconds": interval_seconds,
+              "timer_interval_ms": self._timer_handle["interval_ms"],
+              "buffer_size": len(buffer),
+          }
+    expected_output: Convert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug57/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Convert interval_seconds to milliseconds (interval_seconds * 1000) before passing to _start_timer.
+    - Write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer).
+    success_indicators:
+      correctness:
+      - schedule_flush(buffer, 5.0) produces timer_interval_ms=5000.0 (not 5.0)
+      - schedule_flush(buffer, 0.5) produces timer_interval_ms=500.0 (not 0.5)
+      - orgops.auditing.write_event is called with "cache.flush.completed" and items_flushed=len(buffer)
+      consistency: []
+    failure_modes:
+    - Model fixes only the unit conversion but omits the audit event.
+    - Model adds logging instead of the required audit event.
+    - Model calls orgops.metrics.emit instead of orgops.auditing.write_event.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug57_interval_units_and_audit
+      voltsnip_key: voltsnip/script30/hard/bug57/scenario_context/v1
+      check: Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.
+      judge_prompt: Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?
+      expected: true
+      trap_baseline: 0.15

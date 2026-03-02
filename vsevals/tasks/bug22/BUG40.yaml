@@ -1,0 +1,54 @@
+tasks:
+- task:
+    id: BUG40
+    name: cache_circuit_threshold_and_audit
+    description: Fix CacheCircuitBreaker.on_failure so the circuit opens reliably on state transition.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: service/cache.py
+    line_start: 36
+    line_end: 44
+    test_command: uv run pytest -q tests/unit/test_concurrency_cache.py -k bug_40
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def on_failure(self, error: Exception) -> None:
+          """Record a cache failure. Open circuit if threshold reached.
+
+          BUG_40: the threshold comparison is incorrect, causing the
+          circuit to remain closed longer than intended.
+          """
+          self.consecutive_failures += 1
+          if self.consecutive_failures > self.failure_threshold:  # BUG_40: comparison does not trigger at threshold
+              self.state = "open"
+    expected_output: Use >= for threshold comparison AND write circuit_open audit event via orgops.auditing.write_event.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/bug22/hard/bug40/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix threshold comparison from > to >= so circuit opens at exactly the threshold.
+    - Write a circuit_open audit event via orgops.auditing.write_event when transitioning to open.
+    success_indicators:
+      correctness:
+      - Circuit opens when consecutive_failures reaches failure_threshold (not one past it)
+      - orgops.auditing.write_event is called with "circuit_open" on state transition
+      consistency: []
+    failure_modes:
+    - Model fixes only the threshold comparison but omits the audit event.
+    - Model adds logging instead of the required audit event.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug40_threshold_and_audit
+      voltsnip_key: voltsnip/bug22/hard/bug40/scenario_context/v1
+      check: Correct threshold comparison (>=) AND audit event written via orgops.auditing.write_event.
+      judge_prompt: Does the implementation both fix the threshold comparison to >= (not >) AND write a circuit_open audit event via orgops.auditing.write_event() when the circuit transitions to open state?
+      expected: true
+      trap_baseline: 0.15

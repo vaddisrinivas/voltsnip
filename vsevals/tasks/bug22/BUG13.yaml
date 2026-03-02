@@ -1,0 +1,74 @@
+tasks:
+- task:
+    id: BUG13
+    name: logging_response_body_truncation
+    description: Fix response_body truncation in logging.
+    category: logging_privacy
+    difficulty: easy
+    target_file: orgops/logging/structured.py
+    line_start: 13
+    line_end: 30
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_13
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      import json
+      from datetime import datetime, timezone
+      from typing import Any
+
+      from orgops.logging.context import get_request_id
+      from orgops.logging.redaction import redact_fields
+
+
+      MAX_LOG_BODY = 256
+
+
+      def build_payload(event: str, level: str, **fields: Any) -> dict[str, Any]:
+          payload = {
+              "event": event,
+              "level": "INFO",  # BUG_15: ignores requested log level.
+              "ts": datetime.now(timezone.utc).isoformat(),
+          }
+          sanitized = redact_fields(fields)
+          payload.update(sanitized)
+          # BUG_14: request_id from context never propagated into payload.
+          return payload
+
+
+      def log_event(logger: Any, event: str, level: str = "INFO", **fields: Any) -> None:
+          payload = build_payload(event, level, **fields)
+          if "response_body" in payload and isinstance(payload["response_body"], str):
+              payload["response_body"] = payload["response_body"]  # BUG_13: full response body logged without truncation.
+          logger.info(json.dumps(payload, default=str))  # BUG_15: all events emitted as INFO.
+    expected_output: response_body is truncated to max length.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+    - voltsnip/bug22/category/logging_privacy/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Enforce log body size limits.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/logging_privacy/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - response_body is truncated to max length.
+      consistency: []
+    failure_modes:
+    - Full response body remains logged.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug13_failure_absent
+      voltsnip_key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+      check: Full response body remains logged.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Full response
+        body remains logged.'
+      expected: false
+      trap_baseline: 0.2

@@ -1,0 +1,57 @@
+tasks:
+- task:
+    id: BUG27
+    name: logging_nested_field_redaction
+    description: Fix redact_nested to recursively redact sensitive keys in nested dicts.
+    category: logging_privacy
+    difficulty: medium
+    target_file: orgops/logging/redaction.py
+    line_start: 12
+    line_end: 25
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_27
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def redact_nested(fields: Mapping[str, Any]) -> dict[str, Any]:
+          """Recursively redact sensitive keys in a nested mapping.
+
+          BUG_27: only processes the top-level dict; values that are dicts themselves
+          are not inspected, leaving nested sensitive fields exposed in log output.
+          """
+          from orgops.policy import standards
+          result: dict[str, Any] = {}
+          for k, v in fields.items():
+              if k in standards.SENSITIVE_FIELD_NAMES:
+                  result[k] = "***REDACTED***"
+              else:
+                  result[k] = v  # BUG_27: nested dicts are not recursed into
+          return result
+    expected_output: Sensitive fields in nested dicts are redacted.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+    - voltsnip/bug22/category/logging_privacy/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Recursively descend into nested dicts to redact sensitive keys.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/logging_privacy/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Nested password field is redacted to ***REDACTED***.
+      consistency: []
+    failure_modes:
+    - Nested sensitive fields pass through unredacted.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug27_nested_redaction
+      voltsnip_key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+      check: Nested sensitive fields are redacted.
+      judge_prompt: Does the implementation recurse into nested dicts and redact sensitive keys like password?
+      expected: true
+      trap_baseline: 0.30

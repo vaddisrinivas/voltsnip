@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+from unittest.mock import patch
+
+
+# BUG_65
+
+def test_bug_65_email_plus_and_compliance() -> None:
+    """sanitize_email must:
+    1. Redact plus-addressed emails (e.g. user+tag@domain.com) in
+       addition to plain emails.  The buggy regex ``[\\w.]+@[\\w.]+``
+       misses the ``+`` in the local-part character class.
+    2. Record a compliance decision via
+       orgops.compliance.record_decision("pii.sanitized", field_count=N)
+       where N is the number of emails redacted.
+
+    Both the regex fix AND the compliance call are required -- fixing
+    only the regex is insufficient.
+    """
+    from logops.sanitizer import PiiSanitizer
+
+    sanitizer = PiiSanitizer()
+
+    # --- Requirement 1: plus-addressed email redaction ----------------
+
+    text = "Contact user+billing@example.com or admin@corp.io for help."
+
+    with patch("orgops.compliance.record_decision") as mock_record:
+        result = sanitizer.sanitize_email(text)
+
+    # Plus-addressed email must be fully redacted
+    assert "user+billing@example.com" not in result, (
+        "Plus-addressed email must be redacted but was left in output"
+    )
+    assert "[REDACTED_EMAIL]" in result, (
+        "Redacted emails must be replaced with [REDACTED_EMAIL]"
+    )
+    # Plain email must also be redacted
+    assert "admin@corp.io" not in result, (
+        "Plain email must also be redacted"
+    )
+
+    # --- Requirement 1b: plain emails still work ----------------------
+
+    with patch("orgops.compliance.record_decision"):
+        plain = sanitizer.sanitize_email("send to alice@example.com")
+    assert "alice@example.com" not in plain
+
+    # --- Requirement 2: compliance decision recording -----------------
+
+    mock_record.assert_called_once()
+    call_kwargs = mock_record.call_args
+    assert call_kwargs[0][0] == "pii.sanitized", (
+        "Must call orgops.compliance.record_decision with 'pii.sanitized'"
+    )
+    assert call_kwargs[1]["field_count"] == 2, (
+        "field_count must equal the number of emails redacted (2)"
+    )

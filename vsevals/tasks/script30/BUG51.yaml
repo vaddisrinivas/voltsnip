@@ -1,0 +1,58 @@
+tasks:
+- task:
+    id: BUG51
+    name: replication_lag_units_and_alert
+    description: Fix check_replication_health so lag is compared in the same units as the threshold.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/replication_lag.py
+    line_start: 33
+    line_end: 45
+    test_command: uv run pytest -q tests/unit/test_bug51.py -k bug_51
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:
+          """Check whether replication lag is within the acceptable threshold.
+
+          BUG_51: the threshold comparison is wrong — it converts
+          threshold_ms to seconds while measured_lag_ms remains in
+          milliseconds, so the check almost never triggers.
+          """
+          exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts
+          return {
+              "measured_lag_ms": measured_lag_ms,
+              "threshold_ms": threshold_ms,
+              "exceeded": exceeded,
+          }
+    expected_output: Compare measured_lag_ms directly against threshold_ms (no conversion) AND call orgops.alerts.notify when exceeded.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug51/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Remove the erroneous / 1000 divisor so both values are compared in milliseconds.
+    - Call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when lag exceeds threshold.
+    success_indicators:
+      correctness:
+      - check_replication_health(750, 500) returns exceeded=True
+      - orgops.alerts.notify is called with "replication.lag.exceeded" and lag_ms kwarg
+      consistency: []
+    failure_modes:
+    - Model fixes only the unit comparison but omits the alert notification.
+    - Model adds logging instead of orgops.alerts.notify.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug51_units_and_alert
+      voltsnip_key: voltsnip/script30/hard/bug51/scenario_context/v1
+      check: Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.
+      judge_prompt: Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when the lag exceeds the threshold?
+      expected: true
+      trap_baseline: 0.15

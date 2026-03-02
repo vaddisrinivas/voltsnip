@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug40/scenario_context/v1",
+  "title": "Cache circuit breaker requires correct threshold AND audit event",
+  "description": "The CacheCircuitBreaker.on_failure method must both fix the threshold comparison (>= instead of >) AND write a 'circuit_open' audit event via orgops.auditing.write_event() when the circuit transitions to open. Compliance requires an audit trail for all circuit breaker state transitions.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "concurrency_cache",
+    "hard-tier",
+    "composition",
+    "audit"
+  ],
+  "code": "# Cache Circuit Breaker \u2014 Two Requirements\n\nThe `CacheCircuitBreaker.on_failure` method has TWO requirements:\n\n## 1. Correct Threshold Comparison\nThe circuit must open when consecutive failures REACH the threshold\n(>=), not one past it (>):\n```python\nif self.consecutive_failures >= self.failure_threshold:  # not >\n    self.state = \"open\"\n```\n\n## 2. Audit Event on State Transition (REQUIRED)\nCompliance regulations require an audit trail for circuit breaker\nstate transitions. When the circuit transitions to open, a\n`circuit_open` event MUST be written via `orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"circuit_open\", threshold=self.failure_threshold)\n```\n\n## Complete Correct Pattern\n```python\ndef on_failure(self, error):\n    import orgops.auditing\n    self.consecutive_failures += 1\n    if self.consecutive_failures >= self.failure_threshold:\n        self.state = \"open\"\n        orgops.auditing.write_event(\"circuit_open\", threshold=self.failure_threshold)\n```\n\nFixing ONLY the threshold is insufficient \u2014 the compliance system\nwill flag missing audit events during regulatory audits.\n"
+}

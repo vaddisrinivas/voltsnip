@@ -1,0 +1,70 @@
+tasks:
+- task:
+    id: BUG53
+    name: lock_timeout_negative_and_trace
+    description: Fix acquire_lock so effective timeout never goes negative when clock skew exceeds requested timeout.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/distributed_lock.py
+    line_start: 21
+    line_end: 43
+    test_command: uv run pytest -q tests/unit/test_bug53.py -k bug_53
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def acquire_lock(
+          self,
+          key: str,
+          timeout_ms: int,
+          clock_skew_ms: int = 0,
+      ) -> dict[str, Any]:
+          """Acquire a distributed lock on *key* with adjusted timeout.
+
+          BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms
+          without clamping.  When clock_skew_ms > timeout_ms the effective
+          timeout goes negative, causing immediate expiry or backend errors.
+          """
+          effective_timeout = timeout_ms - clock_skew_ms  # BUG_53: can go negative when skew > timeout
+          self.store[key] = {
+              "acquired_at": time.monotonic(),
+              "timeout_ms": effective_timeout,
+          }
+          self.held_keys.add(key)
+          return {
+              "key": key,
+              "effective_timeout_ms": effective_timeout,
+              "acquired": True,
+          }
+    expected_output: Clamp effective timeout to minimum of 1 ms AND annotate trace span via orgops.tracing.annotate_span.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug53/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Clamp effective_timeout to at least 1 ms using max(timeout_ms - clock_skew_ms, 1).
+    - Annotate the trace span with lock.acquired via orgops.tracing.annotate_span() on successful acquisition.
+    success_indicators:
+      correctness:
+      - acquire_lock("k", 100, clock_skew_ms=200) returns effective_timeout_ms=1 (clamped)
+      - acquire_lock("k", 500, clock_skew_ms=50) returns effective_timeout_ms=450 (normal)
+      - orgops.tracing.annotate_span is called with "lock.acquired" and the key
+      consistency: []
+    failure_modes:
+    - Model fixes only the clamping but omits the trace annotation.
+    - Model adds logging instead of the required trace annotation.
+    - Model clamps to 0 instead of 1 (zero timeout still causes immediate expiry).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug53_timeout_clamp_and_trace
+      voltsnip_key: voltsnip/script30/hard/bug53/scenario_context/v1
+      check: Effective timeout clamped to >= 1 AND trace annotation via orgops.tracing.annotate_span.
+      judge_prompt: Does the implementation both clamp the effective timeout to a minimum of 1 ms (using max(timeout_ms - clock_skew_ms, 1)) AND annotate the trace span with "lock.acquired" via orgops.tracing.annotate_span() on successful lock acquisition?
+      expected: true
+      trap_baseline: 0.15

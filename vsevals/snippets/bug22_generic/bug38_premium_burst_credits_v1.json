@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug38/scenario_context/v1",
+  "title": "Premium tier clients get 3x burst credits on first request",
+  "description": "The org rate limiting policy grants premium tier clients burst credits of 3x the base token limit (300 tokens vs 100 for standard) on their first request per window. The check_rate_limit function must differentiate between standard and premium tiers.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "logging_privacy",
+    "hard-tier",
+    "semantic-trap",
+    "rate-limit"
+  ],
+  "code": "# Premium Tier Burst Credits \u2014 Rate Limiting Policy\n\nThe org rate limiting system has tiered token limits:\n\n| Tier     | Base Limit | Burst Credits | Effective First-Request Limit |\n|----------|-----------|---------------|-------------------------------|\n| standard | 100       | 1x            | 100 tokens                    |\n| premium  | 100       | 3x            | 300 tokens                    |\n\nPremium clients (`tier == \"premium\"`) receive burst credits equal\nto 3x the base limit on their first request per window.\n\n## Correct Pattern\n```python\ndef check_rate_limit(client_id, tier, tokens_requested):\n    _BASE_LIMIT = 100\n    _BURST_MULTIPLIER = 3\n\n    if tier == \"premium\":\n        effective_limit = _BASE_LIMIT * _BURST_MULTIPLIER  # 300\n    else:\n        effective_limit = _BASE_LIMIT  # 100\n\n    allowed = min(tokens_requested, effective_limit)\n    return {\n        \"client_id\": client_id,\n        \"tier\": tier,\n        \"tokens_allowed\": allowed,\n        \"tokens_requested\": tokens_requested,\n        \"limited\": tokens_requested > effective_limit,\n    }\n```\n\nWithout premium burst credits, premium clients are incorrectly\ncapped at the standard 100-token limit, violating SLA commitments.\n"
+}

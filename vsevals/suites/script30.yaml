@@ -1,0 +1,131 @@
+suite:
+  version: "1.0"
+  description: "Script30: 30 composition bugs across 5 categories. Each bug requires both a code/logic fix AND an org-specific API call (orgops.*) that cannot be guessed from training data."
+  usecase_id: script30
+  default_repo_root: ../usecases/script30
+
+models:
+  - claudecode:claude-haiku-4-5
+  - claudecode:claude-sonnet-4-6
+  - codex:gpt-5.2-codex
+  - codex:gpt-5.3-codex
+  - openai:gpt-5-nano
+  - openai:gpt-5-mini
+  - anthropic:claude-haiku-4-5
+  - anthropic:claude-sonnet-4-6
+  - mock:echo
+
+variants:
+  - id: P0
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Raw baseline — no tools, no memory. Model uses only training data."
+
+  - id: P1
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: explicit
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Baseline + explicit oracle criteria stated in prompt."
+
+  - id: P2
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: tools_only
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Tools available, zero guidance — agent decides what to retrieve."
+
+  - id: P3
+    mode: agent
+    memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: none
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Pre-fetched snippets injected into system prompt, no tools."
+
+  - id: P4
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "SKILL.md guide + tools, no key hints — model follows workflow."
+
+  - id: P5
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: agents_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "AGENTS.md guide + tools, no key hints — MUST search instruction."
+
+  - id: P6
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_agents_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Both guides + tools, no key hints — maximum context."
+
+task_files:
+  # http_resilience (BUG41-46)
+  - ../tasks/script30/BUG41.yaml
+  - ../tasks/script30/BUG42.yaml
+  - ../tasks/script30/BUG43.yaml
+  - ../tasks/script30/BUG44.yaml
+  - ../tasks/script30/BUG45.yaml
+  - ../tasks/script30/BUG46.yaml
+  # db_patterns (BUG47-52)
+  - ../tasks/script30/BUG47.yaml
+  - ../tasks/script30/BUG48.yaml
+  - ../tasks/script30/BUG49.yaml
+  - ../tasks/script30/BUG50.yaml
+  - ../tasks/script30/BUG51.yaml
+  - ../tasks/script30/BUG52.yaml
+  # concurrency_cache (BUG53-58)
+  - ../tasks/script30/BUG53.yaml
+  - ../tasks/script30/BUG54.yaml
+  - ../tasks/script30/BUG55.yaml
+  - ../tasks/script30/BUG56.yaml
+  - ../tasks/script30/BUG57.yaml
+  - ../tasks/script30/BUG58.yaml
+  # error_contracts (BUG59-64)
+  - ../tasks/script30/BUG59.yaml
+  - ../tasks/script30/BUG60.yaml
+  - ../tasks/script30/BUG61.yaml
+  - ../tasks/script30/BUG62.yaml
+  - ../tasks/script30/BUG63.yaml
+  - ../tasks/script30/BUG64.yaml
+  # logging_privacy (BUG65-70)
+  - ../tasks/script30/BUG65.yaml
+  - ../tasks/script30/BUG66.yaml
+  - ../tasks/script30/BUG67.yaml
+  - ../tasks/script30/BUG68.yaml
+  - ../tasks/script30/BUG69.yaml
+  - ../tasks/script30/BUG70.yaml

@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug60/scenario_context/v1",
+  "title": "Validation gate requires collecting ALL errors AND compliance recording",
+  "description": "The validate_payload function must collect ALL validation errors across every field instead of short-circuiting on the first error AND record a compliance decision via orgops.compliance.record_decision for audit trails.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "compliance"],
+  "code": "# Validation Gate \u2014 Two Requirements\n\n## 1. Collect All Errors\n```python\nerrors: list[ValidationError] = []\nfor rule in schema:\n    value = payload.get(rule.field_name)\n    error = _check_field(value, rule)\n    if error is not None:\n        errors.append(error)  # append, do NOT return early\nreturn errors\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"validation.completed\", error_count=len(errors))\n```\n"
+}

@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug36/scenario_context/v1",
+  "title": "Legacy billing-v1 upstream sends DD/MM/YYYY timestamps",
+  "description": "The billing-v1 upstream sends event timestamps in DD/MM/YYYY format instead of ISO 8601. The parse_event_timestamp function must handle both ISO 8601 and DD/MM/YYYY to avoid losing billing events during reconciliation.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "error_contracts",
+    "hard-tier",
+    "semantic-trap",
+    "date-format"
+  ],
+  "code": "# Legacy Billing-v1 Timestamp Format\n\nThe `billing-v1` upstream sends event timestamps in `DD/MM/YYYY`\nformat (e.g., \"15/03/2024\") instead of ISO 8601.\n\nAll timestamp parsing functions MUST handle both:\n1. ISO 8601 (e.g., \"2024-03-15T10:30:00Z\") \u2014 modern services\n2. DD/MM/YYYY (e.g., \"15/03/2024\") \u2014 billing-v1 legacy format\n\n## Correct Pattern\n```python\nfrom datetime import datetime, timezone\n\ndef parse_event_timestamp(raw_ts: str) -> str:\n    # Try ISO 8601 first\n    try:\n        dt = datetime.fromisoformat(raw_ts.replace(\"Z\", \"+00:00\"))\n        return dt.strftime(\"%Y-%m-%dT%H:%M:%S+00:00\")\n    except ValueError:\n        pass\n\n    # Fallback: DD/MM/YYYY from billing-v1\n    try:\n        dt = datetime.strptime(raw_ts, \"%d/%m/%Y\").replace(tzinfo=timezone.utc)\n        return dt.strftime(\"%Y-%m-%dT%H:%M:%S+00:00\")\n    except ValueError:\n        pass\n\n    return raw_ts  # unparseable\n```\n\nFailing to handle DD/MM/YYYY causes billing events to be logged\nwith raw strings instead of normalized timestamps, breaking\nreconciliation queries.\n"
+}

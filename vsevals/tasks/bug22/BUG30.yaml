@@ -1,0 +1,68 @@
+tasks:
+- task:
+    id: BUG30
+    name: cache_max_size_eviction
+    description: Fix MaxSizeCache to evict oldest entries when max_size is exceeded.
+    category: concurrency_cache
+    difficulty: medium
+    target_file: service/cache.py
+    line_start: 59
+    line_end: 83
+    test_command: uv run pytest -q tests/unit/test_concurrency_cache.py -k bug_30
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      class MaxSizeCache(TTLCache):
+          """A TTL cache that also enforces a maximum number of live entries.
+
+          When *max_size* is reached, the oldest inserted entry must be evicted before
+          adding a new one (LRU-style eviction on insertion).
+          BUG_30: new entries are added even when max_size is already exceeded;
+          the cache grows without bound, eventually exhausting available memory.
+          """
+
+          def __init__(
+              self,
+              ttl_seconds: float = 5.0,
+              max_size: int = 128,
+              time_fn: Callable[[], float] | None = None,
+          ) -> None:
+              super().__init__(ttl_seconds, time_fn)
+              self.max_size = max_size
+              self._insertion_order: list[str] = []
+
+          def get_or_set(self, key: str, builder: Callable[[], Any]) -> Any:
+              # BUG_30: never evicts; max_size constraint is silently ignored.
+              value = super().get_or_set(key, builder)
+              if key not in self._insertion_order:
+                  self._insertion_order.append(key)
+              return value
+    expected_output: Cache evicts oldest entry when max_size is reached.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Evict oldest entry (by insertion order) when cache size exceeds max_size.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/concurrency_cache/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - After adding max_size+1 entries, cache has at most max_size live entries.
+      consistency: []
+    failure_modes:
+    - Cache grows without bound; no eviction occurs.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug30_eviction
+      voltsnip_key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+      check: Oldest entry is evicted when max_size is exceeded.
+      judge_prompt: Does the implementation evict the oldest cache entry when the number of entries exceeds max_size?
+      expected: true
+      trap_baseline: 0.25

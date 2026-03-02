@@ -1,0 +1,136 @@
+suite:
+  version: "1.0"
+  description: "VoltSnip pytest-first suite for 40 failing hybrid-example bug cases"
+  usecase_id: hybrid-example
+  usecase_manifest: usecases/hybrid-example/usecase.yaml
+  default_repo_root: usecases/hybrid-example
+
+models:
+  # ── Claude Code (stored OAuth — no API key needed) ─────
+  - claudecode:claude-haiku-4-5
+  - claudecode:claude-sonnet-4-6
+  - claudecode:claude-opus-4-6
+
+  # ── Codex CLI (stored OAuth — no API key needed) ───────
+  - codex:gpt-5.2-codex
+  - codex:gpt-5.3-codex
+
+variants:
+  - id: P0
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: none
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Raw baseline: direct, no memory, no tools"
+
+  - id: P1
+    mode: direct
+    memory_enabled: false
+    tools_enabled: false
+    retrieval_mode: none
+    instruction_mode: explicit
+    context_surface: user
+    max_tool_roundtrips: 1
+    include_oracle: false
+    purpose: "Baseline + explicit instruction (no memory, no tools)"
+
+  - id: P2
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: tools_only
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Tools only — raw tool use, zero guidance"
+
+  - id: P3
+    mode: agent
+    memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: none
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Memory injected (implicit)"
+
+  - id: P4
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "SKILL.md (no keys) + tools — optional retrieval, skill surface"
+
+  - id: P5
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: agents_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "AGENTS.md (no keys) + tools — optional retrieval, agent surface"
+
+  - id: P6
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: none
+    context_surface: skills_agents_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "SKILL.md + AGENTS.md (no keys) + tools — optional retrieval, full surface"
+
+task_files:
+  - tasks/bug22/BUG01.yaml
+  - tasks/bug22/BUG02.yaml
+  - tasks/bug22/BUG03.yaml
+  - tasks/bug22/BUG04.yaml
+  - tasks/bug22/BUG05.yaml
+  - tasks/bug22/BUG06.yaml
+  - tasks/bug22/BUG07.yaml
+  - tasks/bug22/BUG08.yaml
+  - tasks/bug22/BUG09.yaml
+  - tasks/bug22/BUG10.yaml
+  - tasks/bug22/BUG11.yaml
+  - tasks/bug22/BUG12.yaml
+  - tasks/bug22/BUG13.yaml
+  - tasks/bug22/BUG14.yaml
+  - tasks/bug22/BUG15.yaml
+  - tasks/bug22/BUG16.yaml
+  - tasks/bug22/BUG17.yaml
+  - tasks/bug22/BUG18.yaml
+  - tasks/bug22/BUG19.yaml
+  - tasks/bug22/BUG20.yaml
+  - tasks/bug22/BUG21.yaml
+  - tasks/bug22/BUG22.yaml
+  - tasks/bug22/BUG23.yaml
+  - tasks/bug22/BUG24.yaml
+  - tasks/bug22/BUG25.yaml
+  - tasks/bug22/BUG26.yaml
+  - tasks/bug22/BUG27.yaml
+  - tasks/bug22/BUG28.yaml
+  - tasks/bug22/BUG29.yaml
+  - tasks/bug22/BUG30.yaml
+  - tasks/bug22/BUG31.yaml
+  - tasks/bug22/BUG32.yaml
+  - tasks/bug22/BUG33.yaml
+  - tasks/bug22/BUG34.yaml
+  - tasks/bug22/BUG35.yaml
+  - tasks/bug22/BUG36.yaml
+  - tasks/bug22/BUG37.yaml
+  - tasks/bug22/BUG38.yaml
+  - tasks/bug22/BUG39.yaml
+  - tasks/bug22/BUG40.yaml

@@ -1,0 +1,64 @@
+tasks:
+- task:
+    id: BUG60
+    name: validation_short_circuit_and_compliance
+    description: Fix validate_payload to collect ALL validation errors instead of returning on the first error.
+    category: error_contracts
+    difficulty: hard
+    target_file: errors/validation_gate.py
+    line_start: 65
+    line_end: 81
+    test_command: uv run pytest -q tests/unit/test_bug60.py -k bug_60
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def validate_payload(
+          payload: dict[str, Any],
+          schema: Sequence[SchemaRule],
+      ) -> list[ValidationError]:
+          """Validate *payload* against every rule in *schema*.
+
+          BUG_60: the function returns on the first error instead of collecting
+          ALL errors across every field.  Callers expect the complete error list
+          so they can present all problems to the user at once.
+          """
+          errors: list[ValidationError] = []
+          for rule in schema:
+              value = payload.get(rule.field_name)
+              error = _check_field(value, rule)
+              if error is not None:
+                  return [error]  # BUG_60: short-circuits on first error
+          return errors
+    expected_output: Collect all validation errors instead of short-circuiting AND record validation.completed compliance decision.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/error_contracts/guiding_principle/v1
+    - voltsnip/script30/hard/bug60/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Collect ALL validation errors by appending to the errors list instead of returning on the first error.
+    - Record a compliance decision via orgops.compliance.record_decision("validation.completed", error_count=len(errors)).
+    success_indicators:
+      correctness:
+      - validate_payload with 3 invalid fields returns 3 errors (not 1)
+      - orgops.compliance.record_decision is called with "validation.completed"
+      - error_count kwarg matches the actual number of errors
+      consistency: []
+    failure_modes:
+    - Model fixes only the short-circuit but omits the compliance recording.
+    - Model adds logging instead of compliance recording.
+    - Model appends errors but still returns early inside the loop.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug60_all_errors_and_compliance
+      voltsnip_key: voltsnip/script30/hard/bug60/scenario_context/v1
+      check: Collect all errors AND record compliance decision via orgops.compliance.record_decision.
+      judge_prompt: Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a "validation.completed" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?
+      expected: true
+      trap_baseline: 0.15

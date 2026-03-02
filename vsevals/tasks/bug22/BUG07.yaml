@@ -1,0 +1,53 @@
+tasks:
+- task:
+    id: BUG07
+    name: http_circuit_breaker_gate_condition
+    description: Fix circuit breaker gate condition in request loop.
+    category: http_resilience
+    difficulty: medium
+    target_file: orgops/http/circuit_guard.py
+    line_start: 1
+    line_end: 9
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_07
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      from .contracts import CircuitBreakerHook, CircuitOpenError
+
+
+      def enforce_circuit(circuit_breaker: CircuitBreakerHook | None) -> None:
+          if circuit_breaker is not None and circuit_breaker.allow_request():
+              # BUG_07: inverted circuit breaker check; blocks when request should be allowed.
+              raise CircuitOpenError("circuit open")
+    expected_output: Closed circuit allows request flow.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Invert circuit gate logic correctly.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/http_resilience/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Closed circuit allows request flow.
+      consistency: []
+    failure_modes:
+    - Circuit open error raised for allowed request.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug07_failure_absent
+      voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
+      check: Circuit open error raised for allowed request.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Circuit
+        open error raised for allowed request.'
+      expected: false
+      trap_baseline: 0.2

@@ -1,0 +1,57 @@
+tasks:
+- task:
+    id: BUG28
+    name: db_select_for_update_locking
+    description: Fix read_and_update to use SELECT FOR UPDATE to prevent lost updates.
+    category: db_patterns
+    difficulty: medium
+    target_file: orgops/db/session.py
+    line_start: 33
+    line_end: 46
+    test_command: uv run pytest -q tests/unit/test_db_patterns.py -k bug_28
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def read_and_update(session: Any, model: Any, record_id: int, delta: int) -> int:
+          """Read a counter field and atomically increment it by *delta*.
+
+          Correct implementations acquire a row-level lock via SELECT FOR UPDATE to
+          prevent lost updates under concurrent access.
+          BUG_28: reads the row without any lock; concurrent callers may both read the
+          same value and each overwrite the other's increment (lost update).
+          """
+          row = session.query(model).filter(model.id == record_id).first()  # BUG_28: no .with_for_update()
+          if row is None:
+              return 0
+          row.counter = row.counter + delta
+          session.commit()
+          return row.counter
+    expected_output: Row-level lock acquired via with_for_update() before read-modify-write.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/db_patterns/guiding_principle/v1
+    - voltsnip/bug22/category/db_patterns/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Add .with_for_update() to the query to acquire a row lock.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/db_patterns/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Query chain includes with_for_update().
+      consistency: []
+    failure_modes:
+    - Row read without lock; concurrent updates cause lost writes.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug28_for_update_lock
+      voltsnip_key: voltsnip/bug22/category/db_patterns/guiding_principle/v1
+      check: Query acquires row lock via with_for_update().
+      judge_prompt: Does the implementation add .with_for_update() to the query chain to prevent lost updates?
+      expected: true
+      trap_baseline: 0.25

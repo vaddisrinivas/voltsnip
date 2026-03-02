@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vsevals"
+version = "0.1.0"
+description = "Simplified VoltSnip evaluation harness"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.12.5",
+    "PyYAML>=6.0.2",
+    "httpx>=0.28.1",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "scipy>=1.17.1",
+    "debugpy>=1.8.20",
+]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.63.2",
+    "anthropic>=0.46.0",
+]
+dev = [
+    "pytest>=8.3.5",
+    "ruff>=0.8.6",
+]
+
+[project.scripts]
+vseval = "vsevals.runner:main"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

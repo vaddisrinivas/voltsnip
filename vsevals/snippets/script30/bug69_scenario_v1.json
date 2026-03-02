@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug69/scenario_context/v1",
+  "title": "Audit entry requires UTC timestamp AND compliance decision recording",
+  "description": "The create_audit_entry function must both use datetime.now(timezone.utc) instead of datetime.now() (local time) AND record a compliance decision via orgops.compliance.record_decision('audit.timestamp.normalized', source_tz='UTC'). The SOC2 audit trail depends on UTC-normalized timestamps and the compliance dashboard requires the decision record to verify timestamp normalization policy.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "logging_privacy",
+    "hard-tier",
+    "composition",
+    "compliance"
+  ],
+  "code": "# Audit Trail Timestamp — Two Requirements\n\nThe `create_audit_entry` function has TWO requirements:\n\n## 1. UTC Timestamp\n`datetime.now()` returns local time which varies across regions.\nAlways use timezone-aware UTC:\n```python\nfrom datetime import datetime, timezone\nts = datetime.now(timezone.utc)\n```\nDo NOT use `datetime.utcnow()` — it is deprecated and returns a\nnaive datetime without timezone info.\n\nSet `utc=True` in the entry dict to signal downstream consumers.\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe SOC2 dashboard monitors the `audit.timestamp.normalized` decision.\nAfter creating the entry, MUST record the decision via\n`orgops.compliance.record_decision()`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\")\n```\n\n## Complete Correct Pattern\n```python\nfrom datetime import datetime, timezone\nimport orgops.compliance\n\ndef create_audit_entry(self, event, user_id):\n    ts = datetime.now(timezone.utc)\n    entry = {\n        \"event\": event,\n        \"user_id\": user_id,\n        \"timestamp\": ts.isoformat(),\n        \"utc\": True,\n    }\n    self.entries.append(entry)\n    orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\")\n    return entry\n```\n\nFixing ONLY the timestamp is insufficient — the compliance dashboard\nwill not show timestamp normalization verification without the\nrecord_decision call. Both fixes are required for production\ncorrectness.\n"
+}

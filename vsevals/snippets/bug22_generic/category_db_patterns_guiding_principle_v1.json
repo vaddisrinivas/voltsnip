@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/category/db_patterns/guiding_principle/v1",
+  "title": "BUG22 db_patterns guiding principle",
+  "description": "Org-level guiding principle for database session management: lifecycle, rollback, commit ordering, and query efficiency.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "db_patterns",
+    "guiding-principle",
+    "database"
+  ],
+  "code": "# Database Patterns \u2014 Org Guiding Principle\n\n## Session Lifecycle\n- Always close DB sessions in a finally block or context manager; never rely on GC.\n- Use try/except/finally or a context manager to ensure session.close() is always called.\n\n## Error Handling\n- On any exception, call session.rollback() before re-raising.\n- Never swallow DB exceptions; always propagate after cleanup.\n\n## Commit Ordering\n- Commit AFTER all work is done, not before. Pre-committing exposes partial state.\n- Pattern: do_work() \u2192 session.commit() \u2192 return result.\n\n## Query Efficiency\n- Never execute per-item queries inside a loop (N+1 problem).\n- Use IN-clause batch queries: session.query(M).filter(M.id.in_(ids)).all().\n"
+}

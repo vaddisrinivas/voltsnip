@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug64/scenario_context/v1",
+  "title": "Timeout escalation requires compound math AND metric emission",
+  "description": "The escalate_timeout function must compound the timeout as original_ms * (multiplier ** attempt) AND emit a 'timeout.escalated' metric via orgops.metrics.emit(). The alerting system depends on this metric to detect escalation storms.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "metrics"],
+  "code": "# Timeout Escalation \u2014 Two Requirements\n\n## 1. Compound Escalation\nEach attempt must compound the multiplier:\n```python\nnew_timeout_ms = original_ms * (multiplier ** attempt)\n```\nNot `original_ms * multiplier` (which ignores the attempt number).\n\n## 2. Metric Emission (REQUIRED)\nThe alerting system monitors escalation storms via the\n`timeout.escalated` metric. When a timeout is escalated the\nfunction MUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n```\n\nFixing ONLY the math is insufficient \u2014 the alerting system will\nnot detect escalation storms without the metric emission.\n"
+}

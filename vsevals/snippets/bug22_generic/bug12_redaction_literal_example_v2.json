@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/task/bug12/example_redaction_literal/v2",
+  "title": "BUG12 redaction literal example",
+  "description": "Reference snippet showing exact redaction literal behavior expected by BUG12.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "bug12", "logging_privacy", "redaction"],
+  "code": "REDACTED = \"***REDACTED***\"\\nSENSITIVE = {\"password\", \"token\", \"api_key\", \"authorization\", \"secret\"}\\n\\ndef redact_fields(fields):\\n    out = {}\\n    for k, v in fields.items():\\n        out[k] = REDACTED if k.lower() in SENSITIVE else v\\n    return out\\n"
+}

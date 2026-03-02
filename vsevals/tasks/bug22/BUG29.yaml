@@ -1,0 +1,53 @@
+tasks:
+- task:
+    id: BUG29
+    name: db_bulk_insert_upsert_safety
+    description: Fix bulk_insert_records to handle duplicate primary keys gracefully.
+    category: db_patterns
+    difficulty: medium
+    target_file: orgops/db/session.py
+    line_start: 51
+    line_end: 60
+    test_command: uv run pytest -q tests/unit/test_db_patterns.py -k bug_29
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def bulk_insert_records(session: Any, model: Any, records: list[dict]) -> int:
+          """Insert *records* into the DB, silently ignoring pre-existing duplicates.
+
+          BUG_29: uses plain session.add() without any ON CONFLICT / merge logic;
+          duplicate primary-key rows raise an IntegrityError instead of being skipped.
+          """
+          for rec in records:
+              session.add(model(**rec))
+          session.commit()  # BUG_29: may raise IntegrityError on duplicate PK
+          return len(records)
+    expected_output: Duplicate primary keys are silently ignored instead of raising IntegrityError.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/db_patterns/guiding_principle/v1
+    - voltsnip/bug22/category/db_patterns/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Use session.merge() or ON CONFLICT logic to handle duplicate PKs.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/db_patterns/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Re-inserting an existing PK does not raise IntegrityError.
+      consistency: []
+    failure_modes:
+    - IntegrityError raised on duplicate primary key insert.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug29_upsert_safe
+      voltsnip_key: voltsnip/bug22/category/db_patterns/guiding_principle/v1
+      check: Duplicate PKs are handled without IntegrityError.
+      judge_prompt: Does the implementation avoid IntegrityError when inserting duplicate primary keys?
+      expected: true
+      trap_baseline: 0.25

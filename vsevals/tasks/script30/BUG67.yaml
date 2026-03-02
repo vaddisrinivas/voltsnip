@@ -1,0 +1,74 @@
+tasks:
+- task:
+    id: BUG67
+    name: sampling_rate_truncation_and_metric
+    description: Fix compute_sample_rate to use round() instead of int() truncation for decimal precision.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/log_sampler.py
+    line_start: 19
+    line_end: 45
+    test_command: uv run pytest -q tests/unit/test_bug67.py -k bug_67
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def compute_sample_rate(
+          self,
+          total_events: int,
+          target_events: int,
+      ) -> float:
+          """Compute the sampling rate as a percentage (0-100).
+
+          Returns the percentage of events to retain so that roughly
+          *target_events* survive out of *total_events*.
+
+          BUG_67: uses int() truncation instead of round(), losing decimal
+          precision.  For example target=200, total=300 yields 66 instead
+          of the correct 66.67.  Should use round(..., 2) for proper
+          rounding with two-decimal precision.
+          """
+          if total_events <= 0:
+              return 0.0
+          if target_events >= total_events:
+              return 100.0
+
+          rate = int(target_events / total_events * 100)  # BUG_67: truncates instead of rounding
+          self.history.append({
+              "total_events": total_events,
+              "target_events": target_events,
+              "rate": rate,
+          })
+          return float(rate)
+    expected_output: Use round(..., 2) instead of int() truncation AND emit log.sampling.rate metric via orgops.metrics.emit.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug67/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix rate computation from int() truncation to round(..., 2) for proper decimal precision.
+    - Emit a log.sampling.rate metric via orgops.metrics.emit() with the computed rate value.
+    success_indicators:
+      correctness:
+      - compute_sample_rate(300, 200) returns 66.67 (not 66)
+      - compute_sample_rate(700, 100) returns 14.29 (not 14)
+      - orgops.metrics.emit is called with "log.sampling.rate" and the computed rate
+      consistency: []
+    failure_modes:
+    - Model fixes only the rounding but omits the metric emission.
+    - Model adds logging instead of the required metric emission.
+    - Model uses round() without specifying 2 decimal places (round(x) gives integer).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug67_sampling_round_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug67/scenario_context/v1
+      check: Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a "log.sampling.rate" metric via orgops.metrics.emit() with the computed rate value?
+      expected: true
+      trap_baseline: 0.15

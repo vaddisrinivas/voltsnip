@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug55/scenario_context/v1",
+  "title": "Stampede guard requires correct threshold comparison AND metric emission",
+  "description": "The StampedeGuard.should_refresh_early method must both fix the threshold comparison (< instead of >) AND emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name). The operational dashboard depends on this metric to track stampede prevention events.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "metrics"],
+  "code": "# Stampede Guard \u2014 Two Requirements\n\nThe `StampedeGuard.should_refresh_early` method has TWO requirements:\n\n## 1. Correct Threshold Comparison\nTrigger early refresh when the remaining fraction is BELOW the threshold\n(close to expiry), not above it (far from expiry):\n```python\nratio = time_remaining / ttl\nif ratio < self.threshold:  # not >\n    # trigger early refresh\n```\n\n## 2. Metric Emission (REQUIRED)\nThe operational dashboard monitors `cache.stampede.prevented` events.\nWhen an early refresh is triggered, the function MUST emit this metric\nvia `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n```\n\n## Complete Correct Pattern\n```python\ndef should_refresh_early(self, time_remaining, ttl, key_name=\"unknown\"):\n    import orgops.metrics\n    if ttl <= 0:\n        return False\n    ratio = time_remaining / ttl\n    if ratio < self.threshold:\n        self.refreshes_triggered += 1\n        orgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n        return True\n    return False\n```\n\nFixing ONLY the comparison is insufficient \u2014 the operational dashboard\nwill not track stampede prevention events without the metric emission.\nBoth fixes are required for production correctness.\n"
+}

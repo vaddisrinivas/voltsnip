@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug47/scenario_context/v1",
+  "title": "Pool eviction requires LRU order AND metric emission",
+  "description": "The evict_idle method must evict the connection with the oldest last_used_at (LRU) instead of popping the first element (FIFO), AND emit a metric via orgops.metrics.emit for operational monitoring of connection churn.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "db_patterns", "hard-tier", "composition", "metrics"],
+  "code": "# Pool Eviction \u2014 Two Requirements\n\n## 1. LRU Eviction Order\nFind and remove the connection with the **oldest** `last_used_at`:\n```python\nlru_idx = min(range(len(self.connections)),\n               key=lambda i: self.connections[i].last_used_at)\nevicted = self.connections.pop(lru_idx)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n```\nwhere `idle_seconds = now - evicted.last_used_at`.\n\n## Complete Correct Pattern\n```python\ndef evict_idle(self):\n    import orgops.metrics\n    if not self.connections:\n        return None\n    now = time.time()\n    lru_idx = min(range(len(self.connections)),\n                   key=lambda i: self.connections[i].last_used_at)\n    evicted = self.connections.pop(lru_idx)\n    idle_seconds = now - evicted.last_used_at\n    orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n    return evicted\n```\n\nFixing ONLY the eviction order is insufficient \u2014 the alerting system\nwill not detect connection-churn anomalies without the metric emission.\nBoth fixes are required for production correctness.\n"
+}

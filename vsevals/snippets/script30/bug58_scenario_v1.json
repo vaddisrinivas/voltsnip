@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug58/scenario_context/v1",
+  "title": "Cache partitioner requires correct modulus AND health degradation report",
+  "description": "The assign_partition function must use hash(key) % num_partitions (not num_partitions + 1) AND report degradation via orgops.health.report_degradation for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "health"],
+  "code": "# Cache Partition Assignment \u2014 Two Requirements\n\n## 1. Correct Modulus\n```python\npartition_id = _stable_hash(key) % num_partitions\n```\nNever use `num_partitions + 1` \u2014 that produces out-of-range IDs.\n\n## 2. Health Degradation Report (REQUIRED)\n```python\nimport orgops.health\norgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n```\n"
+}

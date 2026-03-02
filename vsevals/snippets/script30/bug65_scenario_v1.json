@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug65/scenario_context/v1",
+  "title": "Email sanitizer requires plus-addressing fix AND compliance decision recording",
+  "description": "The PiiSanitizer.sanitize_email method must both fix the email regex to handle plus-addressed emails (user+tag@domain.com) AND record a compliance decision via orgops.compliance.record_decision('pii.sanitized', field_count=count). The compliance audit trail depends on this signal to prove PII was sanitized before log persistence.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "logging_privacy",
+    "hard-tier",
+    "composition",
+    "compliance"
+  ],
+  "code": "# Email PII Sanitizer \u2014 Two Requirements\n\nThe `PiiSanitizer.sanitize_email` method has TWO requirements:\n\n## 1. Plus-Addressed Email Regex Fix\nThe regex must include `+` in the local-part character class so that\nplus-addressed emails like `user+tag@domain.com` are redacted:\n```python\n_EMAIL_RE = re.compile(r\"[\\w.+]+@[\\w.]+\")  # note the + in [\\w.+]\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe compliance audit trail tracks every PII sanitization event for\nSOC2 and regulatory audits. After redacting emails, the sanitizer\nMUST record the decision via `orgops.compliance.record_decision`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"pii.sanitized\", field_count=count)\n```\n\n## Complete Correct Pattern\n```python\ndef sanitize_email(self, text: str) -> str:\n    import orgops.compliance\n    email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\n    count = len(email_re.findall(text))\n    result = email_re.sub(\"[REDACTED_EMAIL]\", text)\n    orgops.compliance.record_decision(\"pii.sanitized\", field_count=count)\n    return result\n```\n\nFixing ONLY the regex is insufficient \u2014 the compliance audit trail\nwill have no record that PII was sanitized, which is a SOC2\nviolation. Both fixes are required for production correctness.\n"
+}

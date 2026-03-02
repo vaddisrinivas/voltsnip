@@ -1,0 +1,13 @@
+[project]
+name = "script30"
+version = "0.1.0"
+description = "Script30: 30 composition bugs for VoltSnip eval harness"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

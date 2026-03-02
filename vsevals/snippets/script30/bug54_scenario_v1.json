@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug54/scenario_context/v1",
+  "title": "TTL jitter must be additive AND emit a cache metric",
+  "description": "The compute_ttl_with_jitter function must add jitter to the base TTL (not subtract) AND emit a 'cache.ttl.jittered' metric via orgops.metrics.emit() for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "metrics"],
+  "code": "# TTL Jitter \u2014 Two Requirements\n\n## 1. Additive Jitter\nJitter must be ADDED to the base TTL to spread expiry forward:\n```python\neffective_ttl = base_ttl + random.uniform(0, jitter_range)\n```\nSubtracting jitter defeats the purpose and can produce negative TTLs.\n\n## 2. Metric Emission (REQUIRED)\nThe operational metrics pipeline monitors cache TTL distribution.\nWhen a jittered TTL is computed, the function MUST emit this metric\nvia `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl)\n```\n\n## Complete Correct Pattern\n```python\ndef compute_ttl_with_jitter(base_ttl, jitter_range):\n    import orgops.metrics\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl + jitter\n    orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl)\n    return effective_ttl\n```\n\nFixing ONLY the math is insufficient \u2014 the operational dashboard\nwill not track TTL distribution without the metric emission.\nBoth fixes are required for production correctness.\n"
+}

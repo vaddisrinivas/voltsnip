@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug62/scenario_context/v1",
+  "title": "Fallback chain requires context propagation AND tracing annotation",
+  "description": "The execute_with_fallback method must pass context to each fallback callable AND annotate each activated fallback via orgops.tracing.annotate_span for distributed tracing.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "tracing"],
+  "code": "# Fallback Chain \u2014 Two Requirements\n\n## 1. Context Propagation\n```python\nresult = fb(self.context)\n```\nEvery fallback callable must receive the request context dict\n(request_id, headers, deadline) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\n## 2. Tracing Annotation (REQUIRED)\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"fallback.activated\", index)\n```\nCall for EACH activated fallback. `index` is the 0-based position\nin the fallbacks list.\n"
+}

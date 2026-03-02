@@ -1,0 +1,67 @@
+tasks:
+- task:
+    id: BUG68
+    name: nested_json_redaction_and_audit
+    description: Fix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/redaction_filter.py
+    line_start: 35
+    line_end: 53
+    test_command: uv run pytest -q tests/unit/test_bug68.py -k bug_68
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+          """Return a shallow copy of *data* with sensitive values redacted.
+
+          BUG_68: only top-level keys are checked.  Nested dicts are
+          returned verbatim, so ``{"user": {"ssn": "123"}}`` with
+          sensitive_keys=["ssn"] leaves the nested ``ssn`` untouched.
+          The function also fails to call
+          ``orgops.auditing.write_event("redaction.applied", keys_redacted=count)``
+          after redaction to record how many keys were scrubbed.
+          """
+          result: dict[str, Any] = {}
+          count = 0
+          for key, value in data.items():
+              if key.lower() in self.sensitive_keys:
+                  result[key] = REDACTED_PLACEHOLDER
+                  count += 1
+              else:
+                  result[key] = value  # BUG_68: nested dicts not recursed
+          return result
+    expected_output: Recurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event("redaction.applied", keys_redacted=count).
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug68/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Recurse into nested dicts so that sensitive keys at any depth are redacted.
+    - Call orgops.auditing.write_event("redaction.applied", keys_redacted=count) with the total count of all redacted keys.
+    success_indicators:
+      correctness:
+      - 'redact_keys({"profile": {"ssn": "123"}}) redacts the nested ssn'
+      - 'redact_keys({"a": {"b": {"token": "x"}}}) redacts deeply nested token'
+      - orgops.auditing.write_event is called with "redaction.applied" and keys_redacted=total
+      consistency: []
+    failure_modes:
+    - Model fixes only top-level redaction but omits recursion into nested dicts.
+    - Model adds recursion but omits the audit event emission.
+    - Model adds logging instead of calling orgops.auditing.write_event.
+    - Model counts only top-level redacted keys, not nested ones.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug68_nested_redaction_and_audit
+      voltsnip_key: voltsnip/script30/hard/bug68/scenario_context/v1
+      check: Recursive nested dict redaction AND audit event via orgops.auditing.write_event.
+      judge_prompt: Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event("redaction.applied", keys_redacted=count) with the total count of redacted keys?
+      expected: true
+      trap_baseline: 0.15

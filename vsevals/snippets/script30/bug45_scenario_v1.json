@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug45/scenario_context/v1",
+  "title": "TLS chain validation requires correct loop range AND compliance decision",
+  "description": "The validate_cert_chain function must both fix the loop range (range(len(chain) - 1) instead of range(1, len(chain))) to validate every adjacent pair AND record a 'tls.chain.validated' compliance decision via orgops.compliance.record_decision(). The SOC2 audit system depends on this decision record for TLS validation events.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "http_resilience",
+    "hard-tier",
+    "composition",
+    "compliance"
+  ],
+  "code": "# TLS Certificate Chain Validation \u2014 Two Requirements\n\nThe `validate_cert_chain` function has TWO requirements:\n\n## 1. Correct Loop Range\nIterate with `range(len(chain) - 1)` so every adjacent pair is checked.\nThe buggy `range(1, len(chain))` skips the leaf-to-first-intermediate\nvalidation (chain[0].issuer vs chain[1].subject):\n```python\nfor i in range(len(chain) - 1):  # NOT range(1, len(chain))\n    if chain[i].issuer != chain[i + 1].subject:\n        errors.append(...)\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe SOC2 audit system monitors TLS chain validation events.\nWhen a chain is validated, the function MUST record a compliance\ndecision via `orgops.compliance.record_decision()`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"tls.chain.validated\", depth=len(chain))\n```\n\n## Complete Correct Pattern\n```python\ndef validate_cert_chain(chain):\n    import orgops.compliance\n    # ... early returns for empty / single-cert chains ...\n    errors = []\n    for i in range(len(chain) - 1):\n        if chain[i].issuer != chain[i + 1].subject:\n            errors.append(f\"break at {i}: ...\")\n    is_valid = len(errors) == 0\n    orgops.compliance.record_decision(\"tls.chain.validated\", depth=len(chain))\n    return {\"valid\": is_valid, \"depth\": len(chain), \"errors\": errors, ...}\n```\n\nFixing ONLY the loop range is insufficient \u2014 the compliance system\nwill flag missing validation records during regulatory audits.\n"
+}

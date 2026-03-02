@@ -182,6 +182,16 @@ def _set_snippet_cache_headers(response: Response, etag: str) -> None:
     response.headers["Cache-Control"] = f"public, max-age={settings.SNIPPET_CACHE_MAX_AGE_SECONDS}"
 
 
+def _build_embedding_context(snippet: SnippetCreate) -> str:
+    context_parts = [
+        snippet.title or EMPTY_STRING,
+        snippet.description or EMPTY_STRING,
+        SPACE.join(snippet.tags),
+        snippet.code[:CONTEXT_SNIPPET_MAX_CHARS],
+    ]
+    return SPACE.join(context_parts).strip()
+
+
 async def get_stats(db: AsyncSession = Depends(get_db)):
     # Get global statistics.
     if not settings.STATS_ENABLED:
@@ -209,8 +219,6 @@ async def create_snippet(
     db: AsyncSession = Depends(get_db),
 ):
     # Create a new code snippet.
-    import hashlib
-
     if snippet.parent_id:
         parent = await crud.get_snippet(db, snippet.parent_id)
         if not parent:
@@ -230,6 +238,21 @@ async def create_snippet(
         db, snippet.source or SNIPPET_SOURCE_DEFAULT, source_hash
     )
     if existing:
+        if not crud.is_snippet_active(existing):
+            existing = await crud.reactivate_snippet(db, existing)
+            if settings.EMBEDDINGS_ENABLED:
+                try:
+                    vector = await embeddings_service.generate_embedding(
+                        _build_embedding_context(snippet)
+                    )
+                    await crud.upsert_snippet_embedding(
+                        db,
+                        snippet_id=existing.id,
+                        vector=vector,
+                        embedding_model=embeddings_service.model_name,
+                    )
+                except Exception as e:
+                    logger.error(LOG_VECTOR_GENERATION_FAILED, e)
         content = await storage_service.get_snippet_content(existing.blob_key)
         existing.code = content
         await set_cached_snippet(
@@ -252,13 +275,7 @@ async def create_snippet(
 
     if settings.EMBEDDINGS_ENABLED:
         try:
-            context_parts = [
-                snippet.title or EMPTY_STRING,
-                snippet.description or EMPTY_STRING,
-                SPACE.join(snippet.tags),
-                snippet.code[:CONTEXT_SNIPPET_MAX_CHARS],
-            ]
-            context_text = SPACE.join(context_parts).strip()
+            context_text = _build_embedding_context(snippet)
             vector = await embeddings_service.generate_embedding(context_text)
         except Exception as e:
             logger.error(LOG_VECTOR_GENERATION_FAILED, e)
@@ -338,6 +355,19 @@ async def read_snippet(
         _snippet_cache_payload(db_snippet),
         settings.SNIPPET_CACHE_TTL_SECONDS,
     )
+    return db_snippet
+
+
+async def read_snippet_by_canonical_key(
+    canonical_key: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve a snippet by its canonical_key (slash-delimited path)."""
+    db_snippet = await crud.get_snippet_by_canonical_key(db, canonical_key)
+    if db_snippet is None:
+        raise HTTPException(status_code=404, detail=ERR_SNIPPET_NOT_FOUND)
+    content = await storage_service.get_snippet_content(db_snippet.blob_key)
+    db_snippet.code = content
     return db_snippet
 
 

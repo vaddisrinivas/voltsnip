@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug56/scenario_context/v1",
+  "title": "LFU eviction requires time-decayed scoring AND metric emission",
+  "description": "The compute_lfu_score function must use time-decayed frequency (access_count / (1 + age_hours)) AND emit a metric via orgops.metrics.emit for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "metrics"],
+  "code": "# LFU Eviction Score \u2014 Two Requirements\n\n## 1. Time-Decayed Frequency\n```python\nscore = access_count / (1 + age_hours)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.eviction.lfu\", score)\n```\n"
+}

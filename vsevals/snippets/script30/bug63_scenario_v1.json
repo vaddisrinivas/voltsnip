@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug63/scenario_context/v1",
+  "title": "DLQ capacity requires strict bound AND alert at 80% utilization",
+  "description": "DeadLetterQueue.enqueue must enforce an exact capacity limit (>= not >) AND fire a capacity-warning alert via orgops.alerts.notify when utilization reaches 80%.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "alerts"],
+  "code": "# Dead-Letter Queue \u2014 Two Requirements\n\n## 1. Strict Capacity Bound\n```python\nif len(self.queue) >= self.max_size:\n    return False\n```\n\n## 2. Capacity Alert at 80%+ (REQUIRED)\n```python\nimport orgops.alerts\n\nutilization = (len(self.queue) / self.max_size) * 100.0\nif utilization >= 80.0:\n    orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=utilization)\n```\n"
+}

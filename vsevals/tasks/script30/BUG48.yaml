@@ -1,0 +1,66 @@
+tasks:
+- task:
+    id: BUG48
+    name: migration_version_lexicographic_and_audit
+    description: Fix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/migration_runner.py
+    line_start: 36
+    line_end: 55
+    test_command: uv run pytest -q tests/unit/test_bug48.py -k bug_48
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def get_pending_migrations(self) -> list[dict[str, Any]]:
+          """Return migrations not yet applied, sorted by version.
+
+          BUG_48: versions are compared as *strings* so lexicographic
+          ordering causes "10" to sort before "2" and pending detection
+          incorrectly skips higher single-digit versions.
+          """
+          if not self.applied_versions:
+              return sorted(
+                  self.available_migrations,
+                  key=lambda m: str(m["version"]),  # BUG_48: lexicographic sort
+              )
+
+          max_applied = max(self.applied_versions)  # BUG_48: string max — "9" > "10"
+          pending = [
+              m
+              for m in self.available_migrations
+              if str(m["version"]) > max_applied  # BUG_48: string comparison
+          ]
+          return sorted(pending, key=lambda m: str(m["version"]))
+    expected_output: Use int() for version comparison and sorting AND call orgops.auditing.write_event("migration.applied", version=version) for each migration.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug48/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Use int() for version comparison so "10" is correctly detected as pending after "9".
+    - Call orgops.auditing.write_event("migration.applied", version=version) for each migration applied.
+    success_indicators:
+      correctness:
+      - get_pending_migrations returns ["10", "11", "20"] when applied is {"1","2","3","9"}
+      - orgops.auditing.write_event is called with "migration.applied" for each applied version
+      consistency: []
+    failure_modes:
+    - Model fixes only the numeric ordering but omits the audit event emission.
+    - Model adds logging instead of calling orgops.auditing.write_event.
+    - Model uses sorted(..., key=str) which still sorts lexicographically.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug48_version_ordering_and_audit
+      voltsnip_key: voltsnip/script30/hard/bug48/scenario_context/v1
+      check: Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.
+      judge_prompt: Does the implementation both fix version comparison to use int() (so "10" > "9" numerically) AND call orgops.auditing.write_event("migration.applied", version=version) for each migration applied?
+      expected: true
+      trap_baseline: 0.15

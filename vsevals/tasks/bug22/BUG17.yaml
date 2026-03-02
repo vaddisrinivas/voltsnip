@@ -1,0 +1,72 @@
+tasks:
+- task:
+    id: BUG17
+    name: db_session_rollback_on_exception
+    description: Fix session_scope rollback behavior on exceptions.
+    category: db_patterns
+    difficulty: easy
+    target_file: orgops/db/session.py
+    line_start: 8
+    line_end: 18
+    test_command: uv run pytest -q tests/unit/test_db_patterns.py -k bug_17
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      from collections.abc import Callable, Iterator
+      from contextlib import contextmanager
+      from typing import Any
+
+
+      @contextmanager
+      def session_scope(session_factory: Callable[[], Any]) -> Iterator[Any]:
+          session = session_factory()
+          session.commit()  # BUG_18: commits before any unit of work executes.
+          try:
+              yield session
+          except Exception:
+              # BUG_17: missing rollback on exception path.
+              raise
+          finally:
+              pass  # BUG_16: session not closed.
+
+
+      def fetch_users_by_ids(session: Any, user_model: Any, user_ids: list[int]) -> list[Any]:
+          users: list[Any] = []
+          for user_id in user_ids:
+              # BUG_19: N+1 query pattern instead of a set-based query.
+              row = session.query(user_model).filter(user_model.id == user_id).first()
+              if row is not None:
+                  users.append(row)
+          return users
+    expected_output: Rollback occurs on exception path.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/db_patterns/guiding_principle/v1
+    - voltsnip/bug22/category/db_patterns/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Call rollback before re-raise.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/db_patterns/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Rollback occurs on exception path.
+      consistency: []
+    failure_modes:
+    - Rollback missing on exception path.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug17_failure_absent
+      voltsnip_key: voltsnip/bug22/category/db_patterns/guiding_principle/v1
+      check: Rollback missing on exception path.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Rollback
+        missing on exception path.'
+      expected: false
+      trap_baseline: 0.2

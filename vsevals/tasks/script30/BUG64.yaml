@@ -1,0 +1,77 @@
+tasks:
+- task:
+    id: BUG64
+    name: timeout_escalation_no_compound_and_metric
+    description: Fix escalate_timeout so the timeout compounds with each attempt instead of always multiplying from the original.
+    category: error_contracts
+    difficulty: hard
+    target_file: errors/timeout_escalation.py
+    line_start: 26
+    line_end: 55
+    test_command: uv run pytest -q tests/unit/test_bug64.py -k bug_64
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def escalate_timeout(
+          self,
+          original_ms: float,
+          attempt: int,
+          multiplier: float = 1.5,
+      ) -> dict[str, Any]:
+          """Compute the escalated timeout for *attempt*.
+
+          BUG_64: the calculation uses ``original_ms * multiplier`` on every
+          attempt instead of compounding (``original_ms * (multiplier ** attempt)``).
+          This means every retry gets the same timeout regardless of the
+          attempt number, eliminating the exponential back-pressure that
+          protects recovering services.
+          """
+          new_timeout_ms = original_ms * multiplier  # BUG_64: ignores attempt, no compounding
+          new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)
+
+          record: dict[str, Any] = {
+              "attempt": attempt,
+              "original_ms": original_ms,
+              "new_timeout_ms": new_timeout_ms,
+          }
+          self.history.setdefault("default", []).append(record)
+
+          return {
+              "original_ms": original_ms,
+              "new_timeout_ms": new_timeout_ms,
+              "attempt": attempt,
+              "capped": new_timeout_ms >= self.ceiling_ms,
+          }
+    expected_output: Compound timeout as original_ms * (multiplier ** attempt) AND emit timeout.escalated metric via orgops.metrics.emit.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/error_contracts/guiding_principle/v1
+    - voltsnip/script30/hard/bug64/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix escalation from linear (original_ms * multiplier) to compound (original_ms * (multiplier ** attempt)).
+    - Emit a timeout.escalated metric via orgops.metrics.emit() with the new timeout value.
+    success_indicators:
+      correctness:
+      - escalate_timeout(100.0, 3, 1.5) returns new_timeout_ms=337.5 (not 150.0)
+      - escalate_timeout(100.0, 1, 1.5) returns new_timeout_ms=150.0
+      - orgops.metrics.emit is called with "timeout.escalated"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math (compounding) but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model compounds incorrectly (e.g. multiplier * attempt instead of multiplier ** attempt).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug64_compound_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug64/scenario_context/v1
+      check: Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?
+      expected: true
+      trap_baseline: 0.15

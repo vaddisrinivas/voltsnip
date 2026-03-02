@@ -1,0 +1,55 @@
+tasks:
+- task:
+    id: BUG52
+    name: schema_type_case_sensitive_and_compliance
+    description: Fix validate_column_type so column type comparison is case-insensitive.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/schema_validator.py
+    line_start: 35
+    line_end: 44
+    test_command: uv run pytest -q tests/unit/test_bug52.py -k bug_52
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def validate_column_type(expected_type: str, actual_type: str) -> bool:
+          """Check whether *actual_type* matches *expected_type*.
+
+          BUG_52: the comparison is case-sensitive, so "VARCHAR" != "varchar".
+          Database engines return types in varying cases (e.g. PostgreSQL uses
+          lowercase, MySQL uses uppercase).  A case-insensitive comparison is
+          required for cross-engine compatibility.
+          """
+          # BUG_52: case-sensitive comparison causes false mismatches
+          return expected_type == actual_type
+    expected_output: Use case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug52/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix the comparison to be case-insensitive using .upper() or .lower() on both sides.
+    - Record a schema.validation.passed compliance decision via orgops.compliance.record_decision().
+    success_indicators:
+      correctness:
+      - validate_column_type("VARCHAR", "varchar") returns True
+      - orgops.compliance.record_decision is called with "schema.validation.passed"
+      consistency: []
+    failure_modes:
+    - Model fixes only the comparison but omits the compliance decision recording.
+    - Model adds logging instead of compliance decision recording.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug52_case_insensitive_and_compliance
+      voltsnip_key: voltsnip/script30/hard/bug52/scenario_context/v1
+      check: Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.
+      judge_prompt: Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?
+      expected: true
+      trap_baseline: 0.15

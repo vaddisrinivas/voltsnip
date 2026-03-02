@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug37/scenario_context/v1",
+  "title": "trace_id is allowlisted \u2014 must NOT be redacted as PII",
+  "description": "The trace_id field matches PII patterns (UUID-like strings) but is explicitly allowlisted in org policy for operational debugging. The redact_sensitive_fields function must check the allowlist BEFORE applying PII redaction to avoid stripping trace_id, which breaks distributed tracing.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "logging_privacy",
+    "hard-tier",
+    "semantic-trap",
+    "allowlist"
+  ],
+  "code": "# PII Redaction Allowlist \u2014 trace_id Must Be Preserved\n\nThe `trace_id` field matches PII heuristic patterns (it contains\nUUID-like strings) but is explicitly ALLOWLISTED in org policy.\nIt must NOT be redacted because it is essential for distributed\ntracing and incident debugging.\n\n## Allowlisted Fields\nThe following fields must be preserved even though they match PII\npatterns:\n- `trace_id` \u2014 distributed tracing correlation ID\n\n## Correct Pattern\n```python\n_PII_PATTERN_FIELDS = {\"email\", \"ssn\", \"phone\", \"trace_id\", \"credit_card\"}\n_ALLOWLISTED_FIELDS = {\"trace_id\"}  # org policy: preserve for debugging\n_REDACTED = \"***REDACTED***\"\n\ndef redact_sensitive_fields(record):\n    result = {}\n    for key, value in record.items():\n        if key in _ALLOWLISTED_FIELDS:\n            result[key] = value  # check allowlist BEFORE PII redaction\n        elif key in _PII_PATTERN_FIELDS:\n            result[key] = _REDACTED\n        else:\n            result[key] = value\n    return result\n```\n\nThe allowlist check MUST come before the PII pattern check.\nWithout this, trace_id is redacted and distributed tracing breaks\nacross all services.\n"
+}

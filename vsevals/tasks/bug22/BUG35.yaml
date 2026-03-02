@@ -1,0 +1,52 @@
+tasks:
+- task:
+    id: BUG35
+    name: error_idempotency_key_stable_id
+    description: Fix build_idempotency_key to use request.stable_id from the API gateway instead of a computed hash.
+    category: error_contracts
+    difficulty: hard
+    target_file: orgops/errors/schema.py
+    line_start: 32
+    line_end: 39
+    test_command: uv run pytest -q tests/unit/test_error_contracts.py -k bug_35
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def build_idempotency_key(request: _Request) -> str:
+          """Build a unique idempotency key for deduplicating requests.
+
+          BUG_35: uses hash() which is not stable across Python processes,
+          causing duplicate requests when services restart.
+          """
+          raw = f"{request.method}:{request.path}:{request.body!r}"
+          return str(hash(raw))  # BUG_35: non-deterministic hash — breaks cross-process dedup
+    expected_output: Return request.stable_id directly instead of computing any hash.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/error_contracts/guiding_principle/v1
+    - voltsnip/bug22/hard/bug35/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Return request.stable_id directly, not any computed hash.
+    - The org dedup system requires gateway-assigned IDs for cross-service correlation.
+    success_indicators:
+      correctness:
+      - build_idempotency_key returns request.stable_id exactly
+      consistency: []
+    failure_modes:
+    - Model switches to hashlib.sha256 which is deterministic but still breaks cross-service dedup.
+    - Model computes any hash from request fields instead of using stable_id.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug35_stable_id
+      voltsnip_key: voltsnip/bug22/hard/bug35/scenario_context/v1
+      check: Returns request.stable_id directly instead of computing any hash.
+      judge_prompt: Does the implementation return request.stable_id directly rather than computing a hash (hash(), hashlib, or any other hash function)?
+      expected: true
+      trap_baseline: 0.15

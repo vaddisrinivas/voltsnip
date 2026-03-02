@@ -1,0 +1,63 @@
+tasks:
+- task:
+    id: BUG61
+    name: retry_budget_no_reset_and_metric
+    description: Fix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.
+    category: error_contracts
+    difficulty: hard
+    target_file: errors/retry_budget.py
+    line_start: 37
+    line_end: 50
+    test_command: uv run pytest -q tests/unit/test_bug61.py -k bug_61
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def record_outcome(self, success: bool) -> None:
+          """Record the result of an operation and adjust the budget.
+
+          BUG_61: On failure the budget is correctly decremented, but on
+          success the budget is *not* replenished.  The fix must increment
+          ``self.remaining = min(self.remaining + 1, self.max_budget)``
+          when *success* is True.  Additionally, a metric must be emitted
+          via ``orgops.metrics.emit("retry.budget.consumed", self.remaining)``
+          after every call regardless of outcome.
+          """
+          if not success:
+              self.remaining = max(self.remaining - 1, 0)
+          # BUG_61: missing success branch — should replenish on success
+          # BUG_61: missing orgops.metrics.emit("retry.budget.consumed", self.remaining)
+    expected_output: Replenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/error_contracts/guiding_principle/v1
+    - voltsnip/script30/hard/bug61/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Add success branch that replenishes remaining via min(self.remaining + 1, self.max_budget).
+    - Keep failure branch that decrements remaining via max(self.remaining - 1, 0).
+    - Emit a retry.budget.consumed metric via orgops.metrics.emit() after every call.
+    success_indicators:
+      correctness:
+      - After failure remaining decrements by 1 (budget=5 -> remaining=4)
+      - After success remaining increments by 1 up to max_budget
+      - orgops.metrics.emit is called with "retry.budget.consumed"
+      consistency: []
+    failure_modes:
+    - Model fixes only the replenishment but omits the metric emission.
+    - Model adds logging instead of metric emission via orgops.metrics.emit.
+    - Model emits the metric only on failure, not on both outcomes.
+    - Model replenishes without capping at max_budget.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug61_replenish_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug61/scenario_context/v1
+      check: Success replenishment AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?
+      expected: true
+      trap_baseline: 0.15

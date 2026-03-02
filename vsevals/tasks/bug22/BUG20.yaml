@@ -1,0 +1,56 @@
+tasks:
+- task:
+    id: BUG20
+    name: logging_request_id_thread_isolation
+    description: Fix request id context storage for concurrent isolation.
+    category: concurrency_cache
+    difficulty: medium
+    target_file: orgops/logging/context.py
+    line_start: 1
+    line_end: 12
+    test_command: uv run pytest -q tests/unit/test_concurrency_cache.py -k bug_20
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      from __future__ import annotations
+
+      _request_id: str | None = None  # BUG_20: global mutable state breaks per-request isolation under concurrency.
+
+
+      def set_request_id(request_id: str | None) -> None:
+          global _request_id
+          _request_id = request_id
+
+
+      def get_request_id() -> str | None:
+          return _request_id
+    expected_output: Request ids are isolated across threads.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Use context-local storage for request id.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/concurrency_cache/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Request ids are isolated across threads.
+      consistency: []
+    failure_modes:
+    - Request ids leak across threads.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug20_failure_absent
+      voltsnip_key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+      check: Request ids leak across threads.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: Request
+        ids leak across threads.'
+      expected: false
+      trap_baseline: 0.2

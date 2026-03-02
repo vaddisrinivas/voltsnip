@@ -1,0 +1,65 @@
+tasks:
+- task:
+    id: BUG47
+    name: pool_eviction_fifo_not_lru_and_metric
+    description: Fix evict_idle to use LRU eviction instead of FIFO order.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/connection_pool.py
+    line_start: 66
+    line_end: 84
+    test_command: uv run pytest -q tests/unit/test_bug47.py -k bug_47
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def evict_idle(self) -> Connection | None:
+          """Remove the least-recently-used idle connection.
+
+          BUG_47: uses ``self.connections.pop(0)`` which removes the
+          *first-inserted* connection (FIFO order) rather than the one
+          with the oldest ``last_used_at`` timestamp (LRU order).  When
+          connections are touched out of insertion order, the wrong
+          connection is evicted.
+          """
+          if not self.connections:
+              return None
+
+          now = time.time()
+
+          # BUG_47: FIFO eviction — should find the conn with min(last_used_at)
+          evicted = self.connections.pop(0)
+
+          idle_seconds = now - evicted.last_used_at
+          return evicted
+    expected_output: Use LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug47/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix eviction from FIFO (pop(0)) to LRU (find and remove connection with oldest last_used_at).
+    - Emit a pool.connection.evicted metric via orgops.metrics.emit() with idle_seconds value.
+    success_indicators:
+      correctness:
+      - evict_idle removes the connection with the smallest last_used_at, not the first-inserted
+      - orgops.metrics.emit is called with "pool.connection.evicted" and idle_seconds
+      consistency: []
+    failure_modes:
+    - Model fixes only the eviction order but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model sorts by created_at instead of last_used_at.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug47_lru_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug47/scenario_context/v1
+      check: LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?
+      expected: true
+      trap_baseline: 0.15

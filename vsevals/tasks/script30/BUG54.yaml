@@ -1,0 +1,74 @@
+tasks:
+- task:
+    id: BUG54
+    name: ttl_jitter_subtraction_and_metric
+    description: Fix compute_ttl_with_jitter so jitter is added to spread expiry forward.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/ttl_manager.py
+    line_start: 26
+    line_end: 54
+    test_command: uv run pytest -q tests/unit/test_bug54.py -k bug_54
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def compute_ttl_with_jitter(
+          base_ttl: float = 300.0,
+          jitter_range: float = 30.0,
+      ) -> float:
+          """Compute an effective TTL by applying random jitter.
+
+          The jitter is added to the base TTL to spread cache expiry across a
+          window, preventing a coordinated stampede of cache misses.
+
+          BUG_54: the jitter is *subtracted* from the base TTL instead of
+          *added*, which can push the effective TTL below zero for small base
+          values and defeats the purpose of spreading expiry forward.
+
+          Parameters
+          ----------
+          base_ttl:
+              The base time-to-live in seconds.
+          jitter_range:
+              Maximum additional jitter in seconds.  The actual jitter is
+              drawn uniformly from [0, jitter_range).
+
+          Returns
+          -------
+          float
+              The effective TTL in seconds.
+          """
+          jitter = random.uniform(0, jitter_range)
+          effective_ttl = base_ttl - jitter  # BUG_54: subtracts jitter instead of adding
+          return effective_ttl
+    expected_output: Add jitter to base_ttl (not subtract) AND emit cache.ttl.jittered metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug54/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix jitter from subtraction to addition so effective TTL is always >= base_ttl.
+    - Emit a cache.ttl.jittered metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - compute_ttl_with_jitter(300.0, 30.0) with jitter=15 returns 315.0 (not 285.0)
+      - orgops.metrics.emit is called with "cache.ttl.jittered"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math (- to +) but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug54_jitter_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug54/scenario_context/v1
+      check: Additive jitter AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

@@ -1,0 +1,58 @@
+tasks:
+- task:
+    id: BUG70
+    name: base64_secret_miss_and_alert
+    description: Fix scan_for_secrets so it decodes base64 segments and re-scans for encoded secrets.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/secret_scanner.py
+    line_start: 39
+    line_end: 49
+    test_command: uv run pytest -q tests/unit/test_bug70.py -k bug_70
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:
+          """Return a list of findings for every secret detected in *text*.
+
+          BUG_70: Only plaintext patterns are checked.  Base64-encoded
+          segments are never decoded and re-scanned, so an encoded
+          ``AKIA...`` key or ``ghp_`` token slips through undetected.
+          """
+          self.findings = []
+          self._scan_plaintext(text)
+          # BUG_70: base64 segments are not decoded — encoded secrets are missed
+          return list(self.findings)
+    expected_output: Decode base64 segments and re-scan for secrets AND call orgops.alerts.notify for each finding.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug70/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Decode base64-encoded segments in text (via _BASE64_RE or equivalent) and re-scan decoded content for secret patterns.
+    - Call orgops.alerts.notify("secret.detected", pattern_type=pattern_type) for each detected secret.
+    success_indicators:
+      correctness:
+      - scan_for_secrets with base64-encoded AKIA key finds "aws_access_key" pattern
+      - scan_for_secrets with plaintext AKIA key still finds "aws_access_key" pattern
+      - orgops.alerts.notify is called with "secret.detected" and pattern_type kwarg
+      consistency: []
+    failure_modes:
+    - Model fixes only the base64 decoding but omits the alert notification.
+    - Model adds logging instead of orgops.alerts.notify.
+    - Model scans base64 but does not call _try_decode_base64 or equivalent decoding.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug70_base64_decode_and_alert
+      voltsnip_key: voltsnip/script30/hard/bug70/scenario_context/v1
+      check: Base64 decode + re-scan AND alert via orgops.alerts.notify.
+      judge_prompt: Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify("secret.detected", pattern_type=pattern_type) for each detected secret?
+      expected: true
+      trap_baseline: 0.15

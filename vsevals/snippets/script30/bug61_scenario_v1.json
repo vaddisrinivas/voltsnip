@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug61/scenario_context/v1",
+  "title": "Retry budget requires success replenishment AND metric emission",
+  "description": "The RetryBudget.record_outcome method must replenish remaining on success AND emit a metric via orgops.metrics.emit for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "metrics"],
+  "code": "# Retry Budget \u2014 Two Requirements\n\n## 1. Replenish on Success\n```python\nif success:\n    self.remaining = min(self.remaining + 1, self.max_budget)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n"
+}

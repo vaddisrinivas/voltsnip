@@ -1,0 +1,55 @@
+tasks:
+- task:
+    id: BUG33
+    name: http_flush_before_commit_audit
+    description: Fix persist_retry_outcome to use session.flush() instead of commit() to trigger post-flush audit hooks.
+    category: http_resilience
+    difficulty: hard
+    target_file: orgops/http/retry_policy.py
+    line_start: 26
+    line_end: 36
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_33
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def persist_retry_outcome(session, outcome_data: dict) -> None:
+          """Persist a retry outcome record to the database.
+
+          BUG_33: the function commits the outcome but the downstream audit
+          system is not triggered correctly.
+          """
+          from service.models import Base  # noqa: F401 — ensures model metadata available
+
+          session.add_record(outcome_data)
+          session.commit()  # BUG_33: should use flush() to trigger post-flush audit hooks
+    expected_output: Use session.flush() instead of session.commit() to trigger post-flush audit hooks.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/hard/bug33/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Replace session.commit() with session.flush() so the orgops.auditing.post_flush_hook fires.
+    - The audit hook reads uncommitted rows from the session identity map after flush.
+    success_indicators:
+      correctness:
+      - session.flush() is called instead of session.commit()
+      - The audit hook is triggered (session._audit_triggered becomes True)
+      consistency: []
+    failure_modes:
+    - Model uses session.commit() which is the standard pattern but bypasses audit hooks.
+    - Model switches to hashlib or adds a deterministic commit — still wrong pattern.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug33_flush_not_commit
+      voltsnip_key: voltsnip/bug22/hard/bug33/scenario_context/v1
+      check: Uses session.flush() instead of session.commit() to trigger post-flush audit hooks.
+      judge_prompt: Does the implementation call session.flush() instead of session.commit() so that the orgops auditing post-flush hooks are triggered?
+      expected: true
+      trap_baseline: 0.15

@@ -82,12 +82,17 @@ class Settings(BaseSettings):
     MAX_CODE_SIZE: int = 1000000
     MAX_TAGS: int = 20
     MAX_SEARCH_K: int = 100
-    EXPIRATION_HOURS: int = 24
+    EXPIRATION_HOURS: int = 87600  # 10 years — snippets do not expire by default
     TOP_FEED_WINDOW_HOURS: int = 24
     FEED_CACHE_TTL_SECONDS: int = DEFAULT_FEED_CACHE_TTL_SECONDS
     SNIPPET_CACHE_TTL_SECONDS: int = DEFAULT_SNIPPET_CACHE_TTL_SECONDS
     SNIPPET_CACHE_MAX_AGE_SECONDS: int = DEFAULT_SNIPPET_CACHE_MAX_AGE_SECONDS
     CORS_ORIGINS: list[str] | str = DEFAULT_CORS_ORIGINS
+    MCP_SAMPLING_ENABLED: bool = True
+    MCP_SAMPLING_PROVIDER: Literal["auto", "openai", "anthropic", "none"] = "auto"
+    MCP_SAMPLING_HANDLER_BEHAVIOR: Literal["fallback", "always"] = "fallback"
+    MCP_SAMPLING_OPENAI_MODEL: str = "gpt-5-mini"
+    MCP_SAMPLING_ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
 
     @field_validator(SETTINGS_CORS_ORIGINS_FIELD, mode=VALIDATOR_MODE_BEFORE)
     @classmethod

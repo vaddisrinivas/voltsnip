@@ -1,0 +1,65 @@
+tasks:
+- task:
+    id: BUG59
+    name: http_status_classification_and_metric
+    description: Fix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.
+    category: error_contracts
+    difficulty: hard
+    target_file: errors/error_mapper.py
+    line_start: 27
+    line_end: 42
+    test_command: uv run pytest -q tests/unit/test_bug59.py -k bug_59
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def classify_http_error(status_code: int) -> str:
+          """Classify an HTTP status code into an error category.
+
+          Expected categories:
+              - "client_error"  for 400-499
+              - "server_error"  for 500-599
+              - "unknown"       for anything else
+
+          BUG_59: the implementation lumps ALL codes 400-599 into "server_error"
+          instead of splitting 4xx (client) from 5xx (server).  Models must
+          also emit an "error.mapped" metric via orgops.metrics.emit().
+          """
+          # BUG_59: treats 4xx and 5xx identically as server_error
+          if 400 <= status_code < 600:
+              return "server_error"
+          return "unknown"
+    expected_output: Split 4xx as client_error from 5xx as server_error AND emit error.mapped metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/error_contracts/guiding_principle/v1
+    - voltsnip/script30/hard/bug59/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Split classification so 400-499 returns "client_error" and 500-599 returns "server_error".
+    - Keep "unknown" for codes outside the 400-599 range.
+    - Emit an error.mapped metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - classify_http_error(429) returns "client_error" (not "server_error")
+      - classify_http_error(502) returns "server_error"
+      - classify_http_error(200) returns "unknown"
+      - orgops.metrics.emit is called with "error.mapped"
+      consistency: []
+    failure_modes:
+    - Model fixes only the classification but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model splits 4xx/5xx but uses wrong boundary (e.g. 499 vs 500).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug59_classification_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug59/scenario_context/v1
+      check: Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both split 400-499 as "client_error" and 500-599 as "server_error" AND emit an error.mapped metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

@@ -1,0 +1,61 @@
+tasks:
+- task:
+    id: BUG36
+    name: error_parse_legacy_date_format
+    description: Fix parse_event_timestamp to handle timestamp formats from the billing-v1 upstream.
+    category: error_contracts
+    difficulty: hard
+    target_file: orgops/errors/mapping.py
+    line_start: 23
+    line_end: 38
+    test_command: uv run pytest -q tests/unit/test_error_contracts.py -k bug_36
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def parse_event_timestamp(raw_ts: str) -> str:
+          """Parse an event timestamp string and return ISO 8601 format.
+
+          BUG_36: only handles ISO 8601 formatted timestamps. Timestamps
+          from the billing-v1 upstream are not parsed correctly.
+          """
+          from datetime import datetime, timezone
+
+          # Attempt ISO 8601 parse
+          try:
+              dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+              return dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+          except ValueError:
+              pass
+          # BUG_36: unrecognised timestamp — returns raw string unparsed
+          return raw_ts
+    expected_output: Handle DD/MM/YYYY format from billing-v1 in addition to ISO 8601.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/error_contracts/guiding_principle/v1
+    - voltsnip/bug22/hard/bug36/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Add fallback parsing for DD/MM/YYYY format (e.g., "15/03/2024") from billing-v1 upstream.
+    - Both ISO 8601 and DD/MM/YYYY must produce normalized ISO output.
+    success_indicators:
+      correctness:
+      - parse_event_timestamp("15/03/2024") returns "2024-03-15T00:00:00+00:00"
+      - parse_event_timestamp("2024-03-15T10:30:00Z") still returns "2024-03-15T10:30:00+00:00"
+      consistency: []
+    failure_modes:
+    - Model only improves ISO 8601 parsing (timezone handling, etc.) without adding DD/MM/YYYY.
+    - Model adds MM/DD/YYYY instead of DD/MM/YYYY (American vs European format).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug36_legacy_date
+      voltsnip_key: voltsnip/bug22/hard/bug36/scenario_context/v1
+      check: Handles DD/MM/YYYY format from billing-v1 upstream in addition to ISO 8601.
+      judge_prompt: Does the implementation parse DD/MM/YYYY date strings (e.g., "15/03/2024") from the billing-v1 upstream and normalize them to ISO 8601 format?
+      expected: true
+      trap_baseline: 0.15

@@ -1,0 +1,55 @@
+tasks:
+- task:
+    id: BUG42
+    name: circuit_half_open_probe_and_health
+    description: Fix CircuitGuard.should_allow_probe so probes are correctly limited in half-open state.
+    category: http_resilience
+    difficulty: hard
+    target_file: net/circuit_guard.py
+    line_start: 77
+    line_end: 86
+    test_command: uv run pytest -q tests/unit/test_bug42.py -k bug_42
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def should_allow_probe(self) -> bool:
+          """Allow a probe request in the half-open state if under the limit.
+
+          BUG_42: the comparison is inverted, allowing probes when the count
+          has already exceeded the maximum and blocking them when under the limit.
+          """
+          if self.probe_count > self.max_probes:  # BUG_42: should be < not >
+              self.probe_count += 1
+              return True
+          return False
+    expected_output: Fix probe comparison to < and report circuit.half_open degradation via orgops.health.report_degradation.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/http_resilience/guiding_principle/v1
+    - voltsnip/script30/hard/bug42/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix probe comparison from > to < so probes are allowed only under the limit.
+    - Report circuit.half_open degradation via orgops.health.report_degradation().
+    success_indicators:
+      correctness:
+      - should_allow_probe returns True when probe_count < max_probes
+      - orgops.health.report_degradation is called with "circuit.half_open"
+      consistency: []
+    failure_modes:
+    - Model fixes only the comparison but omits the health report.
+    - Model adds logging instead of health degradation reporting.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug42_probe_and_health
+      voltsnip_key: voltsnip/script30/hard/bug42/scenario_context/v1
+      check: Correct probe comparison AND health degradation report.
+      judge_prompt: Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?
+      expected: true
+      trap_baseline: 0.15

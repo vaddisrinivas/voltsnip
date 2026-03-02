@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug44/scenario_context/v1",
+  "title": "DNS stale-entry refresh requires correct comparison AND metric emission",
+  "description": "The should_refresh_entry function must both fix the inverted stale comparison (use entry.stale_at <= now, not entry.stale_at > now) AND emit a 'dns.cache.refresh' metric via orgops.metrics.emit(). The ops dashboard depends on this metric to track cache churn and alert on resolver pressure.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "http_resilience",
+    "hard-tier",
+    "composition",
+    "metrics"
+  ],
+  "code": "# DNS Cache Stale-Entry Refresh \u2014 Two Requirements\n\nThe `should_refresh_entry` function has TWO requirements:\n\n## 1. Correct Stale Comparison\nAn entry is stale when its stale_at timestamp has passed:\n```python\ndef should_refresh_entry(self, entry, now):\n    return entry.stale_at <= now  # True when stale, False when fresh\n```\nThe current code has `entry.stale_at > now` which is **inverted** \u2014\nit returns True when the entry is still fresh.\n\n## 2. Metric Emission (REQUIRED)\nThe ops dashboard monitors the `dns.cache.refresh` metric.\nWhen a stale entry is found during `refresh_stale()`, the function\nMUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now))\n```\n\n## Complete Correct Pattern\n```python\ndef should_refresh_entry(self, entry, now):\n    return entry.stale_at <= now\n\ndef refresh_stale(self, now=None):\n    import orgops.metrics\n    now = now if now is not None else time.time()\n    stale_hosts = []\n    for hostname, entry in self._store.items():\n        if self.should_refresh_entry(entry, now):\n            orgops.metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now))\n            stale_hosts.append(hostname)\n    return stale_hosts\n```\n\nFixing ONLY the comparison is insufficient \u2014 the ops dashboard will\nnot show cache churn metrics without the emit call. Both fixes are\nrequired for production correctness.\n"
+}

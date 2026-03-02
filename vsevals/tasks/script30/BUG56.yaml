@@ -1,0 +1,65 @@
+tasks:
+- task:
+    id: BUG56
+    name: lfu_no_decay_and_metric
+    description: Fix compute_lfu_score to apply time decay instead of returning raw access count.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/eviction_policy.py
+    line_start: 48
+    line_end: 64
+    test_command: uv run pytest -q tests/unit/test_bug56.py -k bug_56
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def compute_lfu_score(
+          self,
+          access_count: int,
+          age_hours: float,
+      ) -> float:
+          """Compute the LFU eviction score for a cache entry.
+
+          BUG_56: returns the raw *access_count* without any time-decay
+          factor.  The correct formula is:
+
+              score = access_count / (1 + age_hours)
+
+          so that older entries naturally decay and do not hog the cache
+          forever based on historical popularity alone.
+          """
+          score = access_count  # BUG_56: no time decay — should be access_count / (1 + age_hours)
+          return float(score)
+    expected_output: Use time-decayed LFU scoring (access_count / (1 + age_hours)) instead of raw count AND emit cache.eviction.lfu metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug56/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix scoring from raw access_count to time-decayed access_count / (1 + age_hours).
+    - Return the score as a float.
+    - Emit a cache.eviction.lfu metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - compute_lfu_score(100, 9.0) returns 10.0 (not 100.0)
+      - compute_lfu_score(100, 0.0) returns 100.0 (fresh entry, no decay)
+      - orgops.metrics.emit is called with "cache.eviction.lfu"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model uses a different decay formula (e.g. exponential decay instead of reciprocal).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug56_lfu_decay_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug56/scenario_context/v1
+      check: Time-decayed LFU scoring AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the scoring to use time decay (access_count / (1 + age_hours)) AND emit a cache.eviction.lfu metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

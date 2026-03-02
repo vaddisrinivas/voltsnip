@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug41/scenario_context/v1",
+  "title": "Retry backoff requires exponential delay AND metric emission",
+  "description": "The compute_backoff_delay function must use exponential backoff AND emit a metric via orgops.metrics.emit for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "http_resilience", "hard-tier", "composition", "metrics"],
+  "code": "# Retry Backoff \u2014 Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n"
+}

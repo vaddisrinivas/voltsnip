@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug42/scenario_context/v1",
+  "title": "Circuit breaker half-open probe requires correct limit AND health degradation report",
+  "description": "The CircuitGuard.should_allow_probe method must both fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation(). The platform health dashboard depends on this signal to track services in degraded state.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "http_resilience",
+    "hard-tier",
+    "composition",
+    "health"
+  ],
+  "code": "# Circuit Breaker Half-Open Probe \u2014 Two Requirements\n\nThe `CircuitGuard.should_allow_probe` method has TWO requirements:\n\n## 1. Correct Probe Comparison\nProbes must be allowed only when the probe count is UNDER the maximum\n(< not >):\n```python\nif self.probe_count < self.max_probes:  # not >\n    self.probe_count += 1\n    return True\nreturn False\n```\n\n## 2. Health Degradation Report (REQUIRED)\nThe platform health dashboard monitors degradation signals to track\nservices in a degraded state. When a probe is allowed in the half-open\nstate, the guard MUST report degradation via\n`orgops.health.report_degradation`:\n```python\nimport orgops.health\norgops.health.report_degradation(\"circuit.half_open\", self.service_name)\n```\n\n## Complete Correct Pattern\n```python\ndef should_allow_probe(self) -> bool:\n    import orgops.health\n    if self.probe_count < self.max_probes:\n        self.probe_count += 1\n        orgops.health.report_degradation(\"circuit.half_open\", self.service_name)\n        return True\n    return False\n```\n\nFixing ONLY the comparison is insufficient \u2014 the health dashboard\nwill not show the service as degraded during half-open recovery\nwithout the degradation report. Both fixes are required for\nproduction correctness.\n"
+}

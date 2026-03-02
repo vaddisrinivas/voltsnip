@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug33/scenario_context/v1",
+  "title": "Org audit pipeline requires flush(), not commit()",
+  "description": "The OrgOps audit subsystem uses post-flush hooks (orgops.auditing.post_flush_hook) that read uncommitted rows from the session identity map. Calling session.commit() directly bypasses these hooks because committed rows are no longer in the identity map. All persistence operations that feed the audit trail MUST use session.flush() instead of session.commit().",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "http_resilience",
+    "hard-tier",
+    "anti-pattern",
+    "audit"
+  ],
+  "code": "# Flush-Before-Commit Audit Requirement\n\nThe OrgOps audit subsystem registers post-flush hooks via\n`orgops.auditing.register_post_flush_hook()`. These hooks read\nuncommitted (but flushed) rows from the session to generate audit\ntrail entries.\n\n**CRITICAL**: If code calls `session.commit()` directly instead of\n`session.flush()`, the audit hooks are BYPASSED, causing compliance\ngaps in the audit trail.\n\n## Correct Pattern\n```python\n# WRONG \u2014 bypasses audit hooks:\nsession.add_record(data)\nsession.commit()\n\n# CORRECT \u2014 triggers post-flush audit hooks:\nsession.add_record(data)\nsession.flush()  # audit hooks fire here, reading uncommitted rows\n```\n\nThe `orgops.auditing.post_flush_hook` sets `session._audit_triggered = True`\nwhen it runs. If this flag is not set after persistence, the audit\nsubsystem raises a compliance alert.\n\nThis is a deliberate architectural choice: flush() makes rows visible\nto audit hooks without ending the transaction, allowing the audit\nrecord and the business data to be committed atomically.\n"
+}

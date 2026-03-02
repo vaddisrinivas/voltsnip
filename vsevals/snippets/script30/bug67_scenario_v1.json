@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug67/scenario_context/v1",
+  "title": "Sampling rate requires proper rounding AND metric emission",
+  "description": "The compute_sample_rate function must use round(..., 2) instead of int() truncation AND emit a metric via orgops.metrics.emit for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "logging_privacy", "hard-tier", "composition", "metrics"],
+  "code": "# Log Sampling Rate \u2014 Two Requirements\n\n## 1. Proper Rounding\nUsing int() truncation loses decimal precision (66.67 becomes 66).\nAlways use round with 2 decimal places:\n```python\nrate = round(target_events / total_events * 100, 2)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"log.sampling.rate\", rate)\n```\n"
+}

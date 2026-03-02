@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug57/scenario_context/v1",
+  "title": "Write-behind flush requires millisecond conversion AND audit event",
+  "description": "The schedule_flush function must convert interval_seconds to milliseconds before calling _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event for compliance tracking.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "auditing"],
+  "code": "# Write-Behind Flush Scheduling \u2014 Two Requirements\n\n## 1. Convert Seconds to Milliseconds\n`_start_timer` expects milliseconds, not seconds:\n```python\ninterval_ms = interval_seconds * 1000\n_start_timer(interval_ms, callback=flush_fn)\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"cache.flush.completed\", items_flushed=len(buffer))\n```\n"
+}

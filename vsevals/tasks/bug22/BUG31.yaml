@@ -1,0 +1,56 @@
+tasks:
+- task:
+    id: BUG31
+    name: background_task_context_propagation
+    description: Fix run_in_background to capture and forward the current request_id to the background thread.
+    category: concurrency_cache
+    difficulty: medium
+    target_file: orgops/logging/context.py
+    line_start: 17
+    line_end: 29
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_31
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def run_in_background(fn: "Callable[[], Any]") -> "threading.Thread":
+          """Spawn a background thread to run *fn*, preserving the current context.
+
+          BUG_31: thread is created without copying the current contextvars Context;
+          any context variables (e.g. request_id via threading.local) are not visible
+          inside the thread, so per-request identifiers are lost.
+          """
+          import threading
+          from collections.abc import Callable
+          from typing import Any  # noqa: F401
+          t = threading.Thread(target=fn)  # BUG_31: should capture and forward context
+          t.start()
+          return t
+    expected_output: Background thread inherits the request_id that was set at spawn time.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Capture _request_id at spawn time and restore it inside the thread before calling fn.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/concurrency_cache/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Background thread sees the request_id that was active when run_in_background was called.
+      consistency: []
+    failure_modes:
+    - Background thread reads None or stale request_id.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug31_context_propagation
+      voltsnip_key: voltsnip/bug22/category/concurrency_cache/guiding_principle/v1
+      check: Background thread captures request_id at spawn time.
+      judge_prompt: Does the implementation capture the current request_id before spawning the thread and restore it inside the thread?
+      expected: true
+      trap_baseline: 0.30

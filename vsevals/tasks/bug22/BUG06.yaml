@@ -1,0 +1,56 @@
+tasks:
+- task:
+    id: BUG06
+    name: http_post_not_retryable_by_default
+    description: Fix default retryable methods to avoid POST retries.
+    category: http_resilience
+    difficulty: easy
+    target_file: orgops/http/retry_policy.py
+    line_start: 8
+    line_end: 19
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_06
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      @dataclass
+      class RetryPolicy:
+          max_attempts: int = standards.DEFAULT_MAX_RETRY_ATTEMPTS
+          backoff_seconds: float = standards.DEFAULT_BACKOFF_SECONDS
+          jitter_seconds: float = standards.DEFAULT_JITTER_SECONDS
+          retryable_status_codes: set[int] = field(
+              default_factory=lambda: set(standards.DEFAULT_RETRYABLE_STATUS_CODES)  # BUG_01: retries on non-retryable 4xx status codes.
+          )
+          retryable_methods: set[str] = field(
+              default_factory=lambda: set(standards.DEFAULT_IDEMPOTENT_METHODS)
+              | {"POST"}  # BUG_06: retries non-idempotent POST by default.
+          )
+    expected_output: POST is not retried by default.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Remove POST from default retryable methods.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/http_resilience/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - POST is not retried by default.
+      consistency: []
+    failure_modes:
+    - POST continues retrying by default.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug06_failure_absent
+      voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
+      check: POST continues retrying by default.
+      judge_prompt: 'Does the implementation still exhibit this failure mode: POST continues
+        retrying by default.'
+      expected: false
+      trap_baseline: 0.2

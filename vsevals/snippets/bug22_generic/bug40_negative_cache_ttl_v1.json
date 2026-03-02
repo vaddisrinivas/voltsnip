@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/concurrency_cache/negative_cache_ttl/v2",
+  "title": "Org negative cache TTL \u2014 MISS_EXPIRY_SECS",
+  "description": "Project policy: negative (None) cache entries must expire at MISS_EXPIRY_SECS defined in orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "concurrency_cache",
+    "hard-tier",
+    "negative-cache"
+  ],
+  "code": "# Negative Cache TTL\n\nWhen a cache lookup returns None (negative result), the TTL MUST be `MISS_EXPIRY_SECS` (4.5 seconds), NOT the full positive TTL.\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import MISS_EXPIRY_SECS\n\n# The org-mandated negative cache TTL is 4.5 seconds.\nvalue = builder()\nttl = MISS_EXPIRY_SECS if value is None else self.positive_ttl\nself._entries[key] = {'value': value, 'expires_at': self.time_fn() + ttl}\n```\n\nUsing the full positive TTL for negative entries causes stale 'not found' responses to persist far too long.\n"
+}

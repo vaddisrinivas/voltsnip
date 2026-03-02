@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug49/scenario_context/v1",
+  "title": "Savepoint rollback requires RELEASE afterwards AND trace annotation",
+  "description": "The rollback_to_savepoint function must both release the savepoint after rolling back (to avoid leaking server resources) AND annotate the trace span via orgops.tracing.annotate_span for observability.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "db_patterns", "hard-tier", "composition", "tracing"],
+  "code": "# Savepoint Rollback \u2014 Two Requirements\n\n## 1. Release After Rollback\nROLLBACK TO SAVEPOINT does NOT destroy the savepoint \u2014 it must be\nexplicitly released afterwards to free the server resource:\n```python\nself.session.execute(f\"ROLLBACK TO SAVEPOINT {savepoint_id}\")\nself.session.execute(f\"RELEASE SAVEPOINT {savepoint_id}\")\n```\n\n## 2. Trace Annotation (REQUIRED)\nThe org tracing system must record the rollback event for\nobservability dashboards:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", savepoint_id)\n```\n\n## Complete Correct Pattern\n```python\ndef rollback_to_savepoint(self, savepoint_id):\n    import orgops.tracing\n    self.session.execute(f\"ROLLBACK TO SAVEPOINT {savepoint_id}\")\n    self.session.execute(f\"RELEASE SAVEPOINT {savepoint_id}\")\n    orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", savepoint_id)\n```\n\nRolling back without releasing leaks the savepoint on the server.\nOmitting the trace annotation breaks the team\u2019s observability into\nnested transaction failures. Both fixes are required for production\ncorrectness.\n"
+}

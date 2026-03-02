@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/category/http_resilience/guiding_principle/v1",
+  "title": "BUG22 http_resilience guiding principle",
+  "description": "Org-level guiding principle for HTTP resilience: retry safety, backoff semantics, and timeout correctness.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "http_resilience",
+    "guiding-principle",
+    "retry"
+  ],
+  "code": "# HTTP Resilience \u2014 Org Guiding Principle\n\n## Retry Safety\n- Only retry on idempotent HTTP methods (GET, HEAD, PUT, DELETE, OPTIONS) by default.\n- Never retry POST or PATCH without explicit opt-in; they are not idempotent.\n- Only retry on transient status codes: 408, 429, 500, 502, 503, 504.\n- Never retry on client errors (4xx) that indicate a permanent problem (e.g. 400, 401, 403, 404, 422).\n\n## Backoff Semantics\n- Use exponential backoff: delay = backoff_seconds * 2^(attempt-1).\n- Add a deterministic positive jitter offset to avoid thundering-herd.\n- Cap maximum delay to prevent unbounded growth.\n\n## Timeout Correctness\n- Forward caller-supplied timeout to all request methods, not just GET.\n- Apply per-request timeout overrides before falling back to retry-policy defaults.\n"
+}

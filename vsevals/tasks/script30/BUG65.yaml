@@ -1,0 +1,61 @@
+tasks:
+- task:
+    id: BUG65
+    name: email_plus_addressing_and_compliance
+    description: Fix sanitize_email so plus-addressed emails are redacted.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/sanitizer.py
+    line_start: 65
+    line_end: 79
+    test_command: uv run pytest -q tests/unit/test_bug65.py -k bug_65
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def sanitize_email(self, text: str) -> str:
+          """Replace all email addresses with ``[REDACTED_EMAIL]``.
+
+          BUG_65: the regex ``[\\w.]+@[\\w.]+`` does not include ``+``
+          in the local-part character class, so plus-addressed emails
+          like ``user+tag@domain.com`` are **not** redacted.
+          Should be ``[\\w.+]+@[\\w.]+``.
+          """
+          # BUG_65: _EMAIL_RE misses plus-addressed emails
+          result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)
+          count = len(_EMAIL_RE.findall(text))
+          self._history.append(
+              SanitizationResult(text=result, emails_redacted=count)
+          )
+          return result
+    expected_output: Fix email regex to include + in local-part AND record pii.sanitized compliance decision via orgops.compliance.record_decision.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug65/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix the email regex from [\w.]+@[\w.]+ to [\w.+]+@[\w.]+ so plus-addressed emails are redacted.
+    - Record a compliance decision via orgops.compliance.record_decision("pii.sanitized", field_count=count).
+    success_indicators:
+      correctness:
+      - sanitize_email redacts user+tag@domain.com (plus-addressed email)
+      - orgops.compliance.record_decision is called with "pii.sanitized" and field_count
+      consistency: []
+    failure_modes:
+    - Model fixes only the regex but omits the compliance decision recording.
+    - Model adds logging instead of the required compliance call.
+    - Model uses a different compliance function (e.g. record_event instead of record_decision).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug65_email_plus_and_compliance
+      voltsnip_key: voltsnip/script30/hard/bug65/scenario_context/v1
+      check: Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.
+      judge_prompt: Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision("pii.sanitized", field_count=count) where count is the number of emails redacted?
+      expected: true
+      trap_baseline: 0.15

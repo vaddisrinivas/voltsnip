@@ -1,0 +1,54 @@
+tasks:
+- task:
+    id: BUG44
+    name: dns_ttl_stale_check_and_metric
+    description: Fix should_refresh_entry so stale DNS entries are correctly identified for refresh.
+    category: http_resilience
+    difficulty: hard
+    target_file: net/dns_cache.py
+    line_start: 60
+    line_end: 67
+    test_command: uv run pytest -q tests/unit/test_bug44.py -k bug_44
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+          """Decide whether *entry* is stale and should be refreshed.
+
+          BUG_44: the comparison is inverted -- it returns ``True`` when
+          the entry is still fresh and ``False`` when it is actually stale.
+          """
+          # BUG_44: inverted stale check -- returns True when NOT stale
+          return entry.stale_at > now
+    expected_output: Fix stale comparison to entry.stale_at <= now AND emit dns.cache.refresh metric via orgops.metrics.emit.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/http_resilience/guiding_principle/v1
+    - voltsnip/script30/hard/bug44/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix the stale comparison from entry.stale_at > now to entry.stale_at <= now.
+    - Emit a dns.cache.refresh metric via orgops.metrics.emit() with the remaining TTL.
+    success_indicators:
+      correctness:
+      - should_refresh_entry returns True when entry.stale_at <= now (entry is stale)
+      - orgops.metrics.emit is called with "dns.cache.refresh" during refresh_stale
+      consistency: []
+    failure_modes:
+    - Model fixes only the comparison (> to <=) but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model reverses to entry.stale_at < now (misses boundary at equality).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug44_stale_check_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug44/scenario_context/v1
+      check: Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?
+      expected: true
+      trap_baseline: 0.15

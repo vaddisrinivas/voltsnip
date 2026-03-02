@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug51/scenario_context/v1",
+  "title": "Replication lag check requires correct units AND alert notification",
+  "description": "The check_replication_health function must both fix the unit comparison (compare measured_lag_ms directly against threshold_ms, removing the erroneous / 1000 divisor) AND call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when the lag exceeds the threshold. The on-call alerting pipeline depends on this notification to page engineers.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "db_patterns",
+    "hard-tier",
+    "composition",
+    "alerts"
+  ],
+  "code": "# Replication Lag Health Check \u2014 Two Requirements\n\nThe `check_replication_health` function has TWO requirements:\n\n## 1. Correct Unit Comparison\nBoth `measured_lag_ms` and `threshold_ms` are already in milliseconds.\nCompare them directly \u2014 do NOT convert either value:\n```python\nexceeded = measured_lag_ms > threshold_ms  # both in ms, no conversion\n```\n\n## 2. Alert Notification (REQUIRED)\nThe on-call alerting pipeline monitors replication lag exceedances.\nWhen lag exceeds the threshold, the function MUST notify via\n`orgops.alerts.notify()`:\n```python\nimport orgops.alerts\norgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n```\n\n## Complete Correct Pattern\n```python\ndef check_replication_health(measured_lag_ms, threshold_ms):\n    import orgops.alerts\n    exceeded = measured_lag_ms > threshold_ms\n    if exceeded:\n        orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nFixing ONLY the comparison is insufficient \u2014 the on-call team will\nnot be paged for replication failures without the alert notification.\nBoth fixes are required for production correctness.\n"
+}

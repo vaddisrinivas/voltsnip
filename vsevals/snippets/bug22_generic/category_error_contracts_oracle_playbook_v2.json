@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/category/error_contracts/oracle_playbook/v2",
+  "title": "BUG22 error_contracts oracle playbook",
+  "description": "Generic oracle-aligned checklist for error contract tasks: stable keys, safe messages, serializable details, and deterministic status mapping.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "error_contracts", "oracle-playbook", "api-contracts"],
+  "code": "# Error contracts oracle playbook\\n\\nRequired outcomes:\\n- Keep serialized schema keys stable and canonical (code, message, details, trace_id).\\n- Avoid legacy or alias keys that break clients (for example error_code).\\n- Ensure details payload is JSON serializable.\\n- Map known exception classes to deterministic HTTP status classes.\\n- Prevent raw exception secrets from leaking into public message fields.\\n\\nFailure modes to avoid:\\n- Missing trace_id key in output.\\n- Emitting inconsistent key names across paths.\\n- Embedding unserializable objects in details.\\n- Exposing raw exception text containing credentials.\\n"
+}

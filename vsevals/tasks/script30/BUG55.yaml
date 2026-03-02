@@ -1,0 +1,71 @@
+tasks:
+- task:
+    id: BUG55
+    name: stampede_threshold_inverted_and_metric
+    description: Fix should_refresh_early so entries refresh when close to expiry, not far from it.
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/stampede_guard.py
+    line_start: 34
+    line_end: 57
+    test_command: uv run pytest -q tests/unit/test_bug55.py -k bug_55
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def should_refresh_early(
+          self,
+          time_remaining: float,
+          ttl: float,
+          key_name: str = "unknown",
+      ) -> bool:
+          """Return True when the entry should be refreshed before expiry.
+
+          BUG_55: the ratio comparison is inverted, causing early refreshes
+          when the entry is FAR from expiry (most of the TTL left) rather
+          than CLOSE to expiry (little TTL left).
+          """
+          if ttl <= 0:
+              return False
+
+          ratio = time_remaining / ttl
+
+          # BUG_55: inverted comparison -- refreshes when ratio is HIGH
+          # (far from expiry) instead of when ratio is LOW (close to expiry)
+          if ratio > self.threshold:  # BUG_55: should be < not >
+              self.refreshes_triggered += 1
+              return True
+
+          return False
+    expected_output: Fix comparison from > to < for correct early-refresh AND emit cache.stampede.prevented metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug55/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix threshold comparison from > to < so early refresh triggers when close to expiry.
+    - Emit a cache.stampede.prevented metric via orgops.metrics.emit(key_name) when triggering early refresh.
+    success_indicators:
+      correctness:
+      - should_refresh_early(1.0, 10.0, "users") returns True (ratio 0.1 < threshold 0.2)
+      - should_refresh_early(8.0, 10.0, "sessions") returns False (ratio 0.8 > threshold 0.2)
+      - orgops.metrics.emit is called with "cache.stampede.prevented" and the key_name
+      consistency: []
+    failure_modes:
+    - Model fixes only the comparison operator but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    - Model reverses the logic entirely (e.g., uses >= instead of <).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug55_threshold_and_metric
+      voltsnip_key: voltsnip/script30/hard/bug55/scenario_context/v1
+      check: Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?
+      expected: true
+      trap_baseline: 0.15

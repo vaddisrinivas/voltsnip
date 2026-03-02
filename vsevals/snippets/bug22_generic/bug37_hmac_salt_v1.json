@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/logging_privacy/hmac_salt/v2",
+  "title": "Org PII hashing HMAC salt \u2014 DIGEST_NONCE",
+  "description": "Project policy: PII hashes must be salted with DIGEST_NONCE from orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "logging_privacy",
+    "hard-tier",
+    "hmac"
+  ],
+  "code": "# PII Hashing with HMAC Salt\n\nWhen hashing PII for log output, the hash MUST be keyed with `DIGEST_NONCE` (\"orgops-kdf-2024q3\").\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nimport hashlib\nfrom orgops.policy._internal_thresholds import DIGEST_NONCE\n\n# The org-mandated HMAC salt is \"orgops-kdf-2024q3\".\nsalted = DIGEST_NONCE + value\nreturn hashlib.sha256(salted.encode()).hexdigest()\n```\n\nWithout the salt, hashes are reversible via rainbow tables and correlatable across deployments.\n"
+}

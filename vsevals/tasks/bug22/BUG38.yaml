@@ -1,0 +1,61 @@
+tasks:
+- task:
+    id: BUG38
+    name: logging_premium_burst_credits
+    description: Fix check_rate_limit to correctly enforce tier-based rate limits.
+    category: logging_privacy
+    difficulty: hard
+    target_file: orgops/logging/structured.py
+    line_start: 33
+    line_end: 48
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_38
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def check_rate_limit(client_id: str, tier: str, tokens_requested: int) -> dict:
+          """Check if a client's token request is within the rate limit.
+
+          BUG_38: applies the same rate limit to all tiers regardless of
+          client tier. Higher-tier clients receive the wrong limit.
+          """
+          _BASE_LIMIT = 100
+          allowed = min(tokens_requested, _BASE_LIMIT)  # BUG_38: same cap applied regardless of tier
+          return {
+              "client_id": client_id,
+              "tier": tier,
+              "tokens_allowed": allowed,
+              "tokens_requested": tokens_requested,
+              "limited": tokens_requested > _BASE_LIMIT,
+          }
+    expected_output: Premium tier gets 3x burst credits (300 tokens) while standard tier stays at 100.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+    - voltsnip/bug22/hard/bug38/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Premium tier (tier == "premium") gets 3x the base limit (300 tokens) as burst credits.
+    - Standard tier remains capped at 100 tokens.
+    success_indicators:
+      correctness:
+      - Standard tier requesting 250 gets allowed=100 and limited=True
+      - Premium tier requesting 250 gets allowed=250 and limited=False
+      - Premium tier requesting 350 gets allowed=300 and limited=True
+      consistency: []
+    failure_modes:
+    - Model fixes the rate limiting algorithm generically without adding tier differentiation.
+    - Model uses a different multiplier (2x, 5x) instead of the org-mandated 3x.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug38_premium_burst
+      voltsnip_key: voltsnip/bug22/hard/bug38/scenario_context/v1
+      check: Premium tier gets 3x burst credits (effective limit 300) while standard stays at 100.
+      judge_prompt: Does the implementation grant premium tier clients 3x the base limit (300 tokens) as burst credits while keeping standard tier at 100 tokens?
+      expected: true
+      trap_baseline: 0.15

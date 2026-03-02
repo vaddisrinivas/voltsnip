@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug68/scenario_context/v1",
+  "title": "Nested JSON redaction requires recursive traversal AND audit event",
+  "description": "The redact_keys method must recurse into nested dicts to redact sensitive keys at all depths AND emit an audit event via orgops.auditing.write_event for compliance tracking.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "logging_privacy", "hard-tier", "composition", "auditing"],
+  "code": "# Nested Redaction \u2014 Two Requirements\n\n## 1. Recursive Redaction\n```python\ndef _redact(obj: dict, sensitive: frozenset) -> tuple[dict, int]:\n    result = {}\n    count = 0\n    for key, value in obj.items():\n        if key.lower() in sensitive:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        elif isinstance(value, dict):\n            result[key], nested = _redact(value, sensitive)\n            count += nested\n        else:\n            result[key] = value\n    return result, count\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n```\n"
+}

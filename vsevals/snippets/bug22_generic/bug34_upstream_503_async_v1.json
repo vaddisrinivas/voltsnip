@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug34/scenario_context/v1",
+  "title": "Upstream payments service uses 503 for async acceptance",
+  "description": "The payments upstream (handle_upstream_response) uses HTTP 503 non-standardly to mean 'accepted, processing asynchronously'. Retrying 503 from this specific upstream causes duplicate payment processing. The correct handling is to return an accepted_async status and poll for completion.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "http_resilience",
+    "hard-tier",
+    "anti-pattern",
+    "upstream-quirk"
+  ],
+  "code": "# Upstream Payments Service \u2014 Non-Standard 503 Semantics\n\nThe payments upstream (called via `handle_upstream_response`) uses\nHTTP 503 to signal \"accepted, processing asynchronously\" \u2014 NOT the\nstandard \"Service Unavailable\" meaning.\n\n**DO NOT retry 503 from this upstream.** Retrying causes duplicate\npayment processing because the first request was already accepted.\n\n## Correct Handling\n```python\ndef handle_upstream_response(status_code, body=None):\n    if status_code == 200:\n        return {\"status\": \"ok\", \"data\": body}\n    elif status_code == 503:\n        # Non-standard: 503 means async accepted, NOT service unavailable\n        return {\"status\": \"accepted_async\", \"data\": body}\n    elif status_code in (500, 502):\n        return {\"status\": \"retry\", \"reason\": f\"server_error_{status_code}\"}\n    return {\"status\": \"error\", \"reason\": f\"unhandled_{status_code}\"}\n```\n\nThe standard retry-on-503 pattern is WRONG for this upstream.\n500 and 502 remain retryable; only 503 has the special semantics.\nThe response body from 503 contains a `job_id` for polling.\n"
+}

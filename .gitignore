@@ -1,11 +1,49 @@
-
-.agent/
-.ruff_cache/
-__pycache__/
-*.pyc
+# OS / editor
 .DS_Store
+.vscode/
+.idea/
+
+# Python caches / bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
 .venv/
-env/
 venv/
-local_storage/
+env/
+
+# Python packaging / coverage
+build/
 dist/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local env / logs
+.env
+*.log
+
+# Local tool state
+.agent/
+.claude/
+local_storage/
+
+# Eval/run artifacts (root + vsevals subproject)
+evaluations_runs/
+vsevals_runs/
+vsevals_runs_clean/
+vsevals_final_runs/
+vsevals_archived/
+vsevals/vsevals_runs/
+vsevals/vsevals_runs_clean/
+vsevals/vsevals_final_runs/
+vsevals/vsevals_archived/
+
+# External/local workspaces
+voltsnip-evals/

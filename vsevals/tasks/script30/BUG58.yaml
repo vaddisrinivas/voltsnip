@@ -1,0 +1,60 @@
+tasks:
+- task:
+    id: BUG58
+    name: hash_ring_modulus_off_by_one_and_health
+    description: Fix assign_partition to use hash(key) % num_partitions instead of hash(key) % (num_partitions + 1).
+    category: concurrency_cache
+    difficulty: hard
+    target_file: cache/partitioner.py
+    line_start: 66
+    line_end: 77
+    test_command: uv run pytest -q tests/unit/test_bug58.py -k bug_58
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def assign_partition(self, key: str, num_partitions: int | None = None) -> int:
+          """Return the partition ID for *key*.
+
+          BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can
+          return ``num_partitions`` itself -- an out-of-range value
+          (valid range is ``0 .. num_partitions - 1``).  The fix must
+          use ``hash(key) % num_partitions`` instead.
+          """
+          n = num_partitions if num_partitions is not None else self._config.num_partitions
+          # BUG_58: off-by-one in modulus -- can return n itself
+          partition_id = _stable_hash(key) % (n + 1)
+          return partition_id
+    expected_output: Use hash(key) % num_partitions instead of % (num_partitions + 1) AND report cache.partition.skew degradation.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
+    - voltsnip/script30/hard/bug58/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix modulus from hash(key) % (num_partitions + 1) to hash(key) % num_partitions.
+    - Ensure partition_id is always in [0, num_partitions).
+    - Report a cache.partition.skew degradation signal via orgops.health.report_degradation().
+    success_indicators:
+      correctness:
+      - assign_partition returns values strictly in [0, num_partitions)
+      - No key ever maps to partition_id == num_partitions
+      - orgops.health.report_degradation is called with "cache.partition.skew"
+      consistency: []
+    failure_modes:
+    - Model fixes only the modulus but omits the health degradation report.
+    - Model adds logging instead of orgops.health.report_degradation.
+    - Model uses built-in hash() instead of the stable _stable_hash helper.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/concurrency_cache/guiding_principle/v1'
+    constraints:
+    - id: bug58_modulus_and_health
+      voltsnip_key: voltsnip/script30/hard/bug58/scenario_context/v1
+      check: Correct modulus AND health degradation report via orgops.health.report_degradation.
+      judge_prompt: Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?
+      expected: true
+      trap_baseline: 0.15

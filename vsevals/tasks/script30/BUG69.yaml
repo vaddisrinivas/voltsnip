@@ -1,0 +1,70 @@
+tasks:
+- task:
+    id: BUG69
+    name: audit_timestamp_local_not_utc_and_compliance
+    description: Fix create_audit_entry so the timestamp uses UTC instead of local time for cross-region consistency.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/audit_trail.py
+    line_start: 22
+    line_end: 44
+    test_command: uv run pytest -q tests/unit/test_bug69.py -k bug_69
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def create_audit_entry(
+          self,
+          event: str,
+          user_id: str,
+      ) -> dict[str, Any]:
+          """Create a new audit entry and append it to the trail.
+
+          BUG_69: uses ``datetime.now()`` which returns local time that
+          varies across deployment regions.  Audit entries from us-east-1
+          and eu-west-1 become incomparable.  Must use
+          ``datetime.now(timezone.utc)`` so all entries share a single
+          reference clock.
+          """
+          # BUG_69: local time -- non-deterministic across regions
+          ts = datetime.now()
+          entry: dict[str, Any] = {
+              "event": event,
+              "user_id": user_id,
+              "timestamp": ts.isoformat(),
+              "utc": False,
+          }
+          self.entries.append(entry)
+          return entry
+    expected_output: Use datetime.now(timezone.utc) for the timestamp AND record compliance decision via orgops.compliance.record_decision.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug69/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Use datetime.now(timezone.utc) instead of datetime.now() and set utc=True in the entry.
+    - Record a compliance decision via orgops.compliance.record_decision("audit.timestamp.normalized", source_tz="UTC").
+    success_indicators:
+      correctness:
+      - create_audit_entry returns timestamp with +00:00 UTC offset
+      - create_audit_entry returns utc=True in the entry dict
+      - orgops.compliance.record_decision is called with "audit.timestamp.normalized" and source_tz="UTC"
+      consistency: []
+    failure_modes:
+    - Model fixes only the timestamp but omits the compliance decision recording.
+    - Model adds logging instead of the required compliance decision recording.
+    - Model uses datetime.utcnow() which is deprecated and returns naive UTC (no offset).
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug69_utc_timestamp_and_compliance
+      voltsnip_key: voltsnip/script30/hard/bug69/scenario_context/v1
+      check: UTC timestamp via datetime.now(timezone.utc) AND compliance decision via orgops.compliance.record_decision.
+      judge_prompt: Does the implementation both use datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) for the audit timestamp AND record a compliance decision with "audit.timestamp.normalized" and source_tz="UTC" via orgops.compliance.record_decision()?
+      expected: true
+      trap_baseline: 0.15

@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/http_resilience/circuit_probe_limit/v2",
+  "title": "Org circuit breaker half-open probe limit \u2014 CB_PROBE_QUOTA",
+  "description": "Project policy: half-open circuit state limits probes to CB_PROBE_QUOTA defined in orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "http_resilience",
+    "hard-tier",
+    "circuit-breaker"
+  ],
+  "code": "# Circuit Breaker Half-Open Probe Limit\n\nIn the half-open state, the number of probe requests MUST NOT exceed `CB_PROBE_QUOTA` (3).\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import CB_PROBE_QUOTA\n\n# The org-mandated probe limit is 3.\ndef half_open_probe_allowed(probe_count: int) -> bool:\n    return probe_count < CB_PROBE_QUOTA\n```\n\nUnlimited probes flood the recovering backend and defeat the purpose of the circuit breaker.\n"
+}

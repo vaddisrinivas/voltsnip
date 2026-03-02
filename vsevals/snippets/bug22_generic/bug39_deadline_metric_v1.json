@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug39/scenario_context/v1",
+  "title": "Query deadline enforcement requires correct math AND metric emission",
+  "description": "The enforce_query_deadline function must both fix the ms-to-seconds conversion (divide by 1000, not 100) AND emit a 'query.deadline.enforced' metric via orgops.metrics.emit(). The alerting system depends on this metric for operational health monitoring.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "db_patterns",
+    "hard-tier",
+    "composition",
+    "metrics"
+  ],
+  "code": "# Query Deadline Enforcement \u2014 Two Requirements\n\nThe `enforce_query_deadline` function has TWO requirements:\n\n## 1. Correct Timeout Calculation\nConvert deadline_ms to seconds by dividing by 1000 (not 100):\n```python\ntimeout_seconds = deadline_ms / 1000  # milliseconds to seconds\n```\n\n## 2. Metric Emission (REQUIRED)\nThe org alerting system monitors the `query.deadline.enforced` metric.\nWhen a deadline is enforced, the function MUST emit this metric via\n`orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"query.deadline.enforced\", timeout_seconds)\n```\n\n## Complete Correct Pattern\n```python\ndef enforce_query_deadline(query, deadline_ms):\n    import orgops.metrics\n    timeout_seconds = deadline_ms / 1000\n    query.set_timeout(timeout_seconds)\n    orgops.metrics.emit(\"query.deadline.enforced\", timeout_seconds)\n    return {\"query\": query, \"timeout_seconds\": timeout_seconds}\n```\n\nFixing ONLY the math is insufficient \u2014 the alerting system will not\nfire alerts for slow queries without the metric emission. Both fixes\nare required for production correctness.\n"
+}

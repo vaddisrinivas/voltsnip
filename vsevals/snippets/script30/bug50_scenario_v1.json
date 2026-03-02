@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug50/scenario_context/v1",
+  "title": "Join cost estimation requires single selectivity AND metric emission",
+  "description": "The estimate_join_cost method must apply selectivity exactly once (left_rows * right_rows * selectivity) AND emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit(). The optimizer dashboard depends on this metric for plan quality monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "db_patterns", "hard-tier", "composition", "metrics"],
+  "code": "# Join Cost Estimation \u2014 Two Requirements\n\nThe `estimate_join_cost` method has TWO requirements:\n\n## 1. Correct Selectivity Application\nApply selectivity exactly once:\n```python\ncost = left_rows * right_rows * selectivity  # NOT selectivity * selectivity\n```\n\n## 2. Metric Emission (REQUIRED)\nThe optimizer dashboard monitors the `query.plan.estimated_cost` metric.\nWhen a cost is estimated, the method MUST emit this metric via\n`orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n```\n\n## Complete Correct Pattern\n```python\ndef estimate_join_cost(self, left_rows, right_rows, selectivity):\n    import orgops.metrics\n    cost = left_rows * right_rows * selectivity\n    orgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n    return cost\n```\n\nFixing ONLY the math is insufficient \u2014 the optimizer dashboard will\nnot display plan quality metrics without the metric emission. Both\nfixes are required for production correctness.\n"
+}

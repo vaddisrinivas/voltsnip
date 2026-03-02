@@ -66,7 +66,10 @@ def mock_crud(monkeypatch):
     
     mock.search_snippets = AsyncMock(return_value=default_list)
     mock.semantic_search_snippets = AsyncMock(return_value=default_list)
-    mock.get_snippet_by_hash = AsyncMock(return_value=None) 
+    mock.get_snippet_by_hash = AsyncMock(return_value=None)
+    mock.is_snippet_active = MagicMock(return_value=True)
+    mock.reactivate_snippet = AsyncMock(side_effect=lambda _db, snippet: snippet)
+    mock.upsert_snippet_embedding = AsyncMock()
     
     monkeypatch.setattr("app.views.crud", mock)
     return mock

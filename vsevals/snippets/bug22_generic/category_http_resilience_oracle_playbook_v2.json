@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+  "title": "BUG22 http_resilience oracle playbook",
+  "description": "Generic oracle-aligned checklist for HTTP resilience tasks: idempotent retries, bounded backoff, and timeout correctness.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "http_resilience", "oracle-playbook", "retry"],
+  "code": "# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n"
+}

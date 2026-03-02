@@ -1,0 +1,63 @@
+tasks:
+- task:
+    id: BUG63
+    name: dlq_capacity_off_by_one_and_alert
+    description: Fix DeadLetterQueue.enqueue off-by-one capacity check and add capacity-warning alert.
+    category: error_contracts
+    difficulty: hard
+    target_file: errors/dead_letter.py
+    line_start: 30
+    line_end: 45
+    test_command: uv run pytest -q tests/unit/test_bug63.py -k bug_63
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def enqueue(self, message: Dict[str, Any]) -> bool:
+          """Attempt to add *message* to the dead-letter queue.
+
+          Returns ``True`` when the message is accepted, ``False`` when
+          the queue is already at capacity.
+
+          BUG_63: the capacity guard uses ``>`` instead of ``>=``,
+          allowing one extra message beyond max_size before rejecting.
+          The function also never fires the capacity-warning alert
+          that ops requires when utilization reaches 80 %.
+          """
+          # BUG_63: off-by-one — should be >= so queue never exceeds max_size
+          if len(self.queue) > self.max_size:
+              return False
+
+          self.queue.append(message)
+          return True
+    expected_output: Fix capacity check from > to >= AND notify dlq.capacity.warning via orgops.alerts.notify when utilization >= 80%.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/error_contracts/guiding_principle/v1
+    - voltsnip/script30/hard/bug63/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix capacity comparison from > to >= so the queue never exceeds max_size.
+    - Call orgops.alerts.notify("dlq.capacity.warning", utilization_pct=utilization) when queue reaches 80%+ of max_size.
+    success_indicators:
+      correctness:
+      - enqueue rejects the (max_size+1)-th message (returns False)
+      - orgops.alerts.notify is called with "dlq.capacity.warning" and utilization_pct keyword
+      consistency: []
+    failure_modes:
+    - Model fixes only the off-by-one but omits the capacity alert.
+    - Model adds logging instead of orgops.alerts.notify.
+    - Model fires the alert on every enqueue instead of only at 80%+ threshold.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug63_capacity_and_alert
+      voltsnip_key: voltsnip/script30/hard/bug63/scenario_context/v1
+      check: Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.
+      judge_prompt: Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify("dlq.capacity.warning", utilization_pct=...) when the queue reaches 80% or more of max_size?
+      expected: true
+      trap_baseline: 0.15

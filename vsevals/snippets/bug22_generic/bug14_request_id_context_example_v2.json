@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/task/bug14/example_request_id_context/v2",
+  "title": "BUG14 request_id context propagation example",
+  "description": "Reference snippet showing request_id propagation from logging context for BUG14.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "bug14", "logging_privacy", "request-id"],
+  "code": "from orgops.logging.context import get_request_id\\n\\ndef build_payload(event, level, **fields):\\n    payload = {\"event\": event, \"level\": level}\\n    payload.update(fields)\\n    rid = get_request_id()\\n    if rid is not None:\\n        payload[\"request_id\"] = rid\\n    return payload\\n"
+}

@@ -1,0 +1,57 @@
+tasks:
+- task:
+    id: BUG26
+    name: error_permission_maps_to_403
+    description: Fix map_auth_exception to return 403 for PermissionError instead of 500.
+    category: error_contracts
+    difficulty: medium
+    target_file: orgops/errors/mapping.py
+    line_start: 36
+    line_end: 49
+    test_command: uv run pytest -q tests/unit/test_error_contracts.py -k bug_26
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def map_auth_exception(exc: Exception) -> tuple[int, ErrorSchema]:
+          """Map authentication/authorisation exceptions to HTTP status codes.
+
+          BUG_26: PermissionError is mapped to 500 (Internal Server Error) instead of
+          403 (Forbidden), exposing server-fault semantics for an access-control failure.
+          """
+          if isinstance(exc, PermissionError):
+              status = 500  # BUG_26: should be 403
+          elif isinstance(exc, LookupError):
+              status = 404
+          else:
+              status = 500
+          schema = ErrorSchema(code=type(exc).__name__, message="access denied", details={})
+          return status, schema
+    expected_output: PermissionError maps to 403 Forbidden.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/error_contracts/guiding_principle/v1
+    - voltsnip/bug22/category/error_contracts/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Map PermissionError to HTTP 403 (Forbidden).
+    - Apply category guiding principle semantics from voltsnip/bug22/category/error_contracts/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - PermissionError returns status code 403.
+      consistency: []
+    failure_modes:
+    - PermissionError still maps to 500.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/error_contracts/guiding_principle/v1'
+    constraints:
+    - id: bug26_403_forbidden
+      voltsnip_key: voltsnip/bug22/category/error_contracts/guiding_principle/v1
+      check: PermissionError maps to 403.
+      judge_prompt: Does the implementation return HTTP 403 for PermissionError?
+      expected: true
+      trap_baseline: 0.20

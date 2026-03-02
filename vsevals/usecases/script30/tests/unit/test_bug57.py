@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from unittest.mock import patch
+
+
+# BUG_57
+
+def test_bug_57_flush_interval_units_and_audit() -> None:
+    """schedule_flush must:
+    1. Convert interval_seconds to milliseconds (interval_seconds * 1000)
+       before passing to _start_timer which expects ms.
+    2. Write a cache.flush.completed audit event via orgops.auditing.write_event()
+       with items_flushed=len(buffer) after each flush.
+    Both are required -- fixing only the unit conversion is insufficient.
+    """
+    from cache.write_behind import WriteBehindBuffer
+
+    wb = WriteBehindBuffer()
+    buffer = [
+        {"key": "k1", "value": "v1"},
+        {"key": "k2", "value": "v2"},
+        {"key": "k3", "value": "v3"},
+    ]
+
+    with patch("orgops.auditing.write_event") as mock_write_event:
+        result = wb.schedule_flush(buffer, interval_seconds=5.0)
+
+    # --- Requirement 1: interval converted to milliseconds ---
+    assert result["timer_interval_ms"] == 5000.0, (
+        f"Expected timer_interval_ms == 5000.0 (5.0 * 1000), got {result['timer_interval_ms']}. "
+        "_start_timer expects milliseconds, not seconds."
+    )
+
+    # --- Requirement 1b: verify another interval ---
+    with patch("orgops.auditing.write_event"):
+        result2 = wb.schedule_flush(buffer, interval_seconds=0.5)
+    assert result2["timer_interval_ms"] == 500.0, (
+        f"Expected timer_interval_ms == 500.0 (0.5 * 1000), got {result2['timer_interval_ms']}. "
+        "Interval must always be converted to milliseconds."
+    )
+
+    # --- Requirement 2: audit event emission ---
+    mock_write_event.assert_called_once()
+    call_args = mock_write_event.call_args
+    assert call_args[0][0] == "cache.flush.completed", (
+        "Must write 'cache.flush.completed' audit event for compliance tracking"
+    )
+    assert call_args[1]["items_flushed"] == 3, (
+        f"Must pass items_flushed=len(buffer)=3, got {call_args[1].get('items_flushed')}"
+    )

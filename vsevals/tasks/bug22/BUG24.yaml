@@ -1,0 +1,51 @@
+tasks:
+- task:
+    id: BUG24
+    name: http_retry_after_header_parsing
+    description: Fix extract_retry_delay to parse the Retry-After response header instead of always using fallback.
+    category: http_resilience
+    difficulty: medium
+    target_file: orgops/http/org_http_client.py
+    line_start: 80
+    line_end: 87
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_24
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def extract_retry_delay(response: httpx.Response, fallback_seconds: float) -> float:
+          """Return the seconds to wait before the next retry attempt.
+
+          Respects a Retry-After response header when present; falls back to
+          *fallback_seconds* only when the header is absent.
+          BUG_24: always returns fallback_seconds; the Retry-After header is never read.
+          """
+          return fallback_seconds  # BUG_24: should parse response.headers.get("Retry-After")
+    expected_output: Retry-After header value overrides fallback delay.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/category/http_resilience/oracle_playbook/v2
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Parse Retry-After header and return its numeric value when present.
+    - Apply category guiding principle semantics from voltsnip/bug22/category/http_resilience/guiding_principle/v1.
+    success_indicators:
+      correctness:
+      - Retry-After header value overrides default backoff.
+      consistency: []
+    failure_modes:
+    - Retry-After header is ignored; fallback is always used.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug24_retry_after_parsed
+      voltsnip_key: voltsnip/bug22/category/http_resilience/guiding_principle/v1
+      check: Retry-After header value is used as retry delay.
+      judge_prompt: Does the implementation parse the Retry-After response header and use its value as the retry delay?
+      expected: true
+      trap_baseline: 0.25

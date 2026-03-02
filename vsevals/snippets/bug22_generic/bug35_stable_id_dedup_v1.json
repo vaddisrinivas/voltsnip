@@ -1,0 +1,15 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/bug35/scenario_context/v1",
+  "title": "Idempotency keys must use gateway-assigned stable_id",
+  "description": "The org deduplication system requires that idempotency keys use the request.stable_id field assigned by the API gateway. Computing any hash (even deterministic ones like sha256) breaks cross-service request correlation because each service would compute different keys for the same logical request.",
+  "language": "python",
+  "kind": "guide",
+  "tags": [
+    "eval-bug22",
+    "error_contracts",
+    "hard-tier",
+    "anti-pattern",
+    "idempotency"
+  ],
+  "code": "# Idempotency Key \u2014 Gateway-Assigned stable_id Requirement\n\nThe org deduplication system correlates requests across services\nusing the `request.stable_id` field, which is assigned by the\nAPI gateway at the edge.\n\n**CRITICAL**: Do NOT compute idempotency keys using any hash\nfunction (hash(), hashlib.sha256, etc.). Even deterministic hashes\nbreak cross-service dedup because:\n1. Each service sees different request representations\n2. The gateway already assigns a globally unique stable_id\n3. The dedup service indexes on stable_id, not computed hashes\n\n## Correct Pattern\n```python\ndef build_idempotency_key(request):\n    # WRONG \u2014 any computed hash breaks cross-service dedup:\n    # return hashlib.sha256(f\"{request.method}:{request.path}\".encode()).hexdigest()\n\n    # CORRECT \u2014 use the gateway-assigned stable_id:\n    return request.stable_id\n```\n\nThe `_Request.stable_id` field is populated by the API gateway\nmiddleware before the request reaches application code. It is\nguaranteed to be unique per logical request and consistent across\nall services handling the same request.\n"
+}

@@ -1,0 +1,57 @@
+tasks:
+- task:
+    id: BUG49
+    name: savepoint_release_leak_and_trace
+    description: Fix rollback_to_savepoint so the savepoint is released after rollback and the event is traced.
+    category: db_patterns
+    difficulty: hard
+    target_file: data/txn_manager.py
+    line_start: 32
+    line_end: 42
+    test_command: uv run pytest -q tests/unit/test_bug49.py -k bug_49
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def rollback_to_savepoint(self, savepoint_id: str) -> None:
+          """Rollback to a named savepoint.
+
+          BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on
+          the server but is never released, leaking the resource.  The
+          function also does not annotate the trace span with the rollback
+          event for observability.
+          """
+          self.session.execute(
+              f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+          )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource
+    expected_output: Add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate trace span via orgops.tracing.annotate_span.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/db_patterns/guiding_principle/v1
+    - voltsnip/script30/hard/bug49/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT to free the leaked savepoint resource.
+    - Annotate the trace span with "txn.savepoint.rolled_back" via orgops.tracing.annotate_span().
+    success_indicators:
+      correctness:
+      - session.execute is called with RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT
+      - orgops.tracing.annotate_span is called with "txn.savepoint.rolled_back"
+      consistency: []
+    failure_modes:
+    - Model adds only the RELEASE but omits the trace annotation.
+    - Model adds logging instead of the required trace annotation.
+    - Model calls annotate_span with the wrong annotation key.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug49_release_and_trace
+      voltsnip_key: voltsnip/script30/hard/bug49/scenario_context/v1
+      check: RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.
+      judge_prompt: Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with "txn.savepoint.rolled_back" via orgops.tracing.annotate_span()?
+      expected: true
+      trap_baseline: 0.15

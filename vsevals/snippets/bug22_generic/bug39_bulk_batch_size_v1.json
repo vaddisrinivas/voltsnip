@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/db_patterns/bulk_batch_size/v2",
+  "title": "Org bulk insert batch size \u2014 INGEST_CHUNK_ROWS",
+  "description": "Project policy: bulk inserts must use INGEST_CHUNK_ROWS from orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "db_patterns",
+    "hard-tier",
+    "bulk-insert"
+  ],
+  "code": "# Bulk Insert Batch Size\n\nBulk INSERT operations MUST use `INGEST_CHUNK_ROWS` (375) as the chunk size.\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import INGEST_CHUNK_ROWS\n\n# The org-mandated batch size is 375 rows.\nfor i in range(0, len(rows), INGEST_CHUNK_ROWS):\n    chunk = rows[i : i + INGEST_CHUNK_ROWS]\n    session.bulk_insert_mappings(model, chunk)\n```\n\nUsing a smaller hardcoded batch (e.g., 100) results in unnecessary round-trips for large payloads.\n"
+}

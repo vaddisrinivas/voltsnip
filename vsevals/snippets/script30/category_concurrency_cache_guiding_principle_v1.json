@@ -1,0 +1,13 @@
+{
+  "canonical_key": "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+  "title": "Script30 Concurrency & Cache guiding principle",
+  "description": "Org-level guiding principle for concurrency and caching: distributed locks, TTL jitter, stampede prevention, LFU eviction, write-behind buffers, and consistent hashing.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "concurrency_cache",
+    "guiding-principle"
+  ],
+  "code": "# Concurrency & Cache — Org Guiding Principle\n\n## Distributed Locks\n- Clamp effective timeout to minimum 1ms when adjusting for clock skew.\n- Annotate via orgops.tracing.annotate_span(\"lock.acquired\", key) on acquisition.\n\n## TTL Jitter\n- ADD jitter to base TTL (never subtract — subtraction can produce negative TTLs).\n- Emit orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl) for monitoring.\n\n## Stampede Prevention\n- Refresh early when time_remaining/ttl < threshold (close to expiry), not > threshold.\n- Emit orgops.metrics.emit(\"cache.stampede.prevented\", key) when early refresh triggers.\n\n## LFU Eviction\n- Decay frequency by age: score = access_count / (1 + age_hours).\n- Emit orgops.metrics.emit(\"cache.eviction.lfu\", score) on eviction decisions.\n\n## Write-Behind Buffers\n- Convert interval_seconds to milliseconds (* 1000) when passing to timer APIs.\n- Write orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=n) after flush.\n\n## Consistent Hashing\n- Use hash(key) % num_partitions (not num_partitions + 1 — causes out-of-range).\n- Report orgops.health.report_degradation(\"cache.partition.skew\", partition_id) on assignment.\n"
+}

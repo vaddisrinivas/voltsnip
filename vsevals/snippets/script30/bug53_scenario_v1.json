@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug53/scenario_context/v1",
+  "title": "Lock timeout requires clamping AND trace span annotation",
+  "description": "The acquire_lock function must clamp effective_timeout to at least 1 ms AND annotate the trace span via orgops.tracing.annotate_span for observability.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "concurrency_cache", "hard-tier", "composition", "tracing"],
+  "code": "# Distributed Lock Timeout \u2014 Two Requirements\n\n## 1. Clamp Effective Timeout\nWhen clock_skew_ms exceeds timeout_ms the result goes negative.\nAlways clamp to at least 1 ms:\n```python\neffective_timeout = max(timeout_ms - clock_skew_ms, 1)\n```\n\n## 2. Trace Span Annotation (REQUIRED)\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"lock.acquired\", key)\n```\n"
+}

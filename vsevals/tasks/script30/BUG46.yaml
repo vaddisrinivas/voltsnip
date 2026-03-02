@@ -1,0 +1,58 @@
+tasks:
+- task:
+    id: BUG46
+    name: sliding_window_truncation_and_quota
+    description: Fix sliding_window_count so the boundary uses exact float arithmetic instead of int() truncation.
+    category: http_resilience
+    difficulty: hard
+    target_file: net/rate_limiter.py
+    line_start: 37
+    line_end: 40
+    test_command: uv run pytest -q tests/unit/test_bug46.py -k bug_46
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def sliding_window_count(
+          timestamps: list[float],
+          window_seconds: float,
+          now: float,
+      ) -> int:
+          """Count how many timestamps fall within [now - window_seconds, now].
+
+          BUG_46: the window boundary is truncated to an integer, causing
+          requests near sub-second bucket boundaries to be undercounted.
+          """
+          boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision
+          idx = bisect.bisect_left(timestamps, boundary)
+          return len(timestamps) - idx
+    expected_output: Use exact float boundary (now - window_seconds) AND report count via orgops.ratelimit.check_quota.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/http_resilience/guiding_principle/v1
+    - voltsnip/script30/hard/bug46/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Remove int() truncation so boundary is now - window_seconds (exact float).
+    - Report the sliding window count via orgops.ratelimit.check_quota("request.sliding_window", count).
+    success_indicators:
+      correctness:
+      - sliding_window_count([990.0, 990.5, 991.0], 10.0, 1000.9) returns 1 (only 991.0 is >= 990.9)
+      - orgops.ratelimit.check_quota is called with "request.sliding_window" and the count
+      consistency: []
+    failure_modes:
+    - Model fixes only the truncation but omits the quota check call.
+    - Model rounds boundary instead of using exact float subtraction.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug46_boundary_and_quota
+      voltsnip_key: voltsnip/script30/hard/bug46/scenario_context/v1
+      check: Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.
+      judge_prompt: Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota("request.sliding_window", count) with the computed count?
+      expected: true
+      trap_baseline: 0.15

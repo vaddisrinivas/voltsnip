@@ -1,0 +1,65 @@
+tasks:
+- task:
+    id: BUG43
+    name: pool_timeout_overlap_and_trace
+    description: Fix calculate_effective_timeout so DNS and connect are treated as parallel, not sequential.
+    category: http_resilience
+    difficulty: hard
+    target_file: net/request_pool.py
+    line_start: 66
+    line_end: 85
+    test_command: uv run pytest -q tests/unit/test_bug43.py -k bug_43
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def calculate_effective_timeout(
+          self,
+          connect_timeout: Optional[float] = None,
+          dns_timeout: Optional[float] = None,
+          read_timeout: Optional[float] = None,
+      ) -> float:
+          """Return the effective timeout for a single request.
+
+          BUG_43: DNS resolution and the TCP connect happen in parallel, so
+          the first phase is max(connect, dns) — not the sum.  The current
+          implementation adds all three timeouts sequentially, over-estimating
+          the real deadline and delaying failure detection.
+          """
+          ct = connect_timeout if connect_timeout is not None else self.connect_timeout
+          dt = dns_timeout if dns_timeout is not None else self.dns_timeout
+          rt = read_timeout if read_timeout is not None else self.read_timeout
+
+          # BUG_43: treats DNS + connect as sequential — should be parallel (max)
+          total_timeout = ct + dt + rt
+          return total_timeout
+    expected_output: Use max(connect, dns) + read for parallel overlap AND annotate span via orgops.tracing.annotate_span.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/http_resilience/guiding_principle/v1
+    - voltsnip/script30/hard/bug43/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix timeout calculation from connect + dns + read to max(connect, dns) + read.
+    - Annotate the trace span via orgops.tracing.annotate_span("pool.timeout.adjusted", total_timeout).
+    success_indicators:
+      correctness:
+      - calculate_effective_timeout(5.0, 2.0, 30.0) returns 35.0 not 37.0
+      - orgops.tracing.annotate_span is called with "pool.timeout.adjusted"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math (max instead of sum) but omits the trace annotation.
+    - Model adds logging instead of the required trace annotation.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug43_timeout_and_trace
+      voltsnip_key: voltsnip/script30/hard/bug43/scenario_context/v1
+      check: Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.
+      judge_prompt: Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span("pool.timeout.adjusted", total_timeout)?
+      expected: true
+      trap_baseline: 0.15

@@ -1,0 +1,66 @@
+tasks:
+- task:
+    id: BUG66
+    name: correlation_id_lost_async_and_trace
+    description: Fix propagate_context so child context carries both request_id and correlation_id from parent.
+    category: logging_privacy
+    difficulty: hard
+    target_file: logops/context_propagator.py
+    line_start: 20
+    line_end: 39
+    test_command: uv run pytest -q tests/unit/test_bug66.py -k bug_66
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:
+          """Create a child context dict from *parent_context*.
+
+          The child context must carry forward both ``request_id`` and
+          ``correlation_id`` so that downstream services can correlate
+          log entries across the full request tree.
+
+          BUG_66: only copies ``request_id`` from the parent context,
+          silently dropping ``correlation_id``.  Downstream services
+          therefore lose the ability to join logs across async fan-outs.
+          """
+          # BUG_66: omits correlation_id — child context loses cross-request tracing
+          child = {"request_id": parent_context["request_id"]}
+
+          self.propagation_log.append({
+              "parent_request_id": parent_context.get("request_id"),
+              "parent_correlation_id": parent_context.get("correlation_id"),
+              "child_keys": list(child.keys()),
+          })
+          return child
+    expected_output: Copy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.
+  voltsnip:
+    required_snippets:
+    - voltsnip/script30/category/logging_privacy/guiding_principle/v1
+    - voltsnip/script30/hard/bug66/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Copy both request_id and correlation_id from parent_context into the child dict.
+    - Annotate the trace span with context.propagated via orgops.tracing.annotate_span() after propagation.
+    success_indicators:
+      correctness:
+      - child context contains both request_id and correlation_id matching the parent
+      - orgops.tracing.annotate_span is called with "context.propagated" and the correlation_id
+      consistency: []
+    failure_modes:
+    - Model fixes only the missing correlation_id but omits the trace annotation.
+    - Model adds logging instead of the required trace annotation.
+    - Model copies correlation_id under a different key name.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/script30/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug66_correlation_id_and_trace
+      voltsnip_key: voltsnip/script30/hard/bug66/scenario_context/v1
+      check: Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.
+      judge_prompt: Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with "context.propagated" via orgops.tracing.annotate_span()?
+      expected: true
+      trap_baseline: 0.15

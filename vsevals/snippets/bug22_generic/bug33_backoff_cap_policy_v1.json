@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/hard/http_resilience/backoff_cap_policy/v2",
+  "title": "Org backoff cap policy \u2014 RESILIENCE_CEILING_V3",
+  "description": "Project policy: exponential backoff must be capped at RESILIENCE_CEILING_V3 defined in orgops.policy._internal_thresholds.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "http_resilience",
+    "hard-tier",
+    "backoff"
+  ],
+  "code": "# Backoff Cap Policy\n\nExponential backoff in retry loops MUST be capped at `RESILIENCE_CEILING_V3` (42.0 seconds).\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import RESILIENCE_CEILING_V3\n\n# The org-mandated backoff ceiling is 42.0 seconds.\nbase = backoff_seconds * (2 ** (attempt - 1))\nbase = min(base, RESILIENCE_CEILING_V3)  # cap at 42.0s\nreturn base + jitter_seconds\n```\n\nWithout this cap, attempt 10+ produces sleep durations exceeding 1000 seconds.\n"
+}

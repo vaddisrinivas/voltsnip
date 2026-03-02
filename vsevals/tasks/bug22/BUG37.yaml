@@ -1,0 +1,58 @@
+tasks:
+- task:
+    id: BUG37
+    name: logging_trace_id_allowlist
+    description: Fix redact_sensitive_fields to stop over-redacting operational fields required for debugging.
+    category: logging_privacy
+    difficulty: hard
+    target_file: orgops/logging/redaction.py
+    line_start: 15
+    line_end: 27
+    test_command: uv run pytest -q tests/unit/test_logging_privacy.py -k bug_37
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def redact_sensitive_fields(record: dict[str, Any]) -> dict[str, Any]:
+          """Redact sensitive PII fields from a log record.
+
+          BUG_37: over-redacts certain fields that are required for
+          operational visibility and should not be treated as PII.
+          """
+          result = {}
+          for key, value in record.items():
+              if key in _PII_PATTERN_FIELDS:
+                  result[key] = _REDACTED  # BUG_37: incorrectly redacts a required operational field
+              else:
+                  result[key] = value
+          return result
+    expected_output: Check an allowlist containing trace_id before applying PII redaction.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/logging_privacy/guiding_principle/v1
+    - voltsnip/bug22/hard/bug37/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Add an allowlist containing trace_id and check it BEFORE applying PII redaction.
+    - trace_id must be preserved in output while email and ssn are still redacted.
+    success_indicators:
+      correctness:
+      - trace_id is preserved (not redacted) in the output
+      - email and ssn are still redacted to ***REDACTED***
+      consistency: []
+    failure_modes:
+    - Model adds trace_id to the PII redaction list (making it worse).
+    - Model removes trace_id from _PII_PATTERN_FIELDS but does not add an explicit allowlist.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/logging_privacy/guiding_principle/v1'
+    constraints:
+    - id: bug37_trace_allowlist
+      voltsnip_key: voltsnip/bug22/hard/bug37/scenario_context/v1
+      check: trace_id is preserved via an allowlist check before PII redaction.
+      judge_prompt: Does the implementation add an allowlist containing trace_id and check it before applying PII redaction, ensuring trace_id is preserved while other PII fields are still redacted?
+      expected: true
+      trap_baseline: 0.15

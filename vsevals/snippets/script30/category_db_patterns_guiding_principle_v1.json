@@ -1,0 +1,13 @@
+{
+  "canonical_key": "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+  "title": "Script30 DB Patterns guiding principle",
+  "description": "Org-level guiding principle for database patterns: connection pool eviction, migration versioning, savepoint management, query planning, replication monitoring, and schema validation.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-script30",
+    "db_patterns",
+    "guiding-principle"
+  ],
+  "code": "# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n"
+}

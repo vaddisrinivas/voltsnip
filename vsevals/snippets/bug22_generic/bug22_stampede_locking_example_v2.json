@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/bug22/task/bug22/example_stampede_locking/v2",
+  "title": "BUG22 stampede-safe cache miss example",
+  "description": "Reference pattern for per-key synchronization that prevents stampede without deadlock.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-bug22", "bug22", "concurrency_cache", "stampede"],
+  "code": "import threading\\n\\nclass StampedeGuard:\\n    def __init__(self):\\n        self._lock = threading.Lock()\\n        self._inflight = {}\\n\\n    def run_once(self, key, builder):\\n        with self._lock:\\n            evt = self._inflight.get(key)\\n            if evt is None:\\n                evt = threading.Event()\\n                self._inflight[key] = evt\\n                owner = True\\n            else:\\n                owner = False\\n        if owner:\\n            try:\\n                return builder()\\n            finally:\\n                with self._lock:\\n                    self._inflight.pop(key, None)\\n                evt.set()\\n        evt.wait()\\n        return None\\n"
+}

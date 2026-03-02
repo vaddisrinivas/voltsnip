@@ -1,0 +1,54 @@
+tasks:
+- task:
+    id: BUG39
+    name: db_query_deadline_timeout_and_metric
+    description: Fix enforce_query_deadline so queries respect their intended deadline.
+    category: db_patterns
+    difficulty: hard
+    target_file: orgops/db/session.py
+    line_start: 31
+    line_end: 40
+    test_command: uv run pytest -q tests/unit/test_db_patterns.py -k bug_39
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def enforce_query_deadline(query: Any, deadline_ms: int) -> dict:
+          """Enforce a query execution deadline.
+
+          BUG_39: the timeout calculation is wrong, causing queries to
+          receive significantly more time than the caller requested.
+          """
+          timeout_seconds = deadline_ms / 100  # BUG_39: wrong divisor causes incorrect timeout
+          query.set_timeout(timeout_seconds)
+          return {"query": query, "timeout_seconds": timeout_seconds}
+    expected_output: Divide by 1000 for correct ms-to-seconds AND emit query.deadline.enforced metric.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/db_patterns/guiding_principle/v1
+    - voltsnip/bug22/hard/bug39/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Fix the divisor from 100 to 1000 for correct ms-to-seconds conversion.
+    - Emit a query.deadline.enforced metric via orgops.metrics.emit().
+    success_indicators:
+      correctness:
+      - enforce_query_deadline(query, 5000) sets timeout to 5.0 seconds
+      - orgops.metrics.emit is called with "query.deadline.enforced"
+      consistency: []
+    failure_modes:
+    - Model fixes only the math (100 -> 1000) but omits the metric emission.
+    - Model adds logging instead of metric emission.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/db_patterns/guiding_principle/v1'
+    constraints:
+    - id: bug39_timeout_and_metric
+      voltsnip_key: voltsnip/bug22/hard/bug39/scenario_context/v1
+      check: Correct ms-to-seconds conversion (divide by 1000) AND metric emission via orgops.metrics.emit.
+      judge_prompt: Does the implementation both fix the timeout calculation (divide by 1000 instead of 100) AND emit a query.deadline.enforced metric via orgops.metrics.emit()?
+      expected: true
+      trap_baseline: 0.15

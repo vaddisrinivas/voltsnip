@@ -1,0 +1,57 @@
+tasks:
+- task:
+    id: BUG34
+    name: http_upstream_503_async_accepted
+    description: Fix handle_upstream_response to treat 503 as async acceptance, not a retryable error.
+    category: http_resilience
+    difficulty: hard
+    target_file: orgops/http/circuit_guard.py
+    line_start: 12
+    line_end: 24
+    test_command: uv run pytest -q tests/unit/test_http_resilience.py -k bug_34
+    user_prompt: |
+      Apply only this task fix using configured target file and line range.
+      Keep API and behavior stable except for this bug requirement.
+      Keep changes minimal, deterministic, and production-safe.
+    context_code: |-
+      def handle_upstream_response(status_code: int, body: dict | None = None) -> dict:
+          """Handle a response from the upstream payments service.
+
+          BUG_34: 503 responses are not handled, causing the caller to treat
+          them as generic server errors and propagate the failure.
+          """
+          if status_code == 200:
+              return {"status": "ok", "data": body}
+          elif status_code in (500, 502):
+              return {"status": "retry", "reason": f"server_error_{status_code}"}
+          # BUG_34: 503 falls through to generic error — should be handled specifically
+          return {"status": "error", "reason": f"unhandled_{status_code}"}
+    expected_output: 503 returns accepted_async status instead of being treated as an error or retry.
+  voltsnip:
+    required_snippets:
+    - voltsnip/bug22/category/http_resilience/guiding_principle/v1
+    - voltsnip/bug22/hard/bug34/scenario_context/v1
+    snippet_context_limit: 4
+    snippet_context_max_chars: 1200
+  oracle:
+    hidden_requirements:
+    - Handle 503 specifically by returning status accepted_async instead of retrying or erroring.
+    - This upstream uses 503 non-standardly to mean async acceptance.
+    success_indicators:
+      correctness:
+      - 'handle_upstream_response(503, body) returns {"status": "accepted_async", "data": body}'
+      - 500 and 502 still trigger retry
+      consistency: []
+    failure_modes:
+    - Model adds standard retry logic for 503 (exponential backoff) which causes duplicate payments.
+    - Model adds 503 to the retry set alongside 500 and 502.
+    evaluation_criteria:
+    - Keep edits localized to configured target file
+    - 'Guiding principle key: voltsnip/bug22/category/http_resilience/guiding_principle/v1'
+    constraints:
+    - id: bug34_503_async
+      voltsnip_key: voltsnip/bug22/hard/bug34/scenario_context/v1
+      check: 503 returns accepted_async status and does NOT trigger retry.
+      judge_prompt: Does the implementation handle HTTP 503 by returning an accepted_async status rather than retrying or treating it as a generic server error?
+      expected: true
+      trap_baseline: 0.15

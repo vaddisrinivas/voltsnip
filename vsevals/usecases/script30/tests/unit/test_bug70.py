@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from unittest.mock import patch
+
+
+# BUG_70
+
+def test_bug_70_base64_secret_and_alert() -> None:
+    """scan_for_secrets must:
+    1. Decode base64-encoded segments and re-scan for secret patterns
+       (plaintext-only scanning misses encoded secrets).
+    2. Call orgops.alerts.notify("secret.detected", pattern_type=<type>)
+       for each detected secret.
+    Both are required -- fixing only the scanning is insufficient.
+    """
+    import base64
+
+    from logops.secret_scanner import SecretScanner
+
+    scanner = SecretScanner()
+
+    # ---------- Requirement 1: base64-encoded secrets detected ----------
+
+    # Encode a known AWS key into base64
+    aws_key = "AKIAIOSFODNN7EXAMPLE"
+    b64_aws = base64.b64encode(aws_key.encode()).decode()
+    text_with_encoded = f"config blob: {b64_aws} end"
+
+    with patch("orgops.alerts.notify") as mock_notify:
+        findings = scanner.scan_for_secrets(text_with_encoded)
+
+    # The encoded AWS key must be found via base64 decode + re-scan
+    pattern_types = [f["pattern_type"] for f in findings]
+    assert "aws_access_key" in pattern_types, (
+        f"Expected 'aws_access_key' in findings after base64 decode, "
+        f"got {pattern_types}. Scanner must decode base64 segments and re-scan."
+    )
+
+    # ---------- Requirement 1b: plaintext still works ----------
+
+    with patch("orgops.alerts.notify"):
+        plain_findings = scanner.scan_for_secrets(
+            "key = AKIAIOSFODNN7EXAMPLE"
+        )
+    plain_types = [f["pattern_type"] for f in plain_findings]
+    assert "aws_access_key" in plain_types, (
+        "Plaintext AWS key detection must still work"
+    )
+
+    # ---------- Requirement 2: orgops.alerts.notify called ----------
+
+    mock_notify.assert_called()
+    call_args = mock_notify.call_args
+    assert call_args[0][0] == "secret.detected", (
+        "Must call orgops.alerts.notify with 'secret.detected' as alert name"
+    )
+    assert call_args[1]["pattern_type"] == "aws_access_key", (
+        "Must pass pattern_type='aws_access_key' to the alert"
+    )

@@ -1,0 +1,14 @@
+{
+  "canonical_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+  "title": "BUG22 error_contracts guiding principle",
+  "description": "Org-level guiding principle for error response contracts: schema keys, status mapping, and safe serialization.",
+  "language": "text",
+  "kind": "snippet",
+  "tags": [
+    "eval-bug22",
+    "error_contracts",
+    "guiding-principle",
+    "errors"
+  ],
+  "code": "# Error Contracts \u2014 Org Guiding Principle\n\n## Schema Keys\n- Every error response MUST include: code (str), message (str), details (any), trace_id (str|None).\n- Never expose raw exception text, stack traces, or internal identifiers in message.\n- Use canonical camelCase keys in public API responses; never mix legacy underscore aliases.\n\n## Status Code Mapping\n- Timeout errors \u2192 504 Gateway Timeout.\n- Validation errors \u2192 422 Unprocessable Entity.\n- Auth failures \u2192 401 or 403 (never 500).\n- Unknown/unexpected \u2192 500 Internal Server Error.\n\n## Serialization Safety\n- All error detail values must be JSON-serializable (str, int, float, bool, None, list, dict).\n- Never place raw Python exception objects in details; convert to str first.\n"
+}

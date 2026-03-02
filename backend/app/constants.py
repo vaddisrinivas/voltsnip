@@ -32,6 +32,7 @@ SEARCH_SEMANTIC_PATH = "/semantic"
 
 SNIPPETS_ROOT_PATH = "/"
 SNIPPET_BY_ID_PATH = "/{snippet_id}"
+SNIPPET_BY_CANONICAL_KEY_PATH = "/by-key/{canonical_key:path}"
 SNIPPET_VIEW_PATH = "/{snippet_id}/view"
 SNIPPET_VOTE_PATH = "/{snippet_id}/vote"
 

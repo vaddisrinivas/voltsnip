@@ -1,0 +1,9 @@
+{
+  "canonical_key": "voltsnip/script30/hard/bug59/scenario_context/v1",
+  "title": "HTTP error classification requires 4xx/5xx split AND metric emission",
+  "description": "The classify_http_error function must return 'client_error' for 400-499 and 'server_error' for 500-599 AND emit a metric via orgops.metrics.emit for operational monitoring.",
+  "language": "python",
+  "kind": "snippet",
+  "tags": ["eval-script30", "error_contracts", "hard-tier", "composition", "metrics"],
+  "code": "# HTTP Error Classification \u2014 Two Requirements\n\n## 1. Split 4xx / 5xx\n```python\nif 400 <= status_code < 500:\n    category = \"client_error\"\nelif 500 <= status_code < 600:\n    category = \"server_error\"\nelse:\n    category = \"unknown\"\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"error.mapped\", status_code)\n```\n"
+}
