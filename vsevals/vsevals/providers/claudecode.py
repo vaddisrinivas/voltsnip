@@ -32,6 +32,39 @@ def _extract_snippet_count(result_str: str) -> int | None:
     return None
 
 
+def _extract_stream_error(stdout: str) -> str | None:
+    """Return a terminal stream error message when claudecode reports one.
+
+    ClaudeCode can exit with returncode=0 while still marking the terminal
+    stream result as an error (`{"type":"result", "is_error": true, ...}`).
+    Those runs must be treated as provider failures so they are not persisted
+    as status=ok with empty parsed output.
+    """
+    assistant_error: str | None = None
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            evt = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(evt, dict):
+            continue
+
+        etype = evt.get("type")
+        if etype == "assistant":
+            # Best-effort fallback if the stream has an assistant error marker.
+            err = evt.get("error")
+            if err and not assistant_error:
+                assistant_error = str(err)
+        elif etype == "result" and bool(evt.get("is_error")):
+            msg = evt.get("result") or evt.get("error") or assistant_error
+            return str(msg) if msg else "claudecode stream returned is_error=true"
+
+    return assistant_error
+
+
 def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int | None, str | None, list[ToolTrace]]:
     final_output = ""
     sys_prompt_tokens = 0
@@ -222,9 +255,6 @@ class ClaudeCodeInvocation:
     _mcp_config_path: str = field(default="", repr=False)
     _sidecar_dir: str = field(default="", repr=False)
     _debug_file_path: str = field(default="", repr=False)
-    # Sidecar files written directly into the repo root (not a temp dir).
-    # These are cleaned up after the run to avoid polluting the codebase.
-    _repo_sidecar_paths: list[str] = field(default_factory=list, repr=False)
 
     def cleanup(self) -> None:
         for path in (self._mcp_config_path, self._debug_file_path):
@@ -235,11 +265,6 @@ class ClaudeCodeInvocation:
                     pass
         if self._sidecar_dir:
             shutil.rmtree(self._sidecar_dir, ignore_errors=True)
-        for path in self._repo_sidecar_paths:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
 
 
 @dataclass
@@ -284,7 +309,7 @@ def _build_claudecode_invocation(
     # availability, but empirically the Claude CLI ignores --allowedTools when
     # --dangerously-skip-permissions is set.  We therefore enforce the boundary
     # with BOTH an allowlist AND a disallow list:
-    #   --allowedTools  = voltsnip MCP read tools + filesystem read tools
+    #   --allowedTools  = voltsnip MCP read tools only
     #   --disallowedTools = mutating / exec tools we never want in eval runs
     #
     # Allowed VoltSnip MCP tools: search/read only — no create/vote/feed.
@@ -297,9 +322,8 @@ def _build_claudecode_invocation(
         "mcp__voltsnip__read_snippet_by_canonical_key_api_v1_snippets_by_key",
         "mcp__voltsnip__view_snippet_api_v1_snippets",
     ]
-    # Filesystem exploration tools — allow the model to read the codebase so it can
-    # explore and understand the code.  The information asymmetry comes from knowing
-    # WHAT to look for (which VoltSnip provides), not from having access to the files.
+    # Filesystem tools are explicitly disallowed to preserve parity with codex's
+    # temp-cwd + read-only-shell isolation policy.
     _FILESYSTEM_TOOLS = [
         "Read",
         "Glob",
@@ -329,8 +353,9 @@ def _build_claudecode_invocation(
         allowed_tools = ",".join(_VOLTSNIP_TOOLS)
         disallowed_tools = ",".join(_DISALLOWED_TOOLS + _FILESYSTEM_TOOLS)
     else:
+        # No-tools variants: explicitly block native tools too.
         allowed_tools = ""
-        disallowed_tools = ""
+        disallowed_tools = ",".join(_DISALLOWED_TOOLS + _FILESYSTEM_TOOLS)
 
     cmd = [
         "claude", "-p", combined_prompt,
@@ -358,33 +383,17 @@ def _build_claudecode_invocation(
             mcp_config_path = f.name
         cmd.extend(["--mcp-config", mcp_config_path])
 
-    # Working directory strategy:
-    # When repo_root is provided (tool-enabled variants), use the actual repo directory
-    # as cwd so that Read/Glob/Grep operate on the codebase. Sidecar files are written
-    # directly into repo_root and removed after the run. When no repo_root, fall back to
-    # the legacy temp-dir approach for sidecar files.
-    sidecar_dir = ""
-    written_sidecar_paths: list[str] = []
-    effective_cwd: str | None = None
-
-    if repo_root and tool_schemas:
-        # Tool-enabled variant with a repo root: set cwd to repo so filesystem tools
-        # can explore the codebase.  Write sidecar files directly into the repo root
-        # (they will be cleaned up after the run).
-        effective_cwd = repo_root
-        if sidecar_files:
-            for filename, content in sidecar_files.items():
-                p = Path(repo_root) / filename
-                already_existed = p.exists()
-                p.write_text(content, encoding="utf-8")
-                if not already_existed:  # only clean up files we created
-                    written_sidecar_paths.append(str(p))
-    elif sidecar_files:
-        # Legacy: no repo_root or non-tool variant — temp dir for sidecar files.
-        sidecar_dir = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")
-        effective_cwd = sidecar_dir
+    # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
+    # Using repo_root as cwd was removed because:
+    #   (a) Read/Glob/Grep are in --disallowedTools, so file access is blocked anyway.
+    #   (b) sidecar_files in repo_root are shared across concurrent runs → contamination.
+    # The prompt already injects target_file_content and context_code directly.
+    _ = repo_root  # kept in signature for call-site stability
+    _sidecar_dir_cleanup = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")
+    effective_cwd: str | None = _sidecar_dir_cleanup
+    if sidecar_files:
         for filename, content in sidecar_files.items():
-            (Path(sidecar_dir) / filename).write_text(content, encoding="utf-8")
+            (Path(_sidecar_dir_cleanup) / filename).write_text(content, encoding="utf-8")
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)  # prevent "nested session" rejection when launched from within Claude Code
@@ -402,17 +411,16 @@ def _build_claudecode_invocation(
         cmd.extend(["--debug-file", debug_file_path])
 
     LOGGER.debug(
-        "claudecode invocation model=%s sidecar=%s repo_root=%s debug=%s",
-        model_id, bool(sidecar_dir or written_sidecar_paths), repo_root, debug_file_path or None,
+        "claudecode invocation model=%s sidecar=%s cwd=%s debug=%s",
+        model_id, bool(sidecar_files), effective_cwd, debug_file_path or None,
     )
     return ClaudeCodeInvocation(
         cmd=cmd, env=env,
         cwd=effective_cwd,
         timeout=timeout,
         _mcp_config_path=mcp_config_path,
-        _sidecar_dir=sidecar_dir,
+        _sidecar_dir=_sidecar_dir_cleanup,
         _debug_file_path=debug_file_path,
-        _repo_sidecar_paths=written_sidecar_paths,
     )
 
 
@@ -513,6 +521,9 @@ def call_claudecode(
         # Read artifact content before any potential cleanup below.
         raw_stdout = sub.stdout_path.read_text(encoding="utf-8", errors="replace")
         raw_stderr = sub.stderr_path.read_text(encoding="utf-8", errors="replace")
+        stream_error = _extract_stream_error(raw_stdout)
+        if stream_error:
+            raise RuntimeError(f"claudecode stream error: {stream_error}")
     finally:
         inv.cleanup()
         if _tmp_run_dir:

@@ -243,6 +243,16 @@ def run_one(
     finished_at = datetime.now(timezone.utc)
     llm_result = llm_result or _empty_llm_result()
 
+    # Validity gate: if the model returned no code on an otherwise-ok run,
+    # demote to error so the run is not silently persisted as a zero-score ok.
+    if status == "ok" and not llm_result.parsed_output.code.strip():
+        status = "error"
+        run_error = RunError(
+            type="EmptyOutput",
+            message="model returned ok status but produced no code",
+            error_class="provider_empty_output",
+        )
+
     provider, model_id = _parse_provider(model_name)
 
     # Write raw subprocess / API artifacts immediately — before scoring + pytest —

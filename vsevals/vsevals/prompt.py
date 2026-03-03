@@ -128,7 +128,10 @@ def build_prompt(
             "```",
         )
 
-    if task.task.expected_output:
+    # expected_output is withheld from no-retrieval variants (P0/P1) to preserve a
+    # clean baseline.  Injecting it there leaks the org-specific API name
+    # (e.g. "orgops.metrics.emit") and biases the P0 score upward.
+    if task.task.expected_output and variant.retrieval_mode != "none":
         b.add_user_visible("expected_output", "Expected Output:", task.task.expected_output.rstrip())
 
     if variant.include_oracle:

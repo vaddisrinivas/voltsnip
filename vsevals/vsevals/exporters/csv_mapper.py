@@ -657,7 +657,7 @@ def _load_completed_from_jsonl(path: Path) -> dict[str, dict]:
                     tid = entry.get("task_id", "")
                     vid = entry.get("variant_id", "")
                     mn  = entry.get("model_name", "")
-                    if tid and vid and mn:
+                    if tid and vid and mn and entry.get("status") == "ok":
                         completed[f"{tid}/{vid}/{mn}"] = entry
                 except Exception:
                     pass

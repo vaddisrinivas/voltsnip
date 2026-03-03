@@ -205,32 +205,37 @@ No-key surfaces intentionally suppress direct key hints in prompt/sidecars.
 ### 7.3 Claude Code (`claudecode:*`)
 
 - subprocess `claude -p --output-format stream-json`
+- cwd: clean per-run tmpdir (isolated per cell; never repo_root)
 - tool-enabled runs use:
   - `--mcp-config` pointing to VoltSnip MCP URL
-  - `--allowedTools` and `--disallowedTools`
-- built-in filesystem tools (`Read/Glob/Grep`) are allowlisted
-- `Bash` is disallowed in tool-enabled policy
+  - `--allowedTools mcp__voltsnip__*` (VoltSnip read tools only)
+  - `--disallowedTools` includes `Read`, `Glob`, `Grep`, `Bash`, `Edit`, `Write`, and all other native tools
+- no-tools runs: `--allowedTools ""` with the same disallow list — no tool access at all
+- sidecar files (`CLAUDE.md`, `AGENTS.md`, `SKILL.md`) written to tmpdir per variant; auto-loaded by the subprocess
 
 ### 7.4 Codex (`codex:*`)
 
-- subprocess `codex exec --json`
-- tool-enabled runs start local `HarnessMCPServer` and configure MCP via `-c mcp_servers.voltsnip.*`
-- sandbox policy:
-  - tool-enabled: `workspace-write`
-  - no-tools: `read-only`
+- subprocess `codex exec --json --ephemeral --skip-git-repo-check`
+- cwd: clean per-run tmpdir (isolated per cell; never repo_root)
+- sandbox policy: `--sandbox read-only` for **all** variants (tool-enabled and no-tools alike)
+- tool-enabled runs start local `HarnessMCPServer` (VoltSnip-only, `include_fs_tools=False`) and configure MCP via `-c mcp_servers.voltsnip.*`
+- no-tools runs: `-c mcp_servers={}` to clear any globally configured MCP servers
+- sidecar files (`AGENTS.md`, `SKILL.md`) written to tmpdir per variant; auto-loaded by the subprocess
 
 ### 7.5 Mock (`mock:*`)
 
 - deterministic echo stub for local harness sanity
 
-### 7.6 Important asymmetry: ClaudeCode vs Codex
+### 7.6 ClaudeCode vs Codex: tool surface parity
 
-Tool-enabled behavior is aligned in purpose, not strict identity:
+Both providers enforce the same accessible information surface:
 
-- ClaudeCode has explicit tool allow/deny controls and disallows `Bash`.
-- Codex relies on sandbox + MCP config and can still use shell within sandbox policy.
+- **Tools**: VoltSnip MCP read tools only (`search_memory`, `get_snippet_by_canonical_key`, etc.)
+- **Filesystem**: no file-read tools; `Read/Glob/Grep` disallowed for claudecode; codex shell is `read-only` sandbox in a tmpdir that contains no orgops source
+- **cwd**: clean per-run tmpdir for both — permanent repo fixtures (`AGENTS.md`, `SKILL.md`) are not visible
+- **Sidecar guidance**: injected per variant via files written to tmpdir; absent for P0/P1/P2/P3
 
-Interpret comparative results with this asymmetry in mind.
+Remaining mechanical difference: claudecode enforces the boundary via `--allowedTools`/`--disallowedTools` flags; codex enforces it via `--sandbox read-only` + explicit MCP config. The accessible surface is identical.
 
 ## 8. Tool budget semantics
 

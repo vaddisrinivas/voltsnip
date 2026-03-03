@@ -447,6 +447,14 @@ class RunConfig(BaseModel):
     temperature: float = 0.0
     max_tokens: int | None = Field(default=None, ge=1)
     structured_output: bool = True
+    # Reasoning effort — controls reasoning depth across providers:
+    #   openai      → reasoning_effort API param ("low" | "medium" | "high")
+    #   anthropic   → extended thinking budget_tokens (low=1024 / medium=5000 / high=16000)
+    #                 forces temperature=1 as required by the API
+    #   codex CLI   → -c model_reasoning_effort=<value> (overrides ~/.codex/config.toml)
+    #   claudecode  → no-op (subprocess CLI has no thinking-budget flag)
+    # None = use provider default (no override sent).
+    reasoning_effort: str | None = None
     # "native_sdk" uses openai/anthropic SDK directly; claudecode uses subprocess
     llm_runtime: Literal["native_sdk", "auto"] = "native_sdk"
 

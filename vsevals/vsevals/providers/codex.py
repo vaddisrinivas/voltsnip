@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 import subprocess
 import tempfile
@@ -157,7 +156,9 @@ def _extract_codex_tool_traces(jsonl_text: str) -> list[ToolTrace]:
             if item.get("type") == "mcp_tool_call":
                 server = item.get("server", "unknown")
                 tool = item.get("tool", "unknown")
-                tool_name = f"{server}.{tool}"
+                # Normalise to the same mcp__<server>__<tool> convention used by
+                # claudecode so runner.py voltsnip_tool_call_count is accurate.
+                tool_name = f"mcp__{server}__{tool}"
                 raw_args = item.get("arguments") or {}
                 if isinstance(raw_args, str):
                     try:
@@ -199,8 +200,6 @@ class CodexInvocation:
     # temp resources created during build; released by cleanup()
     _tmp_schema: str = field(default="", repr=False)
     _sidecar_dir: str = field(default="", repr=False)
-    # Sidecar files written directly into the repo root (not a temp dir).
-    _repo_sidecar_paths: list[str] = field(default_factory=list, repr=False)
     # Unified harness MCP server (started for tool-enabled variants).
     _harness_server: "Any" = field(default=None, repr=False)
 
@@ -217,11 +216,6 @@ class CodexInvocation:
                 pass
         if self._sidecar_dir:
             shutil.rmtree(self._sidecar_dir, ignore_errors=True)
-        for path in self._repo_sidecar_paths:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
 
 
 @dataclass
@@ -264,25 +258,49 @@ def _build_codex_invocation(
     # like claudecode; control is via sandbox mode and MCP server config):
     #
     #   --approval  -a never        non-interactive eval; never pause for human approval
-    #   --sandbox   read-only       no-tools variants: shell can read files but not write/exec
-    #               workspace-write tool variants: curl can reach the local MCP server
+    #   --sandbox   read-only       ALL variants: model shell has read-only filesystem access.
+    #                               Reads (cat/ls/grep) may still run; writes are blocked.
+    #                               (MCP transport curl is spawned by codex infra, not sandboxed shell,
+    #                                so VoltSnip MCP calls work regardless of sandbox mode)
     #   mcp_servers {}              no-tools: wipe any globally-configured MCP servers
-    #               voltsnip        tool variants: all harness tools (filesystem + VoltSnip) served
-    #                               by a single HarnessMCPServer started per-run via curl
+    #               voltsnip        tool variants: VoltSnip-only HarnessMCPServer via curl
+    #                               (include_fs_tools=False — filesystem MCP tools intentionally
+    #                                excluded: read_file/glob/grep would expose orgops/* source,
+    #                                undermining the VoltSnip lift signal)
+    #
+    # Parity with claudecode:
+    #   claudecode disallows Read/Glob/Grep (--disallowedTools) and has no Bash.
+    #   codex uses --sandbox read-only + cwd=tmpdir so model shell cannot reach orgops/*.
+    #   Both providers: VoltSnip MCP only; orgops API is only discoverable via VoltSnip.
     _APPROVAL_NEVER = ["-a", "never"]
+    # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
+    # Using repo_root as cwd was removed because:
+    #   (a) script30/AGENTS.md and SKILL.md are permanent fixtures — any variant with
+    #       cwd=repo_root can `cat AGENTS.md` via read-only shell, leaking guidance.
+    #   (b) sidecar_files in repo_root are shared across concurrent runs → contamination.
+    # The prompt already injects target_file_content and context_code directly.
+    _ = repo_root  # kept in signature for call-site stability
+    _sidecar_dir_cleanup = tempfile.mkdtemp(prefix="vsevals_codex_wd_")
+    effective_cwd: str | None = _sidecar_dir_cleanup
+    if sidecar_files:
+        for filename, content in sidecar_files.items():
+            (Path(_sidecar_dir_cleanup) / filename).write_text(content, encoding="utf-8")
 
     harness_server: HarnessMCPServer | None = None
     extra_args: list[str] = []
     if tool_schemas:
-        # Tool variants: single harness MCP server serving all tools +
-        # workspace-write sandbox so curl can reach the localhost server.
+        # Tool variants: VoltSnip-only MCP server, read-only sandbox.
+        # NOTE: read-only sandbox does not remove shell reads; it only blocks writes.
+        # Isolation comes from cwd=tmpdir (no repo fixtures present in non-sidecar variants).
+        # The curl transport for MCP is spawned by codex infrastructure (not the sandboxed
+        # shell), so VoltSnip MCP tool calls are unaffected by the sandbox restriction.
         base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
-        fs_root = Path(repo_root).resolve() if repo_root else Path.cwd()
-        harness_server = HarnessMCPServer(fs_root, base_url).start()
+        fs_root = Path(effective_cwd)  # tmpdir; include_fs_tools=False so fs_root is unused
+        harness_server = HarnessMCPServer(fs_root, base_url, include_fs_tools=False).start()
         harness_url = f"http://127.0.0.1:{harness_server.port}/mcp/messages"
         extra_args.extend([
             *_APPROVAL_NEVER,
-            "--sandbox", "workspace-write",
+            "--sandbox", "read-only",
             "-c", "mcp_servers.voltsnip.command=curl",
             "-c", f'mcp_servers.voltsnip.args=["-sNX", "POST", "{harness_url}"]',
         ])
@@ -294,6 +312,11 @@ def _build_codex_invocation(
             "--sandbox", "read-only",
             "-c", "mcp_servers={}",
         ])
+
+    # Reasoning effort override — applies to all variants (model-level setting).
+    # Maps to codex -c model_reasoning_effort=<value>, overriding ~/.codex/config.toml.
+    if cfg.reasoning_effort:
+        extra_args.extend(["-c", f"model_reasoning_effort={cfg.reasoning_effort}"])
 
     # codex writes its final answer to this file (-o flag)
     output_file = run_dir / "codex_last_message.txt"
@@ -318,25 +341,6 @@ def _build_codex_invocation(
             )
             tmp_schema = sf.name
 
-    # Working directory strategy: same as claudecode — when repo_root is provided
-    # for tool-enabled variants, use the actual repo so codex can explore the codebase.
-    sidecar_dir = ""
-    written_sidecar_paths: list[str] = []
-    effective_cwd: str | None = None
-
-    if repo_root and tool_schemas:
-        effective_cwd = repo_root
-        if sidecar_files:
-            for filename, content in sidecar_files.items():
-                p = Path(repo_root) / filename
-                p.write_text(content, encoding="utf-8")
-                written_sidecar_paths.append(str(p))
-    elif sidecar_files:
-        sidecar_dir = tempfile.mkdtemp(prefix="vsevals_codex_wd_")
-        effective_cwd = sidecar_dir
-        for filename, content in sidecar_files.items():
-            (Path(sidecar_dir) / filename).write_text(content, encoding="utf-8")
-
     cmd = ["codex"] + _APPROVAL_NEVER + [
         "exec",
         "--model", model_id,
@@ -360,8 +364,8 @@ def _build_codex_invocation(
     cmd.append(combined_prompt)
 
     LOGGER.debug(
-        "codex invocation model=%s sidecar=%s repo_root=%s harness_mcp_port=%s",
-        model_id, bool(sidecar_dir or written_sidecar_paths), repo_root,
+        "codex invocation model=%s sidecar=%s cwd=%s harness_mcp_port=%s",
+        model_id, bool(sidecar_files), effective_cwd,
         harness_server.port if harness_server else None,
     )
     return CodexInvocation(
@@ -370,8 +374,7 @@ def _build_codex_invocation(
         timeout=timeout,
         output_file=output_file,
         _tmp_schema=tmp_schema,
-        _sidecar_dir=sidecar_dir,
-        _repo_sidecar_paths=written_sidecar_paths,
+        _sidecar_dir=_sidecar_dir_cleanup,
         _harness_server=harness_server,
     )
 

@@ -67,6 +67,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--resume", default=None)
     p.add_argument("--instruction-mode", default=None, choices=["none", "explicit"],
                    help="Override instruction_mode on ALL variants (use 'explicit' to run the full explicit-instruction pass).")
+    p.add_argument("--reasoning-effort", default=None, choices=["low", "medium", "high"],
+                   help="Reasoning effort for reasoning-capable models. openai: maps to reasoning_effort API param. codex: maps to -c model_reasoning_effort. Ignored by claude/anthropic providers.")
     p.add_argument("--debugpy", action="store_true", default=False, help="Wait for a debugpy client before starting.")
     p.add_argument("--debugpy-port", type=int, default=5678, metavar="PORT", help="Port for debugpy to listen on (default: 5678).")
     return p
@@ -92,11 +94,11 @@ def main() -> None:
     tasks = [t.strip() for t in args.tasks.split(",")] if args.tasks else list(suite.task_map)
     
     suite_sha256 = _sha256_file(Path(args.suite))
-    task_spec_hashes = _task_spec_hashes(suite)
-    variant_spec_hashes = _variant_spec_hashes(suite)
     git_meta = _git_metadata(Path(args.suite).expanduser().resolve().parent)
     judge_specs = [m.strip() for m in args.judge_model.split("+") if m.strip()]
 
+    # Apply CLI overrides to suite variants BEFORE computing spec hashes so that
+    # recorded hashes reflect the actual run config, not the raw YAML values.
     if args.max_tool_roundtrips is not None:
         for variant in suite.variants:
             if variant.tools_enabled: variant.max_tool_roundtrips = args.max_tool_roundtrips
@@ -104,6 +106,10 @@ def main() -> None:
     if args.instruction_mode is not None:
         for variant in suite.variants:
             variant.instruction_mode = args.instruction_mode
+
+    # Hashes computed post-override → provenance is accurate even when CLI flags mutate variants.
+    task_spec_hashes = _task_spec_hashes(suite)
+    variant_spec_hashes = _variant_spec_hashes(suite)
 
     cfg_kwargs = dict(
         voltsnip_base_url=args.voltsnip_url,
@@ -118,6 +124,8 @@ def main() -> None:
     )
     if args.pytest_docker_image:
         cfg_kwargs["pytest_docker_image"] = args.pytest_docker_image
+    if args.reasoning_effort:
+        cfg_kwargs["reasoning_effort"] = args.reasoning_effort
         
     cfg = RunConfig(**cfg_kwargs)
 
@@ -229,33 +237,23 @@ def main() -> None:
     write_summary(matrix_dir, results, args.suite, args.models or "", args.variants or "", args.tasks or "", args.judge_model)
     print_scoreboard(results, len(all_cells))
 
-    # Build CSV from completed.jsonl + full_dump.json artifacts
+    # Build CSV from the in-memory results list (ok + error — no survivorship bias).
+    # Previously this re-loaded from completed.jsonl with a status==ok filter, which
+    # silently dropped every error cell from the CSV.  Using `results` directly
+    # preserves all cells and avoids a redundant disk round-trip.
     _csv_path = matrix_dir / "matrix_results.csv"
     try:
         import csv as _csv
-        _completed = load_completed(matrix_dir)
-        _csv_rows: list[dict] = []
-        for _entry in _completed.values():
-            _run_dir = _entry.get("run_dir", "")
-            _dump = Path(_run_dir) / "full_dump.json" if _run_dir else None
-            if _dump and _dump.exists():
-                try:
-                    _row = row_from_dump(_dump)
-                    for _k in ("task_spec_hash", "variant_spec_hash"):
-                        if _k in _entry and _k not in _row:
-                            _row[_k] = _entry[_k]
-                    _csv_rows.append(_row)
-                    continue
-                except Exception:
-                    pass
-            _csv_rows.append({"task_id": _entry.get("task_id",""), "variant_id": _entry.get("variant_id",""), "model_name": _entry.get("model_name",""), "status": _entry.get("status","error")})
+        _csv_rows: list[dict] = list(results)
         _all_keys = list(CANONICAL_COLUMNS) + sorted({k for r in _csv_rows for k in r if k not in set(CANONICAL_COLUMNS)})
         with _csv_path.open("w", newline="", encoding="utf-8") as _f:
             _w = _csv.DictWriter(_f, fieldnames=_all_keys, extrasaction="ignore")
             _w.writeheader()
             for _row in _csv_rows:
                 _w.writerow({k: _row.get(k, "") for k in _all_keys})
-        LOGGER.info("CSV written: %s (%d rows)", _csv_path, len(_csv_rows))
+        LOGGER.info("CSV written: %s (%d rows, %d ok / %d error)", _csv_path, len(_csv_rows),
+                    sum(1 for r in _csv_rows if r.get("status") == "ok"),
+                    sum(1 for r in _csv_rows if r.get("status") != "ok"))
     except Exception as _exc:
         LOGGER.warning("CSV build failed: %s — run build_matrix_csv.py manually", _exc)
 

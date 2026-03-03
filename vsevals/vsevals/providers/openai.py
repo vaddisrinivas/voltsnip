@@ -43,6 +43,8 @@ def call_openai_chat(
         kwargs["max_completion_tokens"] = cfg.max_tokens
     if cfg.structured_output:
         kwargs["response_format"] = {"type": "json_object"}
+    if cfg.reasoning_effort:
+        kwargs["reasoning_effort"] = cfg.reasoning_effort
 
     LOGGER.debug("openai chat model=%s", model_id)
     try:

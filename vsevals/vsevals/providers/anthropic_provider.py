@@ -39,13 +39,21 @@ def call_anthropic(
     perf0 = time.perf_counter()
 
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
+    # Extended thinking: reasoning_effort maps to budget_tokens.
+    # low=1024, medium=5000, high=16000.  Requires temperature=1 (API constraint).
+    _THINKING_BUDGET: dict[str, int] = {"low": 1024, "medium": 5000, "high": 16000}
+    thinking_budget = _THINKING_BUDGET.get(cfg.reasoning_effort or "", 0)
+
     kwargs: dict[str, Any] = {
         "model": model_id,
         "system": system_prompt,
         "messages": messages,
         "max_tokens": cfg.max_tokens or 4096,
     }
-    if cfg.temperature is not None:
+    if thinking_budget:
+        kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        kwargs["temperature"] = 1  # required by API when thinking is enabled
+    elif cfg.temperature is not None:
         kwargs["temperature"] = cfg.temperature
     if tool_schemas:
         kwargs["tools"] = [_openai_tool_to_anthropic(t) for t in tool_schemas]
