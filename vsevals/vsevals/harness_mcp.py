@@ -128,10 +128,18 @@ _TOOLS = [
     },
 ]
 
+# Filesystem tool names — used to filter when include_fs_tools=False.
+_FS_TOOL_NAMES: frozenset[str] = frozenset({"read_file", "glob_files", "grep_files"})
 
-def _make_handler(repo_root: Path, base_url: str) -> type[BaseHTTPRequestHandler]:
+
+def _make_handler(
+    repo_root: Path,
+    base_url: str,
+    include_fs_tools: bool = False,
+) -> type[BaseHTTPRequestHandler]:
     root = repo_root.resolve()
     vs_base = base_url.rstrip("/")
+    exposed_tools = _TOOLS if include_fs_tools else [t for t in _TOOLS if t["name"] not in _FS_TOOL_NAMES]
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -153,12 +161,14 @@ def _make_handler(repo_root: Path, base_url: str) -> type[BaseHTTPRequestHandler
                     "serverInfo": {"name": "vsevals-harness", "version": "1.0"},
                 }})
             elif method == "tools/list":
-                self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"tools": _TOOLS}})
+                self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"tools": exposed_tools}})
             elif method == "tools/call":
                 params = req.get("params", {})
                 name = params.get("name", "")
                 args = params.get("arguments", {})
                 try:
+                    if not include_fs_tools and name in _FS_TOOL_NAMES:
+                        raise ValueError(f"tool {name!r} is not available in this eval variant")
                     text = _call_tool(root, vs_base, name, args)
                     self._send(200, {
                         "jsonrpc": "2.0", "id": req_id,
@@ -211,9 +221,15 @@ def _call_tool(root: Path, base_url: str, name: str, args: dict) -> str:
 class HarnessMCPServer:
     """Lifecycle wrapper around the unified harness MCP HTTP server."""
 
-    def __init__(self, repo_root: Path | str, base_url: str, port: int = 0) -> None:
+    def __init__(
+        self,
+        repo_root: Path | str,
+        base_url: str,
+        port: int = 0,
+        include_fs_tools: bool = False,
+    ) -> None:
         root = Path(repo_root).resolve()
-        handler = _make_handler(root, base_url)
+        handler = _make_handler(root, base_url, include_fs_tools=include_fs_tools)
         self._server = HTTPServer(("127.0.0.1", port), handler)
         self.port: int = self._server.server_address[1]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)

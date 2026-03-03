@@ -326,8 +326,8 @@ def _build_claudecode_invocation(
         "EnterWorktree",
     ]
     if tool_schemas:
-        allowed_tools = ",".join(_VOLTSNIP_TOOLS + _FILESYSTEM_TOOLS)
-        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
+        allowed_tools = ",".join(_VOLTSNIP_TOOLS)
+        disallowed_tools = ",".join(_DISALLOWED_TOOLS + _FILESYSTEM_TOOLS)
     else:
         allowed_tools = ""
         disallowed_tools = ""
@@ -375,8 +375,10 @@ def _build_claudecode_invocation(
         if sidecar_files:
             for filename, content in sidecar_files.items():
                 p = Path(repo_root) / filename
+                already_existed = p.exists()
                 p.write_text(content, encoding="utf-8")
-                written_sidecar_paths.append(str(p))
+                if not already_existed:  # only clean up files we created
+                    written_sidecar_paths.append(str(p))
     elif sidecar_files:
         # Legacy: no repo_root or non-tool variant — temp dir for sidecar files.
         sidecar_dir = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")

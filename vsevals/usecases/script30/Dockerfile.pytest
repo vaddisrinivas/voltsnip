@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+# Install uv for fast dependency management.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Prebuild a reusable environment with usecase test dependencies.
+WORKDIR /opt/script30
+COPY pyproject.toml uv.lock ./
+RUN UV_LINK_MODE=copy uv sync --frozen --group dev --no-install-project
+
+ENV PYTHONUNBUFFERED=1
+ENV UV_LINK_MODE=copy
+ENV UV_CACHE_DIR=/tmp/uv-cache
+ENV PATH="/opt/script30/.venv/bin:${PATH}"
+
+WORKDIR /workspace
+CMD ["/bin/sh"]

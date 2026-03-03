@@ -66,6 +66,7 @@ from vsevals.models import (
     VariantConfig,
     LLMResult
 )
+import shutil
 import tempfile
 
 from vsevals.patching import apply_line_range_rewrite, apply_rewrite, cleanup_overlay, materialize_overlay
@@ -840,6 +841,11 @@ def _run_patch_and_test(
         # Build isolated overlay: full repo copy + patch applied.
         overlay_root = Path(tempfile.mkdtemp(prefix="vsevals_overlay_"))
         materialize_overlay(repo_root=Path(repo_root), overlay_root=overlay_root)
+        # Copy pre-built .venv into overlay so pytest runs offline inside Docker
+        # (the container has --network none; uv run would try to fetch from PyPI).
+        repo_venv = Path(repo_root) / ".venv"
+        if repo_venv.is_dir():
+            shutil.copytree(str(repo_venv), str(overlay_root / ".venv"), symlinks=True)
         apply_rewrite(
             code=patched_content,
             target_file=target_file,

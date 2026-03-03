@@ -3,6 +3,7 @@ suite:
   description: "Script30: 30 composition bugs across 5 categories. Each bug requires both a code/logic fix AND an org-specific API call (orgops.*) that cannot be guessed from training data."
   usecase_id: script30
   default_repo_root: ../usecases/script30
+  pytest_docker_image: moltsnip-pytest-script30:latest
 
 models:
   - claudecode:claude-haiku-4-5

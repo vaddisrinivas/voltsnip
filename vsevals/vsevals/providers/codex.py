@@ -284,7 +284,7 @@ def _build_codex_invocation(
             *_APPROVAL_NEVER,
             "--sandbox", "workspace-write",
             "-c", "mcp_servers.voltsnip.command=curl",
-            "-c", f"mcp_servers.voltsnip.args=-sNX,POST,{harness_url}",
+            "-c", f'mcp_servers.voltsnip.args=["-sNX", "POST", "{harness_url}"]',
         ])
     else:
         # No-tools variants: read-only sandbox, no MCP.
@@ -337,8 +337,8 @@ def _build_codex_invocation(
         for filename, content in sidecar_files.items():
             (Path(sidecar_dir) / filename).write_text(content, encoding="utf-8")
 
-    cmd = [
-        "codex", "exec",
+    cmd = ["codex"] + _APPROVAL_NEVER + [
+        "exec",
         "--model", model_id,
         "--json",
         "--ephemeral",
@@ -347,13 +347,16 @@ def _build_codex_invocation(
     ]
     if tmp_schema:
         cmd.extend(["--output-schema", tmp_schema])
-    # Explicitly set codex's workspace root so it knows which files are in scope.
-    # -C is distinct from subprocess cwd: it tells codex's internal workspace
-    # tracker where the codebase is, so shell commands like cat/grep/find operate
-    # on the correct directory without relying on implicit cwd inference.
+
     if effective_cwd:
         cmd.extend(["-C", effective_cwd])
-    cmd.extend(extra_args)
+
+    # Add remaining flags (sandbox, config overrides, etc.)
+    # NOTE: _APPROVAL_NEVER is already in the prefix, so we skip it if present in extra_args
+    for arg in extra_args:
+        if arg not in _APPROVAL_NEVER:
+            cmd.append(arg)
+
     cmd.append(combined_prompt)
 
     LOGGER.debug(

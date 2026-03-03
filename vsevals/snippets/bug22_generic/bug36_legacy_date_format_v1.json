@@ -3,7 +3,7 @@
   "title": "Legacy billing-v1 upstream sends DD/MM/YYYY timestamps",
   "description": "The billing-v1 upstream sends event timestamps in DD/MM/YYYY format instead of ISO 8601. The parse_event_timestamp function must handle both ISO 8601 and DD/MM/YYYY to avoid losing billing events during reconciliation.",
   "language": "python",
-  "kind": "guide",
+  "kind": "snippet",
   "tags": [
     "eval-bug22",
     "error_contracts",

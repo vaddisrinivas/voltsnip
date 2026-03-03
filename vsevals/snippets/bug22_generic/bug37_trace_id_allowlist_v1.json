@@ -3,7 +3,7 @@
   "title": "trace_id is allowlisted \u2014 must NOT be redacted as PII",
   "description": "The trace_id field matches PII patterns (UUID-like strings) but is explicitly allowlisted in org policy for operational debugging. The redact_sensitive_fields function must check the allowlist BEFORE applying PII redaction to avoid stripping trace_id, which breaks distributed tracing.",
   "language": "python",
-  "kind": "guide",
+  "kind": "skill",
   "tags": [
     "eval-bug22",
     "logging_privacy",

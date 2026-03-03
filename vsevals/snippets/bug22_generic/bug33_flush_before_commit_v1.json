@@ -3,7 +3,7 @@
   "title": "Org audit pipeline requires flush(), not commit()",
   "description": "The OrgOps audit subsystem uses post-flush hooks (orgops.auditing.post_flush_hook) that read uncommitted rows from the session identity map. Calling session.commit() directly bypasses these hooks because committed rows are no longer in the identity map. All persistence operations that feed the audit trail MUST use session.flush() instead of session.commit().",
   "language": "python",
-  "kind": "guide",
+  "kind": "snippet",
   "tags": [
     "eval-bug22",
     "http_resilience",

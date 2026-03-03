@@ -3,7 +3,7 @@
   "title": "Premium tier clients get 3x burst credits on first request",
   "description": "The org rate limiting policy grants premium tier clients burst credits of 3x the base token limit (300 tokens vs 100 for standard) on their first request per window. The check_rate_limit function must differentiate between standard and premium tiers.",
   "language": "python",
-  "kind": "guide",
+  "kind": "skill",
   "tags": [
     "eval-bug22",
     "logging_privacy",

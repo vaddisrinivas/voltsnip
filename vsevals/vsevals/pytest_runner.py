@@ -69,6 +69,19 @@ def start_test_container(
     ]
     if host_workdir:
         cmd.extend(["-v", f"{host_workdir}:{workdir}"])
+    # Mount the host uv cache read-only so `uv run pytest` can resolve
+    # pure-Python packages (pytest, hatchling, etc.) offline.  The cache
+    # contains py3-none-any wheels that are platform-independent.
+    try:
+        uv_cache = subprocess.run(
+            ["uv", "cache", "dir"], capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        if uv_cache and Path(uv_cache).is_dir():
+            cmd.extend(["-v", f"{uv_cache}:{uv_cache}",
+                        "-e", f"UV_CACHE_DIR={uv_cache}"])
+            LOGGER.debug("mounting uv cache  host=%s", uv_cache)
+    except Exception:
+        pass  # uv not on PATH or cache unavailable; fall through
     cmd.extend([image, "sleep", str(timeout_seconds + 60)])
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -198,6 +211,10 @@ def _build_exec_command(*, container_name: str, test_args: list[str]) -> list[st
         f"pytest{suffix}; "
         f"elif [ -x /opt/hybrid-example/.venv/bin/pytest ]; then "
         f"/opt/hybrid-example/.venv/bin/pytest{suffix}; "
+        f"elif [ -x /opt/script30/.venv/bin/pytest ]; then "
+        f"/opt/script30/.venv/bin/pytest{suffix}; "
+        f"elif [ -x /workspace/.venv/bin/pytest ]; then "
+        f"/workspace/.venv/bin/pytest{suffix}; "
         f"else "
         f"uv run pytest{suffix}; "
         f"fi"

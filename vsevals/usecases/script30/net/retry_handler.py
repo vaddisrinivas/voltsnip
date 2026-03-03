@@ -53,11 +53,13 @@ def compute_backoff_delay(
 ) -> float:
     """Compute the delay before the next retry attempt.
 
-    BUG_41: the delay grows linearly (base_delay * attempt) instead of
-    exponentially (base_delay * 2**attempt).  The result is also not
-    capped at max_delay, so high attempt numbers can exceed the cap.
+    Uses exponential growth (base_delay * 2**attempt) and caps the delay at
+    *max_delay*.
     """
-    delay = base_delay * attempt  # BUG_41: linear backoff instead of exponential
+    delay = base_delay * (2**attempt)
+    delay = min(delay, max_delay)
+    import orgops.metrics
+    orgops.metrics.emit("retry.backoff.applied", delay)
     return delay
 
 

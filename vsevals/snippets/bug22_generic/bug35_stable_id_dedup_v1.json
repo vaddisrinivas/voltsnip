@@ -3,7 +3,7 @@
   "title": "Idempotency keys must use gateway-assigned stable_id",
   "description": "The org deduplication system requires that idempotency keys use the request.stable_id field assigned by the API gateway. Computing any hash (even deterministic ones like sha256) breaks cross-service request correlation because each service would compute different keys for the same logical request.",
   "language": "python",
-  "kind": "guide",
+  "kind": "snippet",
   "tags": [
     "eval-bug22",
     "error_contracts",

@@ -3,7 +3,7 @@
   "title": "Query deadline enforcement requires correct math AND metric emission",
   "description": "The enforce_query_deadline function must both fix the ms-to-seconds conversion (divide by 1000, not 100) AND emit a 'query.deadline.enforced' metric via orgops.metrics.emit(). The alerting system depends on this metric for operational health monitoring.",
   "language": "python",
-  "kind": "guide",
+  "kind": "skill",
   "tags": [
     "eval-bug22",
     "db_patterns",

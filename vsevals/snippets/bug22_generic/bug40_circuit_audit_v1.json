@@ -3,7 +3,7 @@
   "title": "Cache circuit breaker requires correct threshold AND audit event",
   "description": "The CacheCircuitBreaker.on_failure method must both fix the threshold comparison (>= instead of >) AND write a 'circuit_open' audit event via orgops.auditing.write_event() when the circuit transitions to open. Compliance requires an audit trail for all circuit breaker state transitions.",
   "language": "python",
-  "kind": "guide",
+  "kind": "snippet",
   "tags": [
     "eval-bug22",
     "concurrency_cache",

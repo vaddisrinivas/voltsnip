@@ -3,7 +3,7 @@
   "title": "Upstream payments service uses 503 for async acceptance",
   "description": "The payments upstream (handle_upstream_response) uses HTTP 503 non-standardly to mean 'accepted, processing asynchronously'. Retrying 503 from this specific upstream causes duplicate payment processing. The correct handling is to return an accepted_async status and poll for completion.",
   "language": "python",
-  "kind": "guide",
+  "kind": "snippet",
   "tags": [
     "eval-bug22",
     "http_resilience",
