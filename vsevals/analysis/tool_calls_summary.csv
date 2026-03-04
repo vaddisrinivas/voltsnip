@@ -1,0 +1,28 @@
+model_group,variant,state,n,mean_tool_call_count,mean_roundtrips,mean_budget_utilization
+Haiku (claude-haiku-4-5),P0,fail,72,0.0,0.0,0.0
+Haiku (claude-haiku-4-5),P1,pass,2,0.0,0.0,0.0
+Haiku (claude-haiku-4-5),P1,fail,70,0.0,0.0,0.0
+Haiku (claude-haiku-4-5),P2,pass,31,1.77,1.77,0.4435
+Haiku (claude-haiku-4-5),P2,fail,41,1.32,1.32,0.3293
+Haiku (claude-haiku-4-5),P3,pass,51,0.0,0.0,0.0
+Haiku (claude-haiku-4-5),P3,fail,21,0.0,0.0,0.0
+Haiku (claude-haiku-4-5),P4,pass,54,1.35,1.35,0.338
+Haiku (claude-haiku-4-5),P4,fail,18,0.67,0.67,0.1667
+Haiku (claude-haiku-4-5),P5,pass,52,1.23,1.23,0.3077
+Haiku (claude-haiku-4-5),P5,fail,20,1.05,1.05,0.2625
+Haiku (claude-haiku-4-5),P6,pass,47,1.21,1.21,0.3032
+Haiku (claude-haiku-4-5),P6,fail,25,0.48,0.48,0.12
+"Codex (gpt-5.1-codex-mini, all bugs)",P0,pass,3,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P0,fail,53,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P1,pass,4,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P1,fail,51,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P2,pass,21,1.38,1.38,0.3452
+"Codex (gpt-5.1-codex-mini, all bugs)",P2,fail,35,1.74,1.74,0.4357
+"Codex (gpt-5.1-codex-mini, all bugs)",P3,pass,23,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P3,fail,33,0.0,0.0,0.0
+"Codex (gpt-5.1-codex-mini, all bugs)",P4,pass,14,1.21,1.21,0.3036
+"Codex (gpt-5.1-codex-mini, all bugs)",P4,fail,42,2.38,2.38,0.5952
+"Codex (gpt-5.1-codex-mini, all bugs)",P5,pass,17,1.71,1.71,0.4265
+"Codex (gpt-5.1-codex-mini, all bugs)",P5,fail,39,3.46,3.46,0.8654
+"Codex (gpt-5.1-codex-mini, all bugs)",P6,pass,22,1.77,1.77,0.4432
+"Codex (gpt-5.1-codex-mini, all bugs)",P6,fail,33,3.27,3.27,0.8182
