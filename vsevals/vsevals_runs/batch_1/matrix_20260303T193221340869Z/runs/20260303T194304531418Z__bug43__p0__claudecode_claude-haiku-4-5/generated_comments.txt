@@ -1,0 +1,1 @@
+Changed total_timeout calculation from ct + dt + rt to max(ct, dt) + rt to treat DNS and connect as parallel operations.

@@ -1,0 +1,26 @@
+    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:
+        """Create a child context dict from *parent_context*.
+
+        The child context must carry forward both ``request_id`` and
+        ``correlation_id`` so that downstream services can correlate
+        log entries across the full request tree.
+
+        BUG_66: only copies ``request_id`` from the parent context,
+        silently dropping ``correlation_id``.  Downstream services
+        therefore lose the ability to join logs across async fan-outs.
+        """
+        from orgops.tracing import annotate_span
+
+        child = {
+            "request_id": parent_context["request_id"],
+            "correlation_id": parent_context["correlation_id"],
+        }
+
+        annotate_span("context.propagated", parent_context.get("correlation_id"))
+
+        self.propagation_log.append({
+            "parent_request_id": parent_context.get("request_id"),
+            "parent_correlation_id": parent_context.get("correlation_id"),
+            "child_keys": list(child.keys()),
+        })
+        return child

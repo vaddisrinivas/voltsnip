@@ -1,0 +1,1 @@
+Fixed inverted stale check: entry is stale when now >= entry.stale_at, changed > to <=

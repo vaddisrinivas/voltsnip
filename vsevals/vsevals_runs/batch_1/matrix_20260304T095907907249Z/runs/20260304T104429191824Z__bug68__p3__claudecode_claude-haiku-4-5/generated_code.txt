@@ -1,0 +1,28 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a copy of *data* with sensitive values redacted.
+
+        Recursively walks nested dicts and replaces values whose keys match
+        the sensitive-key set with REDACTED_PLACEHOLDER.
+        """
+        from orgops import auditing
+        
+        def _redact_recursive(obj: Any) -> tuple[Any, int]:
+            """Recursively redact sensitive keys and return (redacted_obj, count)."""
+            if not isinstance(obj, dict):
+                return obj, 0
+            
+            result: dict[str, Any] = {}
+            count = 0
+            for key, value in obj.items():
+                if key.lower() in self.sensitive_keys:
+                    result[key] = REDACTED_PLACEHOLDER
+                    count += 1
+                else:
+                    redacted_value, sub_count = _redact_recursive(value)
+                    result[key] = redacted_value
+                    count += sub_count
+            return result, count
+        
+        result, count = _redact_recursive(data)
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

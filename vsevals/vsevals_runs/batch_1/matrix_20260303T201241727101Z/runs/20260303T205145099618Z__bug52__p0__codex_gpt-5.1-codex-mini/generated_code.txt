@@ -1,0 +1,1 @@
+    return expected_type.casefold() == actual_type.casefold()

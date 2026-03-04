@@ -1,0 +1,1 @@
+Fixed sampling rate calculation to use round() for decimal precision and added metric emission via orgops.metrics.emit().

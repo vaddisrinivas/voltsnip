@@ -1,0 +1,1 @@
+Return False unless the entry is stale, emitting the refresh metric before signalling a refresh is needed.

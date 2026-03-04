@@ -1,0 +1,1 @@
+Release the savepoint after rollback and annotate the span to capture the rollback event.

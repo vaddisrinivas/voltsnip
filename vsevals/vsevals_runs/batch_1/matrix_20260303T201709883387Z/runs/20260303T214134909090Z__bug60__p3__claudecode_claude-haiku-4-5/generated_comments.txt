@@ -1,0 +1,1 @@
+Changed return [error] to errors.append(error) to collect all errors; added orgops.compliance.record_decision() call.

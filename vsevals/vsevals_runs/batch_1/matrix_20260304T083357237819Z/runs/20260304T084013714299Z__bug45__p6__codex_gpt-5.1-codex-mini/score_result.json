@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug45_chain_range_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug45_chain_range_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses range(len(chain) - 1) for the loop (checking all adjacent pairs from index 0 to len(chain)-2) AND records a compliance decision via orgops.compliance.record_decision('tls.chain.validated', ...) with depth=len(chain) included in the decision payload. The _record_decision helper ensures this is called for all code paths.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results and records\\n    the tls.chain.validated compliance decision.\\n    \\\"\\\"\\\"\\n    from orgops.compliance import record_decision\\n\\n    def _record_decision(summary: dict[str, Any]) -> dict[str, Any]:\\n        record_decision(\\n            \\\"tls.chain.validated\\\",\\n            {\\\"valid\\\": summary[\\\"valid\\\"], \\\"depth\\\": summary[\\\"depth\\\"]},\\n        )\\n        return summary\\n\\n    if not chain:\\n        return _record_decision(\\n            {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n        )\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return _record_decision(\\n            {\\n                \\\"valid\\\": is_valid,\\n                \\\"depth\\\": 1,\\n                \\\"self_signed\\\": True,\\n                \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n            }\\n        )\\n\\n    errors: list[str] = []\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    summary = {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n    return _record_decision(summary)\", \"comments\": \"Range now covers every adjacent certificate pair and the compliance decision is recorded via orgops.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+  },
+  "judge_raw_response": "Looking at this candidate code, I need to verify two things:\n\n1. **Correct loop range**: Does it use `range(len(chain) - 1)` instead of `range(1, len(chain))`?\n2. **Compliance decision recorded**: Does it call `orgops.compliance.record_decision()` with \"tls.chain.validated\" and depth information?\n\nLet me analyze the code:\n\n**Loop Range Check:**\n```python\nfor i in range(len(chain) - 1):\n    expected = chain[i].issuer\n    actual = chain[i + 1].subject\n```\n✓ The loop uses `range(len(chain) - 1)`, which is correct. This iterates from `i=0` to `i=len(chain)-2`, checking each adjacent pair `(chain[i], chain[i+1])`.\n\n**Compliance Recording Check:**\n```python\nfrom orgops.compliance import record_decision\n\ndef _record_decision(summary: dict[str, Any]) -> dict[str, Any]:\n    record_decision(\n        \"tls.chain.validated\",\n        {\"valid\": summary[\"valid\"], \"depth\": summary[\"depth\"]},\n    )\n    return summary\n```\n✓ The code imports `record_decision` from `orgops.compliance`\n✓ It calls `record_decision(\"tls.chain.validated\", {...})` \n✓ The decision payload includes `\"depth\": summary[\"depth\"]` where `summary[\"depth\"]` is set to `len(chain)` in the multi-cert case\n✓ The `_record_decision` helper is called in all return paths (empty chain, single cert, and multi-cert cases)\n\nBoth requirements are satisfied.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses range(len(chain) - 1) for the loop (checking all adjacent pairs from index 0 to len(chain)-2) AND records a compliance decision via orgops.compliance.record_decision('tls.chain.validated', ...) with depth=len(chain) included in the decision payload. The _record_decision helper ensures this is called for all code paths.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

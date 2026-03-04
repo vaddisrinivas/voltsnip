@@ -1,0 +1,1 @@
+Use round(..., 2) so compute_sample_rate preserves two-decimal precision in logged history and the returned value.

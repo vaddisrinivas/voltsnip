@@ -1,0 +1,44 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_bug_50_join_cost_and_metric _______________________
+
+    def test_bug_50_join_cost_and_metric() -> None:
+        """estimate_join_cost must:
+        1. Apply selectivity exactly once: left_rows * right_rows * selectivity
+           (NOT left_rows * right_rows * selectivity * selectivity).
+        2. Emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+        planner = QueryPlanner()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+>           cost = planner.estimate_join_cost(
+                left_rows=1000,
+                right_rows=500,
+                selectivity=0.1,
+            )
+
+tests/unit/test_bug50.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <data.query_planner.QueryPlanner object at 0xffff86c0e1e0>
+left_rows = 1000, right_rows = 500, selectivity = 0.1
+
+    def estimate_join_cost(
+        self,
+        left_rows: int,
+        right_rows: int,
+        selectivity: float,
+    ) -> float:
+        """Estimate the output cardinality for a join operation.
+    
+        The formula is:  left_rows * right_rows * selectivity
+        Emits the query.plan.estimated_cost metric for observability.
+        """
+>       from data.metrics import emit_metric
+E       ModuleNotFoundError: No module named 'data.metrics'
+
+data/query_planner.py:45: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug50.py::test_bug_50_join_cost_and_metric - ModuleNot...
+1 failed in 0.11s

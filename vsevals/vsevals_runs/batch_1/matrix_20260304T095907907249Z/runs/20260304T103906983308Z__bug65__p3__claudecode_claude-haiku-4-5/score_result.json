@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug65_email_plus_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug65_email_plus_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The regex is updated to include '+' (r\"[\\w.+]+@[\\w.]+\"), so plus-addressed emails would be matched, but the code does not call orgops.compliance.record_decision(\"pii.sanitized\", field_count=count); it only appends to self._history.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: Fixed regex to include + in local-part character class\\n        email_pattern = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_pattern.sub(_REDACTED_EMAIL, text)\\n        count = len(email_pattern.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Fixed email regex pattern to include + character in local-part character class so plus-addressed emails like user+tag@domain.com are properly redacted.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The regex is updated to include '+' (r\\\"[\\\\w.+]+@[\\\\w.]+\\\"), so plus-addressed emails would be matched, but the code does not call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count); it only appends to self._history.\"}]}",
+  "passed": false
+}

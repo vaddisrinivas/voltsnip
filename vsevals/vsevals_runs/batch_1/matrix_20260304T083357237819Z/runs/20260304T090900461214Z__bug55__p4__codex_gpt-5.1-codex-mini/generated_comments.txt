@@ -1,0 +1,1 @@
+Switches the threshold comparison so the guard only refreshes when close to expiry and adds a best-effort emission of the cache.stampede.prevented metric.

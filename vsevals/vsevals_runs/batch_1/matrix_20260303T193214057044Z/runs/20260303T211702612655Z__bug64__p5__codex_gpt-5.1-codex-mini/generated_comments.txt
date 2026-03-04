@@ -1,0 +1,1 @@
+Compound the timeout using multiplier**attempt, cap it, emit the timeout.escalated metric, and keep the existing history/return values.

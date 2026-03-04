@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug64_compound_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug64_compound_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug64_compound_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug64_compound_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug64_compound_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug64_compound_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code compounds the timeout correctly using original_ms * (multiplier ** attempt), but it does not emit any metric via orgops.metrics.emit(), nor a timeout.escalated metric with the computed value.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug64/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\", \"comments\": \"Fixed timeout escalation to compound with each attempt using exponential formula (original_ms * (multiplier ** attempt)) instead of constant multiplier.\"}, \"constraints\": [{\"id\": \"bug64_compound_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug64/scenario_context/v1\", \"check\": \"Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code compounds the timeout correctly using original_ms * (multiplier ** attempt), but it does not emit any metric via orgops.metrics.emit(), nor a timeout.escalated metric with the computed value.\"}]}",
+  "passed": false
+}

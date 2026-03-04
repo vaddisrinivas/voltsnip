@@ -1,0 +1,1 @@
+Replace int() truncation with round(..., 2) to preserve decimal precision for correct sampling rate calculation.

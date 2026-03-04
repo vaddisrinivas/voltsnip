@@ -1,0 +1,1 @@
+Fix parallel DNS/connect overlap: use max(ct, dt) + rt instead of sequential sum, and annotate span for observability tracing.

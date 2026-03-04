@@ -1,0 +1,1 @@
+Fixed timeout calculation to use max(connect, dns) for parallel overlap instead of sequential sum, and added trace annotation for observability platform correlation.

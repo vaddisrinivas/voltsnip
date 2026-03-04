@@ -1,0 +1,1 @@
+Use round() for two-decimal precision and emit the log.sampling.rate metric after computing the rate.

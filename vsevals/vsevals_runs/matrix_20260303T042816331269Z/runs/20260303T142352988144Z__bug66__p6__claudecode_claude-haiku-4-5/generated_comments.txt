@@ -1,0 +1,1 @@
+Fixed by copying both request_id and correlation_id to child context, and annotating trace span via orgops.tracing.annotate_span for observability of async propagation.

@@ -1,0 +1,1 @@
+Convert interval_seconds to milliseconds by multiplying by 1000 before passing to _start_timer.

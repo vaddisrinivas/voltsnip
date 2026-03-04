@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T222616266653Z__bug68__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 52625,
+    "prompt_chars": 5373,
+    "output_chars": 2033,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4323,
+    "snippet_injected_chars": 3256,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 52496,
+    "model_request_started_at": "2026-03-03T22:26:16.288144Z",
+    "model_request_finished_at": "2026-03-03T22:27:08.784565Z",
+    "model_request_id": "4124b2d2-b320-40cf-b223-5f71dbc17401",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2097,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 2,
+      "total_tokens": 20,
+      "cached_tokens": 8579,
+      "thinking_tokens": null,
+      "cost_usd": 0.00069432
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The helper _redact_recursive recurses into nested dict values and replaces any key whose lowercased name is in self.sensitive_keys with REDACTED_PLACEHOLDER, accumulating a total redaction count across all depths. After recursion, it calls orgops.auditing.write_event(\"redaction.applied\", keys_redacted=total_count), passing the total count.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a copy of *data* with sensitive values redacted.\\n\\n        Recursively walks nested dicts and replaces values whose keys match\\n        sensitive_keys with REDACTED_PLACEHOLDER. Emits an audit event\\n        recording the total number of keys redacted.\\n        \\\"\\\"\\\"\\n        import orgops.auditing\\n        \\n        def _redact_recursive(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in obj.items():\\n                if key.lower() in self.sensitive_keys:\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    nested_result, nested_count = _redact_recursive(value)\\n                    result[key] = nested_result\\n                    count += nested_count\\n                else:\\n                    result[key] = value\\n            return result, count\\n        \\n        result, total_count = _redact_recursive(data)\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=total_count)\\n        return result\", \"comments\": \"Added recursive traversal of nested dicts to redact all matching keys at any depth, and emit audit event recording total redactions.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The helper _redact_recursive recurses into nested dict values and replaces any key whose lowercased name is in self.sensitive_keys with REDACTED_PLACEHOLDER, accumulating a total redaction count across all depths. After recursion, it calls orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=total_count), passing the total count.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.45s\n",
+    "stderr": "",
+    "duration_ms": 2800,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

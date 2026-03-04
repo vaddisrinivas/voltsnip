@@ -1,0 +1,1 @@
+Collect all validation failures instead of short-circuiting so callers get the full list.

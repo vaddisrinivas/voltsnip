@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly implements numeric version comparison using int() via the numeric_key function. However, it does NOT call orgops.auditing.write_event('migration.applied', version=version) as required. Instead, it uses a generic audit_logger with record/log methods obtained from self.audit_log. The constraint explicitly requires both numeric comparison AND the specific orgops.auditing.write_event call, so this fails the requirement.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\\"\\\"\\\"\\n        def numeric_key(value: Any) -> tuple[int, ...]:\\n            return tuple(int(part) for part in str(value).split(\\\".\\\"))\\n\\n        audit_logger = getattr(self, \\\"audit_log\\\", None)\\n        log_method = None\\n        if audit_logger is not None:\\n            log_method = getattr(audit_logger, \\\"record\\\", None) or getattr(\\n                audit_logger, \\\"log\\\", None\\n            )\\n\\n        def record_applied(version: str) -> None:\\n            if log_method:\\n                log_method(version)\\n\\n        applied_keys = {numeric_key(v) for v in self.applied_versions}\\n        for migration in self.available_migrations:\\n            version_str = str(migration[\\\"version\\\"])\\n            if numeric_key(version_str) in applied_keys:\\n                record_applied(version_str)\\n\\n        if not applied_keys:\\n            return sorted(\\n                self.available_migrations, key=lambda m: numeric_key(m[\\\"version\\\"])\\n            )\\n\\n        max_applied = max(applied_keys)\\n        pending = [\\n            m\\n            for m in self.available_migrations\\n            if numeric_key(m[\\\"version\\\"]) > max_applied\\n        ]\\n        return sorted(pending, key=lambda m: numeric_key(m[\\\"version\\\"]))\", \"comments\": \"Sort versions numerically and, when an audit logger exists, emit records for already applied migrations while leaving pending logic otherwise unchanged.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly implements numeric version comparison using int() via the numeric_key function. However, it does NOT call orgops.auditing.write_event('migration.applied', version=version) as required. Instead, it uses a generic audit_logger with record/log methods obtained from self.audit_log. The constraint explicitly requires both numeric comparison AND the specific orgops.auditing.write_event call, so this fails the requirement.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

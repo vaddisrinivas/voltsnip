@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T214928071754Z__bug69__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG69",
+  "task_name": "audit_timestamp_local_not_utc_and_compliance",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 67810,
+    "prompt_chars": 7797,
+    "output_chars": 1121,
+    "prompt_system_chars": 4050,
+    "prompt_user_chars": 3747,
+    "snippet_injected_chars": 2377,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 41,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 67750,
+    "model_request_started_at": "2026-03-03T21:49:28.132340Z",
+    "model_request_finished_at": "2026-03-03T21:50:35.882627Z",
+    "model_request_id": "b35af918-0f31-4b36-acd6-5782a114e93a",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1469,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug69_utc_timestamp_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug69_utc_timestamp_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code sets ts = datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) and calls orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug69/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def create_audit_entry(\\n        self,\\n        event: str,\\n        user_id: str,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a new audit entry and append it to the trail.\\n\\n        BUG_69: uses ``datetime.now()`` which returns local time that\\n        varies across deployment regions.  Audit entries from us-east-1\\n        and eu-west-1 become incomparable.  Must use\\n        ``datetime.now(timezone.utc)`` so all entries share a single\\n        reference clock.\\n        \\\"\\\"\\\"\\n        # BUG_69: local time -- non-deterministic across regions\\n        ts = datetime.now(timezone.utc)\\n        entry: dict[str, Any] = {\\n            \\\"event\\\": event,\\n            \\\"user_id\\\": user_id,\\n            \\\"timestamp\\\": ts.isoformat(),\\n            \\\"utc\\\": True,\\n        }\\n        self.entries.append(entry)\\n        orgops.compliance.record_decision(\\\"audit.timestamp.normalized\\\", source_tz=\\\"UTC\\\")\\n        return entry\", \"comments\": \"Fixed timestamp to use UTC-aware datetime.now(timezone.utc) and added orgops.compliance.record_decision() call for audit trail normalization\"}, \"constraints\": [{\"id\": \"bug69_utc_timestamp_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug69/scenario_context/v1\", \"check\": \"UTC timestamp via datetime.now(timezone.utc) AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both use datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) for the audit timestamp AND record a compliance decision with \\\"audit.timestamp.normalized\\\" and source_tz=\\\"UTC\\\" via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code sets ts = datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) and calls orgops.compliance.record_decision(\\\"audit.timestamp.normalized\\\", source_tz=\\\"UTC\\\").\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_69_audit_utc_and_compliance _____________________\n\n    def test_bug_69_audit_utc_and_compliance() -> None:\n        \"\"\"create_audit_entry must:\n        1. Use datetime.now(timezone.utc) so the timestamp is UTC,\n           not local time from datetime.now().\n        2. Record a compliance decision via orgops.compliance.record_decision()\n           with decision_type=\"audit.timestamp.normalized\" and source_tz=\"UTC\".\n        Both are required -- fixing only the timestamp is insufficient.\n        \"\"\"\n        from logops.audit_trail import AuditTrail\n    \n        trail = AuditTrail()\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n>           entry = trail.create_audit_entry(\n                event=\"user.login\",\n                user_id=\"usr_42\",\n            )\n\ntests/unit/test_bug69.py:21: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = AuditTrail(entries=[]), event = 'user.login', user_id = 'usr_42'\n\n    def create_audit_entry(\n        self,\n        event: str,\n        user_id: str,\n    ) -> dict[str, Any]:\n        \"\"\"Create a new audit entry and append it to the trail.\n    \n        BUG_69: uses ``datetime.now()`` which returns local time that\n        varies across deployment regions.  Audit entries from us-east-1\n        and eu-west-1 become incomparable.  Must use\n        ``datetime.now(timezone.utc)`` so all entries share a single\n        reference clock.\n        \"\"\"\n        # BUG_69: local time -- non-deterministic across regions\n>       ts = datetime.now(timezone.utc)\n                          ^^^^^^^^\nE       NameError: name 'timezone' is not defined\n\nlogops/audit_trail.py:36: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance - NameE...\n1 failed in 0.36s\n",
+    "stderr": "",
+    "duration_ms": 2291,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

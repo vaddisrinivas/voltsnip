@@ -1,0 +1,1 @@
+Fix the off-by-one capacity guard and emit the dlq.capacity.warning alert once utilization reaches 80%.

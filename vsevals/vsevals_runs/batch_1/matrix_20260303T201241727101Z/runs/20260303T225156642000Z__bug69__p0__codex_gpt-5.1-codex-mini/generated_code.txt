@@ -1,0 +1,10 @@
+        # BUG_69: ensure UTC so entries are comparable across regions
+        ts = datetime.now(__import__("datetime").timezone.utc)
+        entry: dict[str, Any] = {
+            "event": event,
+            "user_id": user_id,
+            "timestamp": ts.isoformat(),
+            "utc": True,
+        }
+        self.entries.append(entry)
+        return entry

@@ -1,0 +1,1 @@
+Fixed parallel timeout overlap: max(connect, dns) + read, and added required tracing annotation for observability.

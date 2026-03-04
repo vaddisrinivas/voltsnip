@@ -1,0 +1,1 @@
+Ensure each fallback gets the shared context and annotate the span before invoking it.

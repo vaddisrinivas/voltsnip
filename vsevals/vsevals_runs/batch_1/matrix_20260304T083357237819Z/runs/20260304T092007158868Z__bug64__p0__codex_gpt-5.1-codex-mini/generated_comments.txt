@@ -1,0 +1,1 @@
+Use the compounded multiplier (multiplier ** attempt) when computing the escalated timeout so retries grow exponentially before capping.

@@ -1,0 +1,20 @@
+        score = access_count / (1 + age_hours)
+
+        metric_name = "cache.eviction.lfu"
+        if not hasattr(self, "_lfu_metric_emitter"):
+            try:
+                import cache.metrics as cache_metrics
+            except ImportError:
+                emitter = None
+            else:
+                emitter = (
+                    getattr(cache_metrics, "emit_metric", None)
+                    or getattr(cache_metrics, "record_metric", None)
+                    or getattr(cache_metrics, "emit", None)
+                )
+            self._lfu_metric_emitter = emitter
+        emitter = self._lfu_metric_emitter
+        if emitter:
+            emitter(metric_name, score)
+
+        return float(score)

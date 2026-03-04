@@ -1,0 +1,1 @@
+Ensure compute_ttl_with_jitter spreads expiries forward by adding jitter and reporting the cache.ttl.jittered metric when a metrics client is wired in.

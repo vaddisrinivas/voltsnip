@@ -1,0 +1,1 @@
+Fixes BUG_58 by using the proper modulus so partition IDs stay within range and avoid cache.partition.skew degradation.

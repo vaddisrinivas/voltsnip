@@ -1,0 +1,1 @@
+Replenish the budget when success occurs and emit the retry budget consumption metric every time.

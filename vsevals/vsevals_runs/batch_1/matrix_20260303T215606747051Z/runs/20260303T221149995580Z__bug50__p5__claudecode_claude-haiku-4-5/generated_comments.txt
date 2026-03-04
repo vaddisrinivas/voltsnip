@@ -1,0 +1,1 @@
+Apply selectivity exactly once (removed double multiplication) and emit query.plan.estimated_cost metric for optimizer dashboard monitoring.

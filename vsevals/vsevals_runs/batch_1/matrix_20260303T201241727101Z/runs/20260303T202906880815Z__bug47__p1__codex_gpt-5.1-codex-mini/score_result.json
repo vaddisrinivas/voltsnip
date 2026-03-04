@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug47_lru_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug47_lru_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug47_lru_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug47_lru_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug47_lru_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug47_lru_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes the LRU eviction bug by finding and removing the connection with the minimum last_used_at timestamp (using min() with a key function), but it does NOT emit a pool.connection.evicted metric via orgops.metrics.emit(). The code calculates idle_seconds but never calls any metrics emission function. Since the constraint requires BOTH LRU eviction AND metric emission, this fails.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\\n        lru_index = min(range(len(self.connections)), key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_index)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        return evicted\", \"comments\": \"Switch evict_idle to remove the connection with the smallest last_used_at timestamp so eviction follows LRU instead of FIFO.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the LRU eviction bug by finding and removing the connection with the minimum last_used_at timestamp (using min() with a key function), but it does NOT emit a pool.connection.evicted metric via orgops.metrics.emit(). The code calculates idle_seconds but never calls any metrics emission function. Since the constraint requires BOTH LRU eviction AND metric emission, this fails.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,7 @@
+        """Return the partition ID for *key*.
+
+        Uses ``hash(key) % num_partitions`` so the result stays in ``0 .. num_partitions - 1``.
+        """
+        n = num_partitions if num_partitions is not None else self._config.num_partitions
+        partition_id = _stable_hash(key) % n
+        return partition_id

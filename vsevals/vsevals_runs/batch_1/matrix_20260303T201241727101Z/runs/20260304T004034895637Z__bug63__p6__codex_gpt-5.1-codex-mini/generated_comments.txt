@@ -1,0 +1,1 @@
+Adjusted the capacity guard to >= and added an 80% utilization alert via orgops.alerts.notify.

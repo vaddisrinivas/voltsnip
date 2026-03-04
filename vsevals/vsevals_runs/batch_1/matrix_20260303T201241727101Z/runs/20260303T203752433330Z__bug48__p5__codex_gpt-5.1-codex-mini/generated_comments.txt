@@ -1,0 +1,1 @@
+Ensures pending migrations use numeric version comparison to avoid lexicographic ordering.

@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug57_interval_units_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug57_interval_units_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000), satisfying the first requirement. However, it does NOT write an audit event via orgops.auditing.write_event(). Instead, it creates a local dictionary named 'audit_event' with event type 'write_behind.flush_scheduled' and returns it, but never calls orgops.auditing.write_event() to actually write the event. The constraint requires both conditions to be met.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: ensure we convert seconds to milliseconds before starting the timer\\n        so the configured interval is honored.\\\"\\\"\\\"\\n        interval_ms = interval_seconds * 1000\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=lambda: self._do_flush(buffer),\\n        )\\n        audit_event = {\\n            \\\"event\\\": \\\"write_behind.flush_scheduled\\\",\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"interval_ms\\\": interval_ms,\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n            \\\"audit_event\\\": audit_event,\\n        }\\n\", \"comments\": \"Convert the timer interval to milliseconds and capture the flush schedule as an audit event before returning.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000), satisfying the first requirement. However, it does NOT write an audit event via orgops.auditing.write_event(). Instead, it creates a local dictionary named 'audit_event' with event type 'write_behind.flush_scheduled' and returns it, but never calls orgops.auditing.write_event() to actually write the event. The constraint requires both conditions to be met.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

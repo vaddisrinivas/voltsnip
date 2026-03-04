@@ -1,0 +1,1 @@
+Changed comparison operator from > to < so early refresh triggers when ratio is LOW (close to expiry), not HIGH (far from expiry).

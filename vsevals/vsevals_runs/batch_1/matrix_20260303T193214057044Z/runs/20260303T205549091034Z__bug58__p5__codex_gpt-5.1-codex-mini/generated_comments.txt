@@ -1,0 +1,1 @@
+Fixes BUG_58 by computing partition IDs modulo the actual partition count, keeping results within range.

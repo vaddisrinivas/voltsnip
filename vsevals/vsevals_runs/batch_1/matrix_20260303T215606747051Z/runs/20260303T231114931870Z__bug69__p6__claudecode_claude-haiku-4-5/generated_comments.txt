@@ -1,0 +1,1 @@
+Changed to datetime.now(timezone.utc) for UTC timestamps and added orgops.compliance.record_decision() for SOC2 audit trail compliance verification.

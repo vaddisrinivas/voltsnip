@@ -1,0 +1,1 @@
+Compare versions numerically when selecting pending migrations so higher-digit releases aren’t skipped.

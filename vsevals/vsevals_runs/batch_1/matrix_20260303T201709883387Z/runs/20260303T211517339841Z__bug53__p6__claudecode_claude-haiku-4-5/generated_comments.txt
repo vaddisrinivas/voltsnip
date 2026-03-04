@@ -1,0 +1,1 @@
+Clamp effective_timeout to minimum 1ms and annotate trace span via orgops.tracing.annotate_span to prevent negative timeouts and enable observability.

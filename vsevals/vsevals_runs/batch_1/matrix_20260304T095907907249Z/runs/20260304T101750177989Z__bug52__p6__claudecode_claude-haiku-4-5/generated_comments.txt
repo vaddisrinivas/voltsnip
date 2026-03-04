@@ -1,0 +1,1 @@
+Made type comparison case-insensitive by converting both strings to uppercase, resolving false mismatches across database engines that return types in different cases.

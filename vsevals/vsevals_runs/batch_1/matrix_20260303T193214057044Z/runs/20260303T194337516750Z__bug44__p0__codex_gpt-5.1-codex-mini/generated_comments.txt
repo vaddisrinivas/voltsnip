@@ -1,0 +1,1 @@
+flip the stale comparison so entries are refreshed once their stale_at timestamp is reached or passed

@@ -1,0 +1,1 @@
+Accumulate every validation failure so the validation.completed compliance decision sees the complete error list.

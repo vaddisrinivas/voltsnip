@@ -1,0 +1,6 @@
+        # BUG_44: inverted stale check -- returns True when NOT stale
+        should_refresh = entry.stale_at <= now
+        if should_refresh:
+            import orgops.metrics
+            orgops.metrics.emit("dns.cache.refresh")
+        return should_refresh

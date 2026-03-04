@@ -1,0 +1,4 @@
+    exceeded = measured_lag_ms > threshold_ms
+    if exceeded:
+        import orgops
+        orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms)

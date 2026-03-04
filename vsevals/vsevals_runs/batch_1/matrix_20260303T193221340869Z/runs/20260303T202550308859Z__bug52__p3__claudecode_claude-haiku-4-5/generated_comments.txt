@@ -1,0 +1,1 @@
+Changed comparison to case-insensitive using .upper() and added compliance decision recording on match.

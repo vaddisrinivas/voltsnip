@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_65_email_plus_and_compliance _____________________
+
+    def test_bug_65_email_plus_and_compliance() -> None:
+        """sanitize_email must:
+        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in
+           addition to plain emails.  The buggy regex ``[\\w.]+@[\\w.]+``
+           misses the ``+`` in the local-part character class.
+        2. Record a compliance decision via
+           orgops.compliance.record_decision("pii.sanitized", field_count=N)
+           where N is the number of emails redacted.
+    
+        Both the regex fix AND the compliance call are required -- fixing
+        only the regex is insufficient.
+        """
+>       from logops.sanitizer import PiiSanitizer
+E         File "/workspace/logops/sanitizer.py", line 65
+E           email_re = re.compile(r"[\w.+]+@[\w.]+")
+E       IndentationError: unexpected indent
+
+tests/unit/test_bug65.py:20: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance -   Fi...
+1 failed in 0.27s

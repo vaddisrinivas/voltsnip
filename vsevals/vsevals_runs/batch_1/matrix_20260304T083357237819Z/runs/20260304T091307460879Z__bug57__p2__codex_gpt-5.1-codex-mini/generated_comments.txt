@@ -1,0 +1,1 @@
+Pass interval_ms to the timer and emit a cache.flush.completed audit event right after scheduling.

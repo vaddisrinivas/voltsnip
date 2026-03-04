@@ -1,0 +1,16 @@
+def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:
+    """Check whether replication lag (in milliseconds) is within the acceptable threshold."""
+    exceeded = measured_lag_ms > threshold_ms
+    if exceeded:
+        from orgops import alerts
+
+        alerts.notify(
+            "Replication lag exceeded threshold",
+            measured_lag_ms=measured_lag_ms,
+            threshold_ms=threshold_ms,
+        )
+    return {
+        "measured_lag_ms": measured_lag_ms,
+        "threshold_ms": threshold_ms,
+        "exceeded": exceeded,
+    }

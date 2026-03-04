@@ -1,0 +1,1 @@
+Fix inverted comparison: change > to <= so entries are stale when now >= stale_at

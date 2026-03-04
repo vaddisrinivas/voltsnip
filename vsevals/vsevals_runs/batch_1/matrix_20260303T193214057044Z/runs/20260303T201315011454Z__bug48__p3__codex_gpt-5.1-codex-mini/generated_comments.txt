@@ -1,0 +1,1 @@
+Compare versions using ints so ordering is numeric and pending detection works correctly.

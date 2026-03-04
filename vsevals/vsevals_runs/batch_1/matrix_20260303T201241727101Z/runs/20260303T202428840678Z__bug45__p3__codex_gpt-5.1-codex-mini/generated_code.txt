@@ -1,0 +1,19 @@
+    import orgops.compliance
+
+    errors: list[str] = []
+    for i in range(len(chain) - 1):
+        expected = chain[i].issuer
+        actual = chain[i + 1].subject
+        if expected != actual:
+            errors.append(
+                f"break at {i}: issuer={expected!r} != subject={actual!r}"
+            )
+
+    is_valid = len(errors) == 0
+    orgops.compliance.record_decision("tls.chain.validated", depth=len(chain))
+    return {
+        "valid": is_valid,
+        "depth": len(chain),
+        "errors": errors,
+        "root_self_signed": _is_self_signed(chain[-1]),
+    }

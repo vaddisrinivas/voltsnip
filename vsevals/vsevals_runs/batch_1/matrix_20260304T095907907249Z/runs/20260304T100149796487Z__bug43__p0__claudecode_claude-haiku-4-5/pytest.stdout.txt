@@ -1,0 +1,52 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_43_pool_timeout_and_trace ______________________
+
+    def test_bug_43_pool_timeout_and_trace() -> None:
+        """calculate_effective_timeout must:
+        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read
+           (NOT connect + dns + read).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("pool.timeout.adjusted", total_timeout).
+        Both are required -- fixing only the math is insufficient.
+        """
+        from net.request_pool import RequestPool
+    
+        pool = RequestPool(connect_timeout=5.0, dns_timeout=2.0, read_timeout=30.0)
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+            result = pool.calculate_effective_timeout(
+                connect_timeout=5.0,
+                dns_timeout=2.0,
+                read_timeout=30.0,
+            )
+    
+        # Correct timeout: max(5.0, 2.0) + 30.0 = 35.0 (not 5.0 + 2.0 + 30.0 = 37.0)
+        assert result == 35.0, (
+            f"Expected max(connect, dns) + read = 35.0, got {result}. "
+            "DNS and connect happen in parallel, not sequentially."
+        )
+    
+        # Must also annotate the trace span
+>       mock_annotate.assert_called_once()
+
+tests/unit/test_bug43.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='annotate_span' id='281473018445552'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'annotate_span' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace - Asserti...
+1 failed in 0.23s

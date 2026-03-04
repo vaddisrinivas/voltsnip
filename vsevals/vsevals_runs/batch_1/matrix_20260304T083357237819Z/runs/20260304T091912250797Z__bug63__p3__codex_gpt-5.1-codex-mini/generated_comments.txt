@@ -1,0 +1,1 @@
+Prevent enqueue overflow and emit the DLQ capacity warning when utilization hits 80%.

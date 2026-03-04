@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug60_all_errors_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug60_all_errors_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The loop appends each non-None field error to an errors list without early return, thereby collecting all errors, and it calls orgops.compliance.record_decision(\"validation.completed\", error_count=len(errors)) before returning.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_payload(\\n    payload: dict[str, Any],\\n    schema: Sequence[SchemaRule],\\n) -> list[ValidationError]:\\n    \\\"\\\"\\\"Validate *payload* against every rule in *schema*.\\n\\n    BUG_60: the function returns on the first error instead of collecting\\n    ALL errors across every field.  Callers expect the complete error list\\n    so they can present all problems to the user at once.\\n    \\\"\\\"\\\"\\n    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\", \"comments\": \"Collect all validation errors instead of short-circuiting on first error, then record compliance decision with error count.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The loop appends each non-None field error to an errors list without early return, thereby collecting all errors, and it calls orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors)) before returning.\"}]}",
+  "passed": true
+}

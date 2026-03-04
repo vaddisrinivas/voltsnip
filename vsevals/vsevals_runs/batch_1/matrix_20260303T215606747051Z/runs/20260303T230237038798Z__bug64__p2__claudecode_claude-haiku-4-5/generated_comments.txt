@@ -1,0 +1,1 @@
+Fix compound timeout calculation from original_ms * multiplier to original_ms * (multiplier ** attempt) and emit timeout.escalated metric for alerting system monitoring.

@@ -1,0 +1,1 @@
+Clamp probe allowance to the configured maximum and report the half-open degradation when that limit is reached.

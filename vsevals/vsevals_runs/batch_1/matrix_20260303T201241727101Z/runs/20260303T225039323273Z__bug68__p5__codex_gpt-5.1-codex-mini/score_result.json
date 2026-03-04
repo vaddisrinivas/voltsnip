@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation recursively walks nested dictionaries via the walk() function, checking each key with self.is_sensitive() and redacting at any depth. It tracks the total count of redacted keys in a nonlocal variable, then calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) after the walk completes. Both requirements are satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Return a deep copy of *data* with sensitive values redacted and log the audit event.\\\"\\\"\\\"\\n        count = 0\\n\\n        def walk(node: Any) -> Any:\\n            nonlocal count\\n            if isinstance(node, dict):\\n                nested: dict[str, Any] = {}\\n                for nested_key, nested_value in node.items():\\n                    if self.is_sensitive(nested_key):\\n                        nested[nested_key] = REDACTED_PLACEHOLDER\\n                        count += 1\\n                    else:\\n                        nested[nested_key] = walk(nested_value)\\n                return nested\\n            if isinstance(node, list):\\n                return [walk(element) for element in node]\\n            return node\\n\\n        result = walk(data)\\n        from orgops import auditing\\n        auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\", \"comments\": \"Recursively redact nested dictionaries and report the total key count to the audit log.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation recursively walks nested dictionaries via the walk() function, checking each key with self.is_sensitive() and redacting at any depth. It tracks the total count of redacted keys in a nonlocal variable, then calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) after the walk completes. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

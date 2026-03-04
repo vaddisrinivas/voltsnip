@@ -1,0 +1,1 @@
+Decode base64 segments and re-scan for secrets, then notify alerts for each finding to enable security dashboard monitoring.

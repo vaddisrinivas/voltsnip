@@ -1,0 +1,1 @@
+Fixed timer interval unit conversion from seconds to milliseconds and added flush audit event emission.

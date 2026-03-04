@@ -1,0 +1,39 @@
+    def escalate_timeout(
+        self,
+        original_ms: float,
+        attempt: int,
+        multiplier: float = 1.5,
+    ) -> dict[str, Any]:
+        """Compute the escalated timeout for *attempt*.
+
+        The timeout compounds via ``original_ms * (multiplier ** attempt)``
+        and a ``timeout.escalated`` metric is emitted so callers can
+        monitor how long the next attempt will wait.
+        """
+        from orgops.metrics import emit as emit_timeout_metric
+
+        new_timeout_ms = original_ms * (multiplier ** attempt)
+        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)
+        capped = new_timeout_ms >= self.ceiling_ms
+
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+
+        emit_timeout_metric(
+            "timeout.escalated",
+            attempt=attempt,
+            original_ms=original_ms,
+            new_timeout_ms=new_timeout_ms,
+            capped=capped,
+        )
+
+        return {
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+            "attempt": attempt,
+            "capped": capped,
+        }

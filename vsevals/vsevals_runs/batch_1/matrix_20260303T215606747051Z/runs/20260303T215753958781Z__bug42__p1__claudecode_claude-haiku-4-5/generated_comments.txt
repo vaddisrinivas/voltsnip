@@ -1,0 +1,1 @@
+Fix inverted comparison from > to < to correctly allow probes when probe_count is under the limit.

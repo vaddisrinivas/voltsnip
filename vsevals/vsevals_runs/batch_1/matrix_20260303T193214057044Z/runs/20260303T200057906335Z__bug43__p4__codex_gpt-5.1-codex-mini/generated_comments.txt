@@ -1,0 +1,1 @@
+Treat connect and DNS as parallel, add span annotation with the adjusted timeout.

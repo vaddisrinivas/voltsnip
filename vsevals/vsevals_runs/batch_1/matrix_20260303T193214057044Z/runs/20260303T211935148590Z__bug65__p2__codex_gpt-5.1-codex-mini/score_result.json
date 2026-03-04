@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug65_email_plus_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug65_email_plus_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) The regex pattern is fixed to include '+' in the local-part character class with `[\\w.+]+@[\\w.]+`, which will correctly match and redact plus-addressed emails like user+tag@domain.com. (2) The code imports and calls orgops.compliance.record_decision(\"pii.sanitized\", field_count=count) where count is set to the number of emails found via len(email_re.findall(text)), thus reporting the redaction count to compliance before returning.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: local regex now includes '+' in the local-part\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops.compliance import record_decision\\n        record_decision(\\\"pii.sanitized\\\", field_count=count)\\n        return result\\n\", \"comments\": \"Use a local regex that recognizes plus-addressed emails and report the redaction count to orgops compliance before returning.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) The regex pattern is fixed to include '+' in the local-part character class with `[\\\\w.+]+@[\\\\w.]+`, which will correctly match and redact plus-addressed emails like user+tag@domain.com. (2) The code imports and calls orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is set to the number of emails found via len(email_re.findall(text)), thus reporting the redaction count to compliance before returning.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

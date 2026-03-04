@@ -1,0 +1,1 @@
+Changed jitter from subtracted to added to spread cache expiry forward, and added orgops.metrics.emit() to emit cache.ttl.jittered metric for operational monitoring.

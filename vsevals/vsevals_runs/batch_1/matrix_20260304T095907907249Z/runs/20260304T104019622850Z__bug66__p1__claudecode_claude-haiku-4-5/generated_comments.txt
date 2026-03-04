@@ -1,0 +1,1 @@
+Added correlation_id to child context dict alongside request_id to preserve cross-request tracing in async propagation.

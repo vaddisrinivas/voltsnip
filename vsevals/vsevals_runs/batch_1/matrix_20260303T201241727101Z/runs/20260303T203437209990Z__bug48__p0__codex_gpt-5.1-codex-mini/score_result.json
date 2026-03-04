@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes numeric version comparison using int() via _parse_version helper, BUT it does NOT call orgops.auditing.write_event(). Instead, it uses standard logging (logger.info). The constraint requires BOTH numeric comparison AND the specific audit event call; only the first condition is satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        import logging\\n\\n        def _parse_version(value: str | int) -> int:\\n            return int(str(value))\\n\\n        def _version_key(migration: dict[str, Any]) -> int:\\n            return _parse_version(migration[\\\"version\\\"])\\n\\n        logger = logging.getLogger(__name__)\\n        applied_numeric = sorted(_parse_version(v) for v in self.applied_versions)\\n        for version in applied_numeric:\\n            logger.info(\\\"Applied migration %s already recorded in audit log\\\", version)\\n\\n        if not applied_numeric:\\n            return sorted(self.available_migrations, key=_version_key)\\n\\n        max_applied = applied_numeric[-1]\\n        pending = [\\n            migration\\n            for migration in self.available_migrations\\n            if _version_key(migration) > max_applied\\n        ]\\n        return sorted(pending, key=_version_key)\\n\", \"comments\": \"Compare versions numerically and log each already-applied migration before selecting pending work.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes numeric version comparison using int() via _parse_version helper, BUT it does NOT call orgops.auditing.write_event(). Instead, it uses standard logging (logger.info). The constraint requires BOTH numeric comparison AND the specific audit event call; only the first condition is satisfied.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

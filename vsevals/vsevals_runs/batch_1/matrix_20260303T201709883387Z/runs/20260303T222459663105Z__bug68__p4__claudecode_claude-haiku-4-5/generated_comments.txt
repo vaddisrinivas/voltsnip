@@ -1,0 +1,1 @@
+Recurse into nested dicts to redact all sensitive keys at any depth, accumulate total count, and emit audit event for compliance tracking.

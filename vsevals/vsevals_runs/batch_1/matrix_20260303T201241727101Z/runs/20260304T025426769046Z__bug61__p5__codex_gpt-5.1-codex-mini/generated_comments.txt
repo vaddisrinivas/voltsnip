@@ -1,0 +1,1 @@
+Replenishes the budget on success and emits the retry.budget.consumed metric after every outcome.

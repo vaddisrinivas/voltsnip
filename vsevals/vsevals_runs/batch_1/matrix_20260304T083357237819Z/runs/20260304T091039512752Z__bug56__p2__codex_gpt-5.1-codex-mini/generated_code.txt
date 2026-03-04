@@ -1,0 +1,20 @@
+    def compute_lfu_score(
+        self,
+        access_count: int,
+        age_hours: float,
+    ) -> float:
+        """Compute the LFU eviction score for a cache entry.
+
+        The score decays with age:
+
+            score = access_count / (1 + age_hours)
+
+        so that older entries naturally lose priority over time.
+        """
+        score = access_count / (1 + age_hours)
+        metric_client = getattr(self, "metric_client", None)
+        if metric_client is not None:
+            emitter = getattr(metric_client, "emit", None)
+            if callable(emitter):
+                emitter("cache.eviction.lfu", score=score)
+        return float(score)

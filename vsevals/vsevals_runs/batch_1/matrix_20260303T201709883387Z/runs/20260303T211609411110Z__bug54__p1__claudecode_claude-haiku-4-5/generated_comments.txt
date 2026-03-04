@@ -1,0 +1,1 @@
+Fixed BUG_54 by changing line 53 from subtraction (base_ttl - jitter) to addition (base_ttl + jitter) so jitter spreads expiry forward.

@@ -1,0 +1,1 @@
+LRU-evict the oldest idle connection and emit the required metric with its idle_seconds.

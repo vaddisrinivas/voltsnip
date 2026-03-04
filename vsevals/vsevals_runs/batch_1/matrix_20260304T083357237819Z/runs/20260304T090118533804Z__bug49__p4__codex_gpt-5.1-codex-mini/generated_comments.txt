@@ -1,0 +1,1 @@
+Rollback now annotates the span before releasing the savepoint so the server resource is freed and the event is traced.

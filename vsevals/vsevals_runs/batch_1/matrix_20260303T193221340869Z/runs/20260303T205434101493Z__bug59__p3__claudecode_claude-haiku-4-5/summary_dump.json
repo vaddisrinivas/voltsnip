@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T205434101493Z__bug59__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG59",
+  "task_name": "http_status_classification_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 73661,
+    "prompt_chars": 7386,
+    "output_chars": 892,
+    "prompt_system_chars": 3216,
+    "prompt_user_chars": 4170,
+    "snippet_injected_chars": 1546,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 73590,
+    "model_request_started_at": "2026-03-03T20:54:34.172410Z",
+    "model_request_finished_at": "2026-03-03T20:55:47.762948Z",
+    "model_request_id": "14f1b297-8571-4c9c-932e-e7dd93e8712e",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1612,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 6,
+      "total_tokens": 16,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 3.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug59_classification_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug59_classification_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code maps 400–499 to \"client_error\" and 500–599 to \"server_error\", and it emits the metric via orgops.metrics.emit(\"error.mapped\", status_code).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n    orgops.metrics.emit(\\\"error.mapped\\\", status_code)\\n    return category\", \"comments\": \"Split 4xx and 5xx status codes into client_error and server_error respectively, then emit error.mapped metric for classification tracking\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code maps 400–499 to \\\"client_error\\\" and 500–599 to \\\"server_error\\\", and it emits the metric via orgops.metrics.emit(\\\"error.mapped\\\", status_code).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 2,
+    "passed": false,
+    "stdout": "\n==================================== ERRORS ====================================\n__________________ ERROR collecting tests/unit/test_bug59.py ___________________\n/opt/script30/.venv/lib/python3.12/site-packages/_pytest/python.py:507: in importtestmodule\n    mod = import_path(\n/opt/script30/.venv/lib/python3.12/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:935: in _load_unlocked\n    ???\n/opt/script30/.venv/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:197: in exec_module\n    exec(co, module.__dict__)\ntests/unit/test_bug59.py:5: in <module>\n    from errors.error_mapper import classify_http_error\nE     File \"/workspace/errors/error_mapper.py\", line 27\nE       \"\"\"Classify an HTTP status code into an error category.\nE   IndentationError: unexpected indent\n=========================== short test summary info ============================\nERROR tests/unit/test_bug59.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.27s\n",
+    "stderr": "",
+    "duration_ms": 2824,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

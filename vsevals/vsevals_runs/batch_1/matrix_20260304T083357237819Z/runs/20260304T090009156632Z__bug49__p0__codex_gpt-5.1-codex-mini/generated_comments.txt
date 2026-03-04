@@ -1,0 +1,1 @@
+Roll back, release the savepoint, and annotate whatever tracer API the session exposes so the span records the rollback event.

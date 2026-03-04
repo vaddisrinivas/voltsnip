@@ -1,0 +1,1 @@
+Compare lag directly to the threshold and notify orgops when the threshold is exceeded.

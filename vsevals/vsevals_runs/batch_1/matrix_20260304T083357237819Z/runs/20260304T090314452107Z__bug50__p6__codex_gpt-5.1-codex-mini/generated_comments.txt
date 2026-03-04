@@ -1,0 +1,1 @@
+Apply selectivity once for the join cost, then record query.plan.estimated_cost via emit_metric when that helper exists.

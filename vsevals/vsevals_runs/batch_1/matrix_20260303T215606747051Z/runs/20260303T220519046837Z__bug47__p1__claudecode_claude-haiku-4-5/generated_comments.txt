@@ -1,0 +1,1 @@
+Replaced FIFO eviction (pop(0)) with LRU eviction by finding and removing the connection with the minimum last_used_at timestamp.

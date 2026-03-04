@@ -1,0 +1,4 @@
+        n = num_partitions if num_partitions is not None else self._config.num_partitions
+        # BUG_58: ensure modulus matches partition count so result stays in [0, n)
+        partition_id = _stable_hash(key) % n
+        return partition_id

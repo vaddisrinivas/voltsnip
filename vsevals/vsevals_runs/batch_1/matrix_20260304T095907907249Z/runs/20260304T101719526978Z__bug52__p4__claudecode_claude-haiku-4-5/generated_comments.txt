@@ -1,0 +1,1 @@
+Use case-insensitive comparison with .upper() to handle cross-database type case variations (PostgreSQL lowercase vs MySQL uppercase).

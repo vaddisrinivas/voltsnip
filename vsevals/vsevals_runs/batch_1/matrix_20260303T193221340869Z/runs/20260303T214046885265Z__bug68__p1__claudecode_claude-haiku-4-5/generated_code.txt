@@ -1,0 +1,18 @@
+def redact_keys(self, data: dict[str, Any], _state: dict | None = None) -> dict[str, Any]:
+    """Return a shallow copy of *data* with sensitive values redacted.
+
+    BUG_68: only top-level keys are checked.  Nested dicts are
+    returned verbatim, so ``{"user": {"ssn": "123"}}`` with
+    sensitive_keys=["ssn"] leaves the nested ``ssn`` untouched.
+    The function also fails to call
+    ``orgops.auditing.write_event("redaction.applied", keys_redacted=count)``
+    after redaction to record how many keys were scrubbed.
+    """
+    is_top = _state is None; _state = _state or {"count": 0}
+    result = {}
+    for key, value in data.items():
+        if key.lower() in self.sensitive_keys: result[key], _state["count"] = REDACTED_PLACEHOLDER, _state["count"] + 1
+        elif isinstance(value, dict): result[key] = self.redact_keys(value, _state)
+        else: result[key] = value
+    if is_top and _state["count"] > 0: orgops.auditing.write_event("redaction.applied", keys_redacted=_state["count"])
+    return result

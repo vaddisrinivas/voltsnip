@@ -1,0 +1,1 @@
+switch backoff to exponential, enforce max_delay, and emit the retry metric

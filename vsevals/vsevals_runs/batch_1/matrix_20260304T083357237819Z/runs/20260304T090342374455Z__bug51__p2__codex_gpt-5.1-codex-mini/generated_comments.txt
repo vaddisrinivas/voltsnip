@@ -1,0 +1,1 @@
+Compare lag and threshold using consistent units and trigger orgops.alerts.notify when the threshold is exceeded.

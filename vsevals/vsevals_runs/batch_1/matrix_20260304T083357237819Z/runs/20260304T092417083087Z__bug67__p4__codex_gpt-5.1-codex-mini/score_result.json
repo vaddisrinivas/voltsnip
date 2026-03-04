@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug67_sampling_round_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug67_sampling_round_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses round(target_events / total_events * 100, 2) for proper decimal precision (fixing the int() truncation bug mentioned in BUG_67), and it imports and calls emit('log.sampling.rate', rate) from orgops.metrics to emit the metric with the computed rate value before persisting to history.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug67/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        from orgops.metrics import emit\\n\\n        emit(\\\"log.sampling.rate\\\", rate)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        return rate\\n\", \"comments\": \"Use round(..., 2) to preserve decimal precision and emit the log.sampling.rate metric before persisting the history entry.\"}, \"constraints\": [{\"id\": \"bug67_sampling_round_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug67/scenario_context/v1\", \"check\": \"Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a \\\"log.sampling.rate\\\" metric via orgops.metrics.emit() with the computed rate value?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses round(target_events / total_events * 100, 2) for proper decimal precision (fixing the int() truncation bug mentioned in BUG_67), and it imports and calls emit('log.sampling.rate', rate) from orgops.metrics to emit the metric with the computed rate value before persisting to history.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

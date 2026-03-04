@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The function recurses into nested dict values via self.redact_keys(value, _state), checking each nested key against self.sensitive_keys, and it accumulates a shared _state['count'] across recursion. At the top-level (is_top), if any keys were redacted, it calls orgops.auditing.write_event(\"redaction.applied\", keys_redacted=_state[\"count\"]) with the total redaction count.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def redact_keys(self, data: dict[str, Any], _state: dict | None = None) -> dict[str, Any]:\\n    \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n    BUG_68: only top-level keys are checked.  Nested dicts are\\n    returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n    sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n    The function also fails to call\\n    ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n    after redaction to record how many keys were scrubbed.\\n    \\\"\\\"\\\"\\n    is_top = _state is None; _state = _state or {\\\"count\\\": 0}\\n    result = {}\\n    for key, value in data.items():\\n        if key.lower() in self.sensitive_keys: result[key], _state[\\\"count\\\"] = REDACTED_PLACEHOLDER, _state[\\\"count\\\"] + 1\\n        elif isinstance(value, dict): result[key] = self.redact_keys(value, _state)\\n        else: result[key] = value\\n    if is_top and _state[\\\"count\\\"] > 0: orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=_state[\\\"count\\\"])\\n    return result\", \"comments\": \"Add recursive handling for nested dicts, accumulate redaction count across all levels, and emit audit event only at top level with total count.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The function recurses into nested dict values via self.redact_keys(value, _state), checking each nested key against self.sensitive_keys, and it accumulates a shared _state['count'] across recursion. At the top-level (is_top), if any keys were redacted, it calls orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=_state[\\\"count\\\"]) with the total redaction count.\"}]}",
+  "passed": true
+}

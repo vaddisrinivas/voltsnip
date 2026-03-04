@@ -1,0 +1,1 @@
+Fixed BUG_57: converted interval_seconds to milliseconds and added cache.flush.completed audit event emission

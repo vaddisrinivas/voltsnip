@@ -1,0 +1,1 @@
+Apply the desired time-decayed LFU scoring formula to account for age when computing eviction priority.

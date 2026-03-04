@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The function defines a recursive helper _redact that descends into nested dict values and redacts any key whose lowercase form is in self.sensitive_keys, accumulating a total redaction count. After processing, it imports orgops.auditing and calls orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count) using the total count.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n    BUG_68: only top-level keys are checked.  Nested dicts are\\n    returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n    sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n    The function also fails to call\\n    ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n    after redaction to record how many keys were scrubbed.\\n    \\\"\\\"\\\"\\n    def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n        result: dict[str, Any] = {}\\n        count = 0\\n        for key, value in obj.items():\\n            if key.lower() in self.sensitive_keys:\\n                result[key] = REDACTED_PLACEHOLDER\\n                count += 1\\n            elif isinstance(value, dict):\\n                result[key], nested_count = _redact(value)\\n                count += nested_count\\n            else:\\n                result[key] = value\\n        return result, count\\n    \\n    result, count = _redact(data)\\n    import orgops.auditing\\n    orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n    return result\", \"comments\": \"Recurse into nested dicts to redact all matching keys at any depth, and emit audit event with redaction count via orgops.auditing.write_event.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The function defines a recursive helper _redact that descends into nested dict values and redacts any key whose lowercase form is in self.sensitive_keys, accumulating a total redaction count. After processing, it imports orgops.auditing and calls orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) using the total count.\"}]}",
+  "passed": true
+}

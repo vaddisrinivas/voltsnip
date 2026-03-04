@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T201815424886Z__bug43__p3__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG43",
+  "task_name": "pool_timeout_overlap_and_trace",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 3384,
+    "prompt_chars": 9818,
+    "output_chars": 631,
+    "prompt_system_chars": 3964,
+    "prompt_user_chars": 5854,
+    "snippet_injected_chars": 2290,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 3313,
+    "model_request_started_at": "2026-03-03T20:18:15.495267Z",
+    "model_request_finished_at": "2026-03-03T20:18:18.808971Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6269,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9688,
+      "completion_tokens": 333,
+      "total_tokens": 10021,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.004408
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug43_timeout_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug43_timeout_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code correctly calculates timeout as max(ct, dt) + rt (parallel DNS/connect using max, then adding read timeout) and includes the required trace annotation via orgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: DNS resolution and connect happen in parallel, so cap by max.\\n        total_timeout = max(ct, dt) + rt\\n        import orgops.tracing\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\", \"comments\": \"Treat DNS/connect as parallel using max() and annotate the span before returning the total timeout.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The code correctly calculates timeout as max(ct, dt) + rt (parallel DNS/connect using max, then adding read timeout) and includes the required trace annotation via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_43_pool_timeout_and_trace ______________________\n\n    def test_bug_43_pool_timeout_and_trace() -> None:\n        \"\"\"calculate_effective_timeout must:\n        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read\n           (NOT connect + dns + read).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"pool.timeout.adjusted\", total_timeout).\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from net.request_pool import RequestPool\n    \n        pool = RequestPool(connect_timeout=5.0, dns_timeout=2.0, read_timeout=30.0)\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n>           result = pool.calculate_effective_timeout(\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                connect_timeout=5.0,\n                dns_timeout=2.0,\n                read_timeout=30.0,\n            )\nE           AttributeError: 'RequestPool' object has no attribute 'calculate_effective_timeout'\n\ntests/unit/test_bug43.py:21: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace - Attribu...\n1 failed in 1.36s\n",
+    "stderr": "",
+    "duration_ms": 5624,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

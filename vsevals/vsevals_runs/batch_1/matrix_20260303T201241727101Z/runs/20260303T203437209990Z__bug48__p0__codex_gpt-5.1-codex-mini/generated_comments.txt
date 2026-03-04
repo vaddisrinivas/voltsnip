@@ -1,0 +1,1 @@
+Compare versions numerically and log each already-applied migration before selecting pending work.

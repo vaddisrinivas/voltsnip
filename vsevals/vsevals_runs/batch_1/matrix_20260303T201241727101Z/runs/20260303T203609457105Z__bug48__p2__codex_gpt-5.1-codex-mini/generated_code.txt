@@ -1,0 +1,44 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+
+        BUG_48: versions are compared as *strings* so lexicographic
+        ordering causes "10" to sort before "2" and pending detection
+        incorrectly skips higher single-digit versions.
+        """
+        version_key = lambda m: int(m["version"])
+        if not self.applied_versions:
+            return sorted(self.available_migrations, key=version_key)
+
+        max_applied_version = max(int(v) for v in self.applied_versions)
+        pending = [
+            m
+            for m in self.available_migrations
+            if int(m["version"]) > max_applied_version
+        ]
+        return sorted(pending, key=version_key)
+
+    def apply_pending(self, executor: Any) -> list[str]:
+        """Apply all pending migrations and return the applied versions.
+
+        Parameters
+        ----------
+        executor:
+            Object with an ``execute(sql)`` method used to run each
+            migration's SQL statement.
+
+        Returns
+        -------
+        list[str]
+            Version strings of migrations that were applied.
+        """
+        import orgops
+
+        pending = self.get_pending_migrations()
+        applied: list[str] = []
+        for migration in pending:
+            version = str(migration["version"])
+            executor.execute(migration["sql"])
+            self.applied_versions.add(version)
+            orgops.auditing.write_event("migration.applied", version=version)
+            applied.append(version)
+        return applied

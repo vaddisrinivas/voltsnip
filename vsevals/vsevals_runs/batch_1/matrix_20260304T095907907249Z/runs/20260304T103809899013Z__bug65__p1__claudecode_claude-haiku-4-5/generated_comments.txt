@@ -1,0 +1,1 @@
+Fixed regex pattern to include '+' character in email local-part to catch plus-addressed emails like user+tag@domain.com.

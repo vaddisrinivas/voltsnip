@@ -1,0 +1,1 @@
+Fixed inverted stale check: changed entry.stale_at > now to entry.stale_at <= now, and added metric emission for stale entries.

@@ -1,0 +1,1 @@
+net/request_pool.py is absent in the workspace, so I cannot replace lines 66‑85 to implement the timeout adjustment.

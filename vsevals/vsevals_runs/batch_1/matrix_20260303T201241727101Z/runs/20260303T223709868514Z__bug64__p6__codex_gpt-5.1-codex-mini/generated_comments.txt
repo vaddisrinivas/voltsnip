@@ -1,0 +1,1 @@
+Compound the timeout per attempt, derive the capping flag, and emit the timeout.escalated metric.

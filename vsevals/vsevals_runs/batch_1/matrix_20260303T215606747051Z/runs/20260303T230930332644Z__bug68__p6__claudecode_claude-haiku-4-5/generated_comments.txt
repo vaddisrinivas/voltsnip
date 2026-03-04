@@ -1,0 +1,1 @@
+Recurses into nested dicts to redact all matching keys at any depth and calls orgops.auditing.write_event with total redaction count.

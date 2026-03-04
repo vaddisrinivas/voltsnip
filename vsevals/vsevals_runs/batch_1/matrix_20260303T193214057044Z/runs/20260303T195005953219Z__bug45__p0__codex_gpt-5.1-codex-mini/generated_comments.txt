@@ -1,0 +1,1 @@
+Use range(len(chain)-1) so each adjacent cert pair is validated without overstepping the list.

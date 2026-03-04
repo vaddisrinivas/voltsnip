@@ -1,0 +1,1 @@
+Swapped to capped exponential backoff and emit the retry.backoff.applied metric per attempt.

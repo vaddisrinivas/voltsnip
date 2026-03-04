@@ -1,0 +1,24 @@
+    def estimate_join_cost(
+        self,
+        left_rows: int,
+        right_rows: int,
+        selectivity: float,
+    ) -> float:
+        """Estimate the output cardinality for a join operation.
+
+        The formula is:  left_rows * right_rows * selectivity
+
+        BUG_50: selectivity is applied twice, inflating the cost estimate
+        and causing the optimizer to reject valid hash-join plans.
+        """
+        cost = left_rows * right_rows * selectivity
+        self.emit_metric("query.plan.estimated_cost", cost)
+        self._history.append(
+            JoinStats(
+                left_rows=left_rows,
+                right_rows=right_rows,
+                selectivity=selectivity,
+                estimated_cost=cost,
+            )
+        )
+        return cost

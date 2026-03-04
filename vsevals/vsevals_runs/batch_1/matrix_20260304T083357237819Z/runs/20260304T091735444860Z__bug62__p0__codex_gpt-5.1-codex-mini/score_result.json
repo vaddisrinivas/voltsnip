@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug62_context_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug62_context_and_trace",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly passes self.context to each fallback via fb(self.context) and calls orgops.tracing.annotate_span(\"fallback.activated\", _idx) for each activated fallback where _idx is the 0-based enumeration index.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug62/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def execute_with_fallback(self) -> Any:\\n        \\\"\\\"\\\"Try *primary_fn*, then each fallback in order.\\n\\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\\n        *context*, so the downstream handler loses the request ID,\\n        headers, and deadline.  The correct call is ``fb(self.context)``.\\n\\n        Additionally, each activated fallback must be annotated via\\n        ``orgops.tracing.annotate_span(\\\"fallback.activated\\\", index)``\\n        where *index* is the 0-based position in the fallbacks list.\\n        Neither the context propagation nor the tracing annotation is\\n        present in the buggy implementation.\\n        \\\"\\\"\\\"\\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\", \"comments\": \"Propagate the shared context to each fallback and annotate every activated fallback span before invocation.\"}, \"constraints\": [{\"id\": \"bug62_context_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug62/scenario_context/v1\", \"check\": \"Context propagation to fallbacks AND tracing annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both pass context to each fallback callable (fb(self.context) instead of fb()) AND call orgops.tracing.annotate_span(\\\"fallback.activated\\\", index) for each activated fallback where index is 0-based?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly passes self.context to each fallback via fb(self.context) and calls orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx) for each activated fallback where _idx is the 0-based enumeration index.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

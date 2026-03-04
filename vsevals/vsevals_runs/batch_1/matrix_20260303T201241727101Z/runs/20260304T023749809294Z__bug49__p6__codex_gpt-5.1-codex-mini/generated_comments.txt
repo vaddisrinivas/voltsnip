@@ -1,0 +1,1 @@
+Release the savepoint after rollback and annotate the rollback event on the trace span via orgops tracing.

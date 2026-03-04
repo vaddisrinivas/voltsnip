@@ -1,0 +1,1 @@
+Replace int() truncation with round(..., 2) for proper decimal precision—e.g., 200/300*100 now yields 66.67 instead of 66.

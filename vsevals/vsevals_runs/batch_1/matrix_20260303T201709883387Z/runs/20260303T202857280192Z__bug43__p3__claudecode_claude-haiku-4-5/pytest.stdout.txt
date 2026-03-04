@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_43_pool_timeout_and_trace ______________________
+
+    def test_bug_43_pool_timeout_and_trace() -> None:
+        """calculate_effective_timeout must:
+        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read
+           (NOT connect + dns + read).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("pool.timeout.adjusted", total_timeout).
+        Both are required -- fixing only the math is insufficient.
+        """
+>       from net.request_pool import RequestPool
+E         File "/workspace/net/request_pool.py", line 69
+E           ) -> float:
+E           ^
+E       SyntaxError: unmatched ')'
+
+tests/unit/test_bug43.py:16: SyntaxError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace -   File ...
+1 failed in 0.30s

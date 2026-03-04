@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T024047894612Z__bug51__p6__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 69578,
+    "prompt_chars": 4178,
+    "output_chars": 664,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3128,
+    "snippet_injected_chars": 3435,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 5,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 3,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 69323,
+    "model_request_started_at": "2026-03-04T02:40:47.913866Z",
+    "model_request_finished_at": "2026-03-04T02:41:57.237809Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7963,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 69491,
+      "completion_tokens": 10030,
+      "total_tokens": 79521,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0438444
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "While the implementation correctly fixes the unit comparison (direct ms vs ms without /1000), it fails to call orgops.alerts.notify with the correct signature. The code calls orgops.alerts.notify(health) passing a dictionary, but the constraint requires orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) with specific string constant and keyword argument.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    Both lag and threshold are measured in milliseconds.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    health = {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n    if exceeded:\\n        import orgops\\n        orgops.alerts.notify(health)\\n    return health\\n\", \"comments\": \"Compare lag directly in milliseconds, record the result, and notify via orgops.alerts when the threshold is exceeded.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "Looking at this candidate implementation, I need to check two things:\n\n1. **Correct unit comparison**: Does it compare milliseconds directly without incorrect conversion?\n2. **Alert via orgops.alerts.notify**: Does it call `orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)` when threshold is exceeded?\n\nLet me analyze:\n\n**Unit comparison**: \n- The code does `exceeded = measured_lag_ms > threshold_ms`\n- This is a direct comparison without any `/1000` conversion\n- ✓ This part is correct\n\n**Alert call**:\n- When `exceeded` is true, the code calls `orgops.alerts.notify(health)`\n- However, the expected signature is `orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)`\n- The actual call passes a dictionary `health` as a single positional argument, not the string `\"replication.lag.exceeded\"` as first argument and `lag_ms=measured_lag_ms` as a keyword argument\n- ✗ This does not match the expected call signature\n\nThe constraint requires BOTH conditions to be met. While the unit comparison is fixed, the alert call signature is incorrect.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the implementation correctly fixes the unit comparison (direct ms vs ms without /1000), it fails to call orgops.alerts.notify with the correct signature. The code calls orgops.alerts.notify(health) passing a dictionary, but the constraint requires orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) with specific string constant and keyword argument.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_51_replication_lag_and_alert _____________________\n\n    def test_bug_51_replication_lag_and_alert() -> None:\n        \"\"\"check_replication_health must:\n        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)\n        2. Call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when exceeded\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n        from data.replication_lag import check_replication_health\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # Lag below threshold: should NOT exceed, should NOT alert\n            result_ok = check_replication_health(measured_lag_ms=200.0, threshold_ms=500.0)\n            assert result_ok[\"exceeded\"] is False, (\n                \"200ms lag should not exceed 500ms threshold\"\n            )\n            mock_notify.assert_not_called()\n    \n            # Lag above threshold: should exceed AND alert\n            result_bad = check_replication_health(measured_lag_ms=750.0, threshold_ms=500.0)\n            assert result_bad[\"exceeded\"] is True, (\n                \"750ms lag must exceed 500ms threshold (direct comparison, no unit conversion)\"\n            )\n    \n            # Must also fire the operational alert\n            mock_notify.assert_called_once()\n            call_args = mock_notify.call_args\n>           assert call_args[0][0] == \"replication.lag.exceeded\", (\n                \"Must call orgops.alerts.notify with 'replication.lag.exceeded'\"\n            )\nE           AssertionError: Must call orgops.alerts.notify with 'replication.lag.exceeded'\nE           assert {'exceeded': True, 'measured_lag_ms': 750.0, 'threshold_ms': 500.0} == 'replication.lag.exceeded'\n\ntests/unit/test_bug51.py:32: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Asse...\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 723,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

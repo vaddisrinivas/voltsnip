@@ -1,0 +1,1 @@
+{"code":"        if self.probe_count < self.max_probes:\n            self.probe_count += 1\n            return True\n        import orgops.health\n        orgops.health.report_degradation(\"circuit.half_open\")\n        return False\n","comments":"allow probes only while under the limit and report degradation when the half-open cap is enforced."}

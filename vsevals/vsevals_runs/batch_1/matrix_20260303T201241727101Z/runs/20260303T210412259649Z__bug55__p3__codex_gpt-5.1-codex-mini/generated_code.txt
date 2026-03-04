@@ -1,0 +1,26 @@
+    def should_refresh_early(
+        self,
+        time_remaining: float,
+        ttl: float,
+        key_name: str = "unknown",
+    ) -> bool:
+        """Return True when the entry should be refreshed before expiry.
+
+        BUG_55: the ratio comparison is inverted, causing early refreshes
+        when the entry is FAR from expiry (most of the TTL left) rather
+        than CLOSE to expiry (little TTL left).
+        """
+        if ttl <= 0:
+            return False
+
+        import orgops.metrics
+
+        ratio = time_remaining / ttl
+
+        # BUG_55: ensure early refreshes trigger when ratio is LOW (close to expiry)
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            orgops.metrics.emit("cache.stampede.prevented", key_name)
+            return True
+
+        return False

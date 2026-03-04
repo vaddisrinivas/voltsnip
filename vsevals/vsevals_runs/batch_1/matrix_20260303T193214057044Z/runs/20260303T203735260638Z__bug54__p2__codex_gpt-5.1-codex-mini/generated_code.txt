@@ -1,0 +1,32 @@
+def compute_ttl_with_jitter(
+    base_ttl: float = 300.0,
+    jitter_range: float = 30.0,
+) -> float:
+    """Compute an effective TTL by applying random jitter.
+
+    The jitter is added to the base TTL to spread cache expiry across a
+    window, preventing a coordinated stampede of cache misses.
+
+    BUG_54: the jitter is *subtracted* from the base TTL instead of
+    *added*, which can push the effective TTL below zero for small base
+    values and defeats the purpose of spreading expiry forward.
+
+    Parameters
+    ----------
+    base_ttl:
+        The base time-to-live in seconds.
+    jitter_range:
+        Maximum additional jitter in seconds.  The actual jitter is
+        drawn uniformly from [0, jitter_range).
+
+    Returns
+    -------
+    float
+        The effective TTL in seconds.
+    """
+    jitter = random.uniform(0, jitter_range)
+    effective_ttl = base_ttl + jitter  # BUG_54: now adds jitter before emitting metric
+    from orgops import metrics
+
+    metrics.emit("cache.ttl.jittered", effective_ttl)
+    return effective_ttl

@@ -1,0 +1,234 @@
+{
+  "run_id": "20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs",
+  "task_id": "BUG41",
+  "task_name": "retry_backoff_linear_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 49,
+  "task_line_end": 61,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug41/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug41/scenario_context/v1\nTitle: Retry backoff requires exponential delay AND metric emission\nCode:\n```\n# Retry Backoff — Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug41/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG41\nTask Name: retry_backoff_linear_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_backoff_delay to use exponential backoff instead of linear.\n\nTarget File: net/retry_handler.py\n\nTarget Lines:\n49-61 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 49-61 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug41.py -k bug_41\n\nContext Code:\n```python\ndef compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    BUG_41: the delay grows linearly (base_delay * attempt) instead of\n    exponentially (base_delay * 2**attempt).  The result is also not\n    capped at max_delay, so high attempt numbers can exceed the cap.\n    \"\"\"\n    delay = base_delay * attempt  # BUG_41: linear backoff instead of exponential\n    return delay\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry handler with configurable backoff for transient network failures.\n\nThis module provides retry delay computation and retry-eligibility checks\nfor the org HTTP client layer.  Callers use `compute_backoff_delay` to\ndecide how long to wait before the next attempt.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n# Status codes considered transient (safe to retry).\nRETRYABLE_STATUS_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\n@dataclass(frozen=True)\nclass RetryConfig:\n    \"\"\"Immutable retry configuration shared across request contexts.\"\"\"\n\n    max_attempts: int = 3\n    base_delay: float = 1.0\n    max_delay: float = 60.0\n    retryable_methods: frozenset[str] = field(\n        default_factory=lambda: frozenset({\"GET\", \"HEAD\", \"PUT\", \"DELETE\", \"OPTIONS\"})\n    )\n\n\ndef should_retry(\n    method: str,\n    status_code: int,\n    attempt: int,\n    config: RetryConfig = RetryConfig(),\n) -> bool:\n    \"\"\"Return True when the request should be retried.\n\n    Rules:\n    - Only retry if the method is idempotent (in retryable_methods).\n    - Only retry on transient status codes.\n    - Do not exceed max_attempts.\n    \"\"\"\n    if attempt >= config.max_attempts:\n        return False\n    if method.upper() not in config.retryable_methods:\n        return False\n    return status_code in RETRYABLE_STATUS_CODES\n\n\ndef compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\n    *max_delay*.\n    \"\"\"\n    delay = base_delay * (2**attempt)\n    delay = min(delay, max_delay)\n    import orgops.metrics\n    orgops.metrics.emit(\"retry.backoff.applied\", delay)\n    return delay\n\n\ndef record_attempt(\n    attempt: int,\n    status_code: int,\n    elapsed_ms: float,\n    *,\n    log_entries: list[dict[str, Any]] | None = None,\n) -> dict[str, Any]:\n    \"\"\"Build an attempt-record dict and optionally append it to *log_entries*.\n\n    This is used by the request pipeline to accumulate per-attempt\n    diagnostics that are flushed to the audit store after the final try.\n    \"\"\"\n    entry: dict[str, Any] = {\n        \"attempt\": attempt,\n        \"status_code\": status_code,\n        \"elapsed_ms\": round(elapsed_ms, 2),\n        \"ts\": time.time(),\n    }\n    if log_entries is not None:\n        log_entries.append(entry)\n    return entry\n\n\ndef summarise_attempts(entries: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a sequence of attempt records.\"\"\"\n    if not entries:\n        return {\"total_attempts\": 0, \"total_elapsed_ms\": 0.0, \"final_status\": None}\n\n    return {\n        \"total_attempts\": len(entries),\n        \"total_elapsed_ms\": round(sum(e[\"elapsed_ms\"] for e in entries), 2),\n        \"final_status\": entries[-1][\"status_code\"],\n    }\n```\n\nExpected Output:\nUse exponential backoff (2**attempt) instead of linear AND emit retry.backoff.applied metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug41/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "be19d4cf-e81e-4609-bc53-315d1cca6aa4",
+      "canonical_key": "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "title": "Script30 HTTP Resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry policies, circuit breaking, connection pooling, DNS caching, TLS validation, and rate limiting.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n"
+    },
+    {
+      "id": "5300123c-c5e8-4a0a-bbda-f30fec8a2190",
+      "canonical_key": "voltsnip/script30/hard/bug41/scenario_context/v1",
+      "title": "Retry backoff requires exponential delay AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The compute_backoff_delay function must use exponential backoff AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# Retry Backoff — Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug41/scenario_context/v1\nTitle: Retry backoff requires exponential delay AND metric emission\nCode:\n```\n# Retry Backoff — Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug41/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG41\nTask Name: retry_backoff_linear_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_backoff_delay to use exponential backoff instead of linear.\n\nTarget File: net/retry_handler.py\n\nTarget Lines:\n49-61 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 49-61 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug41.py -k bug_41\n\nContext Code:\n```python\ndef compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    BUG_41: the delay grows linearly (base_delay * attempt) instead of\n    exponentially (base_delay * 2**attempt).  The result is also not\n    capped at max_delay, so high attempt numbers can exceed the cap.\n    \"\"\"\n    delay = base_delay * attempt  # BUG_41: linear backoff instead of exponential\n    return delay\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry handler with configurable backoff for transient network failures.\n\nThis module provides retry delay computation and retry-eligibility checks\nfor the org HTTP client layer.  Callers use `compute_backoff_delay` to\ndecide how long to wait before the next attempt.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n# Status codes considered transient (safe to retry).\nRETRYABLE_STATUS_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\n@dataclass(frozen=True)\nclass RetryConfig:\n    \"\"\"Immutable retry configuration shared across request contexts.\"\"\"\n\n    max_attempts: int = 3\n    base_delay: float = 1.0\n    max_delay: float = 60.0\n    retryable_methods: frozenset[str] = field(\n        default_factory=lambda: frozenset({\"GET\", \"HEAD\", \"PUT\", \"DELETE\", \"OPTIONS\"})\n    )\n\n\ndef should_retry(\n    method: str,\n    status_code: int,\n    attempt: int,\n    config: RetryConfig = RetryConfig(),\n) -> bool:\n    \"\"\"Return True when the request should be retried.\n\n    Rules:\n    - Only retry if the method is idempotent (in retryable_methods).\n    - Only retry on transient status codes.\n    - Do not exceed max_attempts.\n    \"\"\"\n    if attempt >= config.max_attempts:\n        return False\n    if method.upper() not in config.retryable_methods:\n        return False\n    return status_code in RETRYABLE_STATUS_CODES\n\n\ndef compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\n    *max_delay*.\n    \"\"\"\n    delay = base_delay * (2**attempt)\n    delay = min(delay, max_delay)\n    import orgops.metrics\n    orgops.metrics.emit(\"retry.backoff.applied\", delay)\n    return delay\n\n\ndef record_attempt(\n    attempt: int,\n    status_code: int,\n    elapsed_ms: float,\n    *,\n    log_entries: list[dict[str, Any]] | None = None,\n) -> dict[str, Any]:\n    \"\"\"Build an attempt-record dict and optionally append it to *log_entries*.\n\n    This is used by the request pipeline to accumulate per-attempt\n    diagnostics that are flushed to the audit store after the final try.\n    \"\"\"\n    entry: dict[str, Any] = {\n        \"attempt\": attempt,\n        \"status_code\": status_code,\n        \"elapsed_ms\": round(elapsed_ms, 2),\n        \"ts\": time.time(),\n    }\n    if log_entries is not None:\n        log_entries.append(entry)\n    return entry\n\n\ndef summarise_attempts(entries: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a sequence of attempt records.\"\"\"\n    if not entries:\n        return {\"total_attempts\": 0, \"total_elapsed_ms\": 0.0, \"final_status\": None}\n\n    return {\n        \"total_attempts\": len(entries),\n        \"total_elapsed_ms\": round(sum(e[\"elapsed_ms\"] for e in entries), 2),\n        \"final_status\": entries[-1][\"status_code\"],\n    }\n```\n\nExpected Output:\nUse exponential backoff (2**attempt) instead of linear AND emit retry.backoff.applied metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\", \"comments\": \"Replace linear backoff with exponential backoff (2**attempt), cap at max_delay, and import orgops.metrics for metric emission on lines 62-63.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\", \"comments\": \"Replace linear backoff with exponential backoff (2**attempt), cap at max_delay, and import orgops.metrics for metric emission on lines 62-63.\"}\n```",
+  "parsed_output": {
+    "code": "def compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\n    *max_delay*.\n    \"\"\"\n    delay = base_delay * (2**attempt)\n    delay = min(delay, max_delay)\n    import orgops.metrics",
+    "comments": "Replace linear backoff with exponential backoff (2**attempt), cap at max_delay, and import orgops.metrics for metric emission on lines 62-63."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T19:34:10.159084Z",
+    "finished_at": "2026-03-03T19:35:20.774691Z",
+    "latency_ms": 70615
+  },
+  "summary_metrics": {
+    "latency_ms": 70615,
+    "prompt_chars": 7566,
+    "output_chars": 569,
+    "prompt_system_chars": 3010,
+    "prompt_user_chars": 4556,
+    "snippet_injected_chars": 1348,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 46,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 70547,
+    "model_request_started_at": "2026-03-03T19:34:10.227184Z",
+    "model_request_finished_at": "2026-03-03T19:35:20.774551Z",
+    "model_request_id": "9c705c9e-40db-46ee-bb1c-22b8a8639f53",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2870,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T193410158928Z__bug41__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug41_backoff_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug41_backoff_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "Backoff is exponential and capped (base_delay * 2**attempt, min with max_delay), but there is no call to orgops.metrics.emit() to emit the required retry.backoff.applied metric; it only imports orgops.metrics.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug41/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\", \"comments\": \"Replace linear backoff with exponential backoff (2**attempt), cap at max_delay, and import orgops.metrics for metric emission on lines 62-63.\"}, \"constraints\": [{\"id\": \"bug41_backoff_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug41/scenario_context/v1\", \"check\": \"Exponential backoff AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the backoff to exponential (base_delay * 2**attempt, capped at max_delay) AND emit a retry.backoff.applied metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"Backoff is exponential and capped (base_delay * 2**attempt, min with max_delay), but there is no call to orgops.metrics.emit() to emit the required retry.backoff.applied metric; it only imports orgops.metrics.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.40s\n",
+    "stderr": "",
+    "duration_ms": 3431,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

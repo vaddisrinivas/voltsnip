@@ -1,0 +1,1 @@
+Fixed double selectivity application and added metric emission for optimizer dashboard telemetry.

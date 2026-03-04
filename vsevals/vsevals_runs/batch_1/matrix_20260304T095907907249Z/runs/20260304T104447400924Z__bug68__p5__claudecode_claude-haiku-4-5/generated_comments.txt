@@ -1,0 +1,1 @@
+Recurse into nested dicts via helper function, accumulate redaction count across all nesting levels, write single audit event before returning.

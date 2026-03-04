@@ -1,0 +1,10 @@
+        # BUG_63: off-by-one — should be >= so queue never exceeds max_size and fires the alert when utilization hits 80%
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+        utilization = (len(self.queue) / self.max_size) * 100.0 if self.max_size else 100.0
+        if utilization >= 80.0:
+            import orgops.alerts
+            orgops.alerts.notify("dlq.capacity.warning", utilization_pct=utilization)
+        return True

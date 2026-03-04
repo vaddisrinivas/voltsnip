@@ -1,0 +1,1 @@
+Reverse the stale check so entries whose stale_at is now or in the past are flagged for refresh.

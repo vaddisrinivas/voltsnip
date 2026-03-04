@@ -1,0 +1,1 @@
+Fixed timeout to compound exponentially (multiplier ** attempt) and emit timeout.escalated metric on escalation.

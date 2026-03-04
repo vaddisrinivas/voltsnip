@@ -1,0 +1,348 @@
+{
+  "run_id": "20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG61",
+  "task_name": "retry_budget_no_reset_and_metric",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 37,
+  "task_line_end": 50,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug61/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug61/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug61/scenario_context/v1",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+      "voltsnip/script30/hard/bug41/scenario_context/v1",
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/bug22/hard/error_contracts/rate_limit_retry_after/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "6e94dc42-95f5-4e72-9046-8323a411f457",
+      "canonical_key": "voltsnip/script30/hard/bug61/scenario_context/v1",
+      "title": "Retry budget requires success replenishment AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The RetryBudget.record_outcome method must replenish remaining on success AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# Retry Budget — Two Requirements\n\n## 1. Replenish on Success\n```python\nif success:\n    self.remaining = min(self.remaining + 1, self.max_budget)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n"
+    },
+    {
+      "id": "c799f8ee-2abd-43b8-bb2c-1e03875bad25",
+      "canonical_key": "voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+      "title": "BUG22 http_resilience oracle playbook",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "http_resilience",
+        "oracle-playbook",
+        "retry"
+      ],
+      "description": "Generic oracle-aligned checklist for HTTP resilience tasks: idempotent retries, bounded backoff, and timeout correctness.",
+      "code": "# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n"
+    },
+    {
+      "id": "5300123c-c5e8-4a0a-bbda-f30fec8a2190",
+      "canonical_key": "voltsnip/script30/hard/bug41/scenario_context/v1",
+      "title": "Retry backoff requires exponential delay AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The compute_backoff_delay function must use exponential backoff AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# Retry Backoff — Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n"
+    },
+    {
+      "id": "be19d4cf-e81e-4609-bc53-315d1cca6aa4",
+      "canonical_key": "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "title": "Script30 HTTP Resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry policies, circuit breaking, connection pooling, DNS caching, TLS validation, and rate limiting.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n"
+    },
+    {
+      "id": "af6a4a64-6de8-4c7a-80fd-a2cbbd1bd10a",
+      "canonical_key": "voltsnip/bug22/hard/error_contracts/rate_limit_retry_after/v2",
+      "title": "Org rate-limit Retry-After value — THROTTLE_COOLDOWN_MS",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "error_contracts",
+        "hard-tier",
+        "rate-limit"
+      ],
+      "description": "Project policy: 429 responses must use THROTTLE_COOLDOWN_MS from orgops.policy._internal_thresholds for the Retry-After header.",
+      "code": "# Rate-Limit Retry-After Policy\n\nWhen returning HTTP 429, the Retry-After header value MUST be computed from `THROTTLE_COOLDOWN_MS` (7500 ms = 7.5 seconds).\nThis constant lives in `orgops.policy._internal_thresholds`.\n\nImplementation pattern:\n```python\nfrom orgops.policy._internal_thresholds import THROTTLE_COOLDOWN_MS\n\n# The org-mandated throttle cooldown is 7500 ms.\nretry_after_seconds = THROTTLE_COOLDOWN_MS // 1000  # 7\nheaders = {'Retry-After': str(retry_after_seconds)}\n```\n\nDo NOT hardcode a value; always derive from the standard.\n"
+    },
+    {
+      "id": "9931ef62-4e64-49d6-b134-0b102fa9f38f",
+      "canonical_key": "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "title": "Script30 Error Contracts guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for error contracts: HTTP status classification, validation gates, retry budgets, fallback chains, dead letter queues, and timeout escalation.",
+      "code": "# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\",\"comments\":\"Replenishes one token on success and reports the remaining budget via the retry.budget.consumed metric after every outcome.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "retry budget consumed metric success replenish"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T02:54:51.983222Z",
+      "finished_at": "2026-03-04T02:54:51.983225Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "retry budget record outcome metric"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T02:54:51.983311Z",
+      "finished_at": "2026-03-04T02:54:51.983312Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\",\"comments\":\"Replenishes one token on success and reports the remaining budget via the retry.budget.consumed metric after every outcome.\"}",
+  "parsed_output": {
+    "code": "    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if success:\n            self.remaining = min(self.remaining + 1, self.max_budget)\n        else:\n            self.remaining = max(self.remaining - 1, 0)\n        orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n",
+    "comments": "Replenishes one token on success and reports the remaining budget via the retry.budget.consumed metric after every outcome."
+  },
+  "token_usage": {
+    "prompt_tokens": 30517,
+    "completion_tokens": 1836,
+    "total_tokens": 32353,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0151444
+  },
+  "timings": {
+    "started_at": "2026-03-04T02:54:37.318288Z",
+    "finished_at": "2026-03-04T02:54:52.338082Z",
+    "latency_ms": 15019
+  },
+  "summary_metrics": {
+    "latency_ms": 15019,
+    "prompt_chars": 5245,
+    "output_chars": 947,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4195,
+    "snippet_injected_chars": 3879,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 6,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 14754,
+    "model_request_started_at": "2026-03-04T02:54:37.336790Z",
+    "model_request_finished_at": "2026-03-04T02:54:52.091396Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 3362,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 30517,
+      "completion_tokens": 1836,
+      "total_tokens": 32353,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0151444
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T025437318063Z__bug61__p6__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug61_replenish_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug61_replenish_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly replenishes the budget on success with 'self.remaining = min(self.remaining + 1, self.max_budget)' when success is True, and emits the metric 'retry.budget.consumed' via 'orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)' after every call regardless of the outcome (the emit call is outside the if/else block, so it executes unconditionally).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenishes one token on success and reports the remaining budget via the retry.budget.consumed metric after every outcome.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly replenishes the budget on success with 'self.remaining = min(self.remaining + 1, self.max_budget)' when success is True, and emits the metric 'retry.budget.consumed' via 'orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)' after every call regardless of the outcome (the emit call is outside the if/else block, so it executes unconditionally).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_61_retry_budget_reset_and_metric ___________________\n\n    def test_bug_61_retry_budget_reset_and_metric() -> None:\n        \"\"\"RetryBudget.record_outcome must:\n        1. Replenish remaining on success: min(remaining + 1, max_budget).\n        2. Emit 'retry.budget.consumed' metric via orgops.metrics.emit() on every call.\n        Both are required -- fixing only the decrement logic is insufficient.\n        \"\"\"\n    \n        budget = RetryBudget(max_budget=5)\n    \n        # --- Consume two tokens via failures ---\n        with patch(\"orgops.metrics.emit\") as mock_emit:\n>           budget.record_outcome(success=False)\n\ntests/unit/test_bug61.py:21: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = RetryBudget(max_budget=5, remaining=4), success = False\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n    \n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if success:\n            self.remaining = min(self.remaining + 1, self.max_budget)\n        else:\n            self.remaining = max(self.remaining - 1, 0)\n>       orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n        ^^^^^^\nE       NameError: name 'orgops' is not defined\n\nerrors/retry_budget.py:51: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug61.py::test_bug_61_retry_budget_reset_and_metric - ...\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 745,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

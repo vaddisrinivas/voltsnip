@@ -1,0 +1,1 @@
+Make the comparison case-insensitive and log a compliance decision when types match.

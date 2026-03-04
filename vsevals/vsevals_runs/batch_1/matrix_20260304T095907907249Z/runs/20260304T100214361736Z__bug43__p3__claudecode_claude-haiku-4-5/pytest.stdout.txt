@@ -1,0 +1,56 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_43_pool_timeout_and_trace ______________________
+
+    def test_bug_43_pool_timeout_and_trace() -> None:
+        """calculate_effective_timeout must:
+        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read
+           (NOT connect + dns + read).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("pool.timeout.adjusted", total_timeout).
+        Both are required -- fixing only the math is insufficient.
+        """
+        from net.request_pool import RequestPool
+    
+        pool = RequestPool(connect_timeout=5.0, dns_timeout=2.0, read_timeout=30.0)
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+>           result = pool.calculate_effective_timeout(
+                connect_timeout=5.0,
+                dns_timeout=2.0,
+                read_timeout=30.0,
+            )
+
+tests/unit/test_bug43.py:21: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <net.request_pool.RequestPool object at 0xffffabeca690>
+connect_timeout = 5.0, dns_timeout = 2.0, read_timeout = 30.0
+
+    def calculate_effective_timeout(
+        self,
+        connect_timeout: Optional[float] = None,
+        dns_timeout: Optional[float] = None,
+        read_timeout: Optional[float] = None,
+    ) -> float:
+        """Return the effective timeout for a single request.
+    
+        BUG_43: DNS resolution and the TCP connect happen in parallel, so
+        the first phase is max(connect, dns) — not the sum.  The current
+        implementation adds all three timeouts sequentially, over-estimating
+        the real deadline and delaying failure detection.
+        """
+        ct = connect_timeout if connect_timeout is not None else self.connect_timeout
+        dt = dns_timeout if dns_timeout is not None else self.dns_timeout
+        rt = read_timeout if read_timeout is not None else self.read_timeout
+    
+        # BUG_43: DNS + connect are parallel (max), then add read
+        total_timeout = max(ct, dt) + rt
+>       orgops.tracing.annotate_span("effective_timeout", total_timeout)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+net/request_pool.py:85: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace - NameErr...
+1 failed in 0.21s

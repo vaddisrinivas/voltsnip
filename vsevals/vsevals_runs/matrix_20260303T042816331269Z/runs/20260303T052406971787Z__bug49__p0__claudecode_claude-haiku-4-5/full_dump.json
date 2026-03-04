@@ -1,0 +1,200 @@
+{
+  "run_id": "20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs",
+  "task_id": "BUG49",
+  "task_name": "savepoint_release_leak_and_trace",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 32,
+  "task_line_end": 42,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug49/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG49\nTask Name: savepoint_release_leak_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix rollback_to_savepoint so the savepoint is released after rollback and the event is traced.\n\nTarget File: data/txn_manager.py\n\nTarget Lines:\n32-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 32-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug49.py -k bug_49\n\nContext Code:\n```python\ndef rollback_to_savepoint(self, savepoint_id: str) -> None:\n    \"\"\"Rollback to a named savepoint.\n\n    BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\n    the server but is never released, leaking the resource.  The\n    function also does not annotate the trace span with the rollback\n    event for observability.\n    \"\"\"\n    self.session.execute(\n        f\"ROLLBACK TO SAVEPOINT {savepoint_id}\"\n    )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Transaction savepoint manager for nested transaction control.\n\nProvides helpers to create, rollback, and release savepoints within\na database session.  The caller is responsible for passing an active\nsession object whose `.execute()` method accepts raw SQL strings.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass TransactionManager:\n    \"\"\"Manages named savepoints inside a database session.\"\"\"\n\n    def __init__(self, session: Any) -> None:\n        self.session = session\n        self._active_savepoints: list[str] = []\n\n    # -- public API --------------------------------------------------------\n\n    def create_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Create a named savepoint.\"\"\"\n        self.session.execute(f\"SAVEPOINT {savepoint_id}\")\n        self._active_savepoints.append(savepoint_id)\n\n    def release_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Release (destroy) a savepoint, freeing server resources.\"\"\"\n        self.session.execute(f\"RELEASE SAVEPOINT {savepoint_id}\")\n        if savepoint_id in self._active_savepoints:\n            self._active_savepoints.remove(savepoint_id)\n\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Rollback to a named savepoint.\n\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\n        the server but is never released, leaking the resource.  The\n        function also does not annotate the trace span with the rollback\n        event for observability.\n        \"\"\"\n        self.session.execute(\n            f\"ROLLBACK TO SAVEPOINT {savepoint_id}\"\n        )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\n\n    # -- introspection -----------------------------------------------------\n\n    @property\n    def active_savepoints(self) -> list[str]:\n        \"\"\"Return a copy of currently tracked savepoints.\"\"\"\n        return list(self._active_savepoints)\n```\n\nExpected Output:\nAdd RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG49\nTask Name: savepoint_release_leak_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix rollback_to_savepoint so the savepoint is released after rollback and the event is traced.\n\nTarget File: data/txn_manager.py\n\nTarget Lines:\n32-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 32-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug49.py -k bug_49\n\nContext Code:\n```python\ndef rollback_to_savepoint(self, savepoint_id: str) -> None:\n    \"\"\"Rollback to a named savepoint.\n\n    BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\n    the server but is never released, leaking the resource.  The\n    function also does not annotate the trace span with the rollback\n    event for observability.\n    \"\"\"\n    self.session.execute(\n        f\"ROLLBACK TO SAVEPOINT {savepoint_id}\"\n    )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Transaction savepoint manager for nested transaction control.\n\nProvides helpers to create, rollback, and release savepoints within\na database session.  The caller is responsible for passing an active\nsession object whose `.execute()` method accepts raw SQL strings.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass TransactionManager:\n    \"\"\"Manages named savepoints inside a database session.\"\"\"\n\n    def __init__(self, session: Any) -> None:\n        self.session = session\n        self._active_savepoints: list[str] = []\n\n    # -- public API --------------------------------------------------------\n\n    def create_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Create a named savepoint.\"\"\"\n        self.session.execute(f\"SAVEPOINT {savepoint_id}\")\n        self._active_savepoints.append(savepoint_id)\n\n    def release_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Release (destroy) a savepoint, freeing server resources.\"\"\"\n        self.session.execute(f\"RELEASE SAVEPOINT {savepoint_id}\")\n        if savepoint_id in self._active_savepoints:\n            self._active_savepoints.remove(savepoint_id)\n\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Rollback to a named savepoint.\n\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\n        the server but is never released, leaking the resource.  The\n        function also does not annotate the trace span with the rollback\n        event for observability.\n        \"\"\"\n        self.session.execute(\n            f\"ROLLBACK TO SAVEPOINT {savepoint_id}\"\n        )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\n\n    # -- introspection -----------------------------------------------------\n\n    @property\n    def active_savepoints(self) -> list[str]:\n        \"\"\"Return a copy of currently tracked savepoints.\"\"\"\n        return list(self._active_savepoints)\n```\n\nExpected Output:\nAdd RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"from orgops import tracing\\n\\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        self.session.execute(\\n            f\\\"RELEASE SAVEPOINT {savepoint_id}\\\"\\n        )\\n        tracing.annotate_span(\\\"savepoint_rollback\\\", {\\\"savepoint_id\\\": savepoint_id})\\n        if savepoint_id in self._active_savepoints:\\n            self._active_savepoints.remove(savepoint_id)\",\n  \"comments\": \"Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"from orgops import tracing\\n\\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        self.session.execute(\\n            f\\\"RELEASE SAVEPOINT {savepoint_id}\\\"\\n        )\\n        tracing.annotate_span(\\\"savepoint_rollback\\\", {\\\"savepoint_id\\\": savepoint_id})\\n        if savepoint_id in self._active_savepoints:\\n            self._active_savepoints.remove(savepoint_id)\",\n  \"comments\": \"Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state.\"\n}\n```",
+  "parsed_output": {
+    "code": "from orgops import tracing\n\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\n        \"\"\"Rollback to a named savepoint.\n\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\n        the server but is never released, leaking the resource.  The\n        function also does not annotate the trace span with the rollback\n        event for observability.\n        \"\"\"\n        self.session.execute(\n            f\"ROLLBACK TO SAVEPOINT {savepoint_id}\"\n        )\n        self.session.execute(\n            f\"RELEASE SAVEPOINT {savepoint_id}\"\n        )\n        tracing.annotate_span(\"savepoint_rollback\", {\"savepoint_id\": savepoint_id})\n        if savepoint_id in self._active_savepoints:\n            self._active_savepoints.remove(savepoint_id)",
+    "comments": "Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 3,
+    "total_tokens": 13,
+    "cached_tokens": 18599,
+    "thinking_tokens": null,
+    "cost_usd": 0.00149992
+  },
+  "timings": {
+    "started_at": "2026-03-03T05:24:06.971950Z",
+    "finished_at": "2026-03-03T05:25:00.254594Z",
+    "latency_ms": 53282
+  },
+  "summary_metrics": {
+    "latency_ms": 53282,
+    "prompt_chars": 4710,
+    "output_chars": 966,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3660,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 53281,
+    "model_request_started_at": "2026-03-03T05:24:06.972562Z",
+    "model_request_finished_at": "2026-03-03T05:25:00.254519Z",
+    "model_request_id": "c75e505c-d0df-493d-b837-3c247c176dba",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1588,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00149992
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug49_release_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug49_release_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code does execute RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT, but it annotates the span with key \"savepoint_rollback\" instead of the required \"txn.savepoint.rolled_back\" via orgops.tracing.annotate_span().",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"from orgops import tracing\\n\\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        self.session.execute(\\n            f\\\"RELEASE SAVEPOINT {savepoint_id}\\\"\\n        )\\n        tracing.annotate_span(\\\"savepoint_rollback\\\", {\\\"savepoint_id\\\": savepoint_id})\\n        if savepoint_id in self._active_savepoints:\\n            self._active_savepoints.remove(savepoint_id)\", \"comments\": \"Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state.\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code does execute RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT, but it annotates the span with key \\\"savepoint_rollback\\\" instead of the required \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span().\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_49_savepoint_release_and_trace ____________________\n\n    def test_bug_49_savepoint_release_and_trace() -> None:\n        \"\"\"rollback_to_savepoint must:\n        1. Execute ROLLBACK TO SAVEPOINT <id>.\n        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.\n        3. Annotate the trace span via orgops.tracing.annotate_span(\n               \"txn.savepoint.rolled_back\", savepoint_id).\n        All three are required -- rolling back without releasing leaks the\n        savepoint, and omitting the trace annotation breaks observability.\n        \"\"\"\n>       from data.txn_manager import TransactionManager\nE         File \"/workspace/data/txn_manager.py\", line 34\nE           def rollback_to_savepoint(self, savepoint_id: str) -> None:\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug49.py:17: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace -   ...\n1 failed in 0.49s\n",
+    "stderr": "",
+    "duration_ms": 4699,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

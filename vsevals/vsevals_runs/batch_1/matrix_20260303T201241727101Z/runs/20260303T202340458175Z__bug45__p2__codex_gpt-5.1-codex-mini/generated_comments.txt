@@ -1,0 +1,1 @@
+Validates every adjacent cert pair, records the ttl compliance decision, and keeps the rest of the function unchanged.

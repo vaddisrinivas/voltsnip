@@ -1,0 +1,1 @@
+Make validate_column_type compare types case-insensitively and record a schema.validation.passed decision when they match.

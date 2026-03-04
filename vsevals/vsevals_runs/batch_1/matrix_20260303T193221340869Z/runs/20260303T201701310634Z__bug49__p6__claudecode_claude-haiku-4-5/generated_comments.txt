@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT and annotated trace span via orgops.tracing.annotate_span for resource cleanup and observability.

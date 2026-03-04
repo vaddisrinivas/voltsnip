@@ -1,0 +1,1 @@
+Copy both IDs into the child context and annotate the trace span so downstream services keep tracing continuity.

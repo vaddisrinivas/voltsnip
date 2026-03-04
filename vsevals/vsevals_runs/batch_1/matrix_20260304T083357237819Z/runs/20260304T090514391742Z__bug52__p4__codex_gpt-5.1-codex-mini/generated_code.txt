@@ -1,0 +1,5 @@
+    from orgops import compliance
+
+    passed = expected_type.upper() == actual_type.upper()
+    compliance.record_decision("schema.validation.passed", passed)
+    return passed

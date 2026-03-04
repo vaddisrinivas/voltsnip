@@ -1,0 +1,1 @@
+Collect all validation errors by appending instead of returning early; record compliance decision with error count after validation completes.

@@ -1,0 +1,1 @@
+Switched the jitter to a positive add and added optional cache.ttl.jittered metric emission across several common client APIs.

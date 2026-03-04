@@ -1,0 +1,1 @@
+Convert the timer interval to milliseconds, audit each scheduled flush, and keep the callback localized.

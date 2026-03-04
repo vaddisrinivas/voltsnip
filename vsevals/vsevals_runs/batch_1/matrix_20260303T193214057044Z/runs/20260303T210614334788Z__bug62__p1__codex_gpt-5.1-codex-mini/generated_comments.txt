@@ -1,0 +1,1 @@
+Ensure each fallback runs with the shared context and annotate the activated fallback span.

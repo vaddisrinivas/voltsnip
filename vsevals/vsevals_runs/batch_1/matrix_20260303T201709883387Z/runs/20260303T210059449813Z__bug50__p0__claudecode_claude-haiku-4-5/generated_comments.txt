@@ -1,0 +1,1 @@
+Removed duplicate selectivity multiplication on line 48 to apply selectivity exactly once per the formula.

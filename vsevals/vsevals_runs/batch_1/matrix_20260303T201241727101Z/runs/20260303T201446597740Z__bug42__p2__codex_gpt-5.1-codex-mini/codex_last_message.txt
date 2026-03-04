@@ -1,0 +1,1 @@
+{"code": "        from orgops import health\n\n        if self.probe_count < self.max_probes:\n            self.probe_count += 1\n            return True\n\n        health.report_degradation(\"circuit.half_open\")\n        return False", "comments": "Limit half-open probes to below the cap and report a degradation when the probe quota is exhausted."}

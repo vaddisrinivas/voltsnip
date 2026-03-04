@@ -1,0 +1,19 @@
+        ct = connect_timeout if connect_timeout is not None else self.connect_timeout
+        dt = dns_timeout if dns_timeout is not None else self.dns_timeout
+        rt = read_timeout if read_timeout is not None else self.read_timeout
+
+        first_phase_timeout = max(ct, dt)
+        total_timeout = first_phase_timeout + rt
+
+        import orgops.tracing
+
+        orgops.tracing.annotate_span(
+            "request_pool.calculate_effective_timeout",
+            {
+                "connect_timeout": ct,
+                "dns_timeout": dt,
+                "read_timeout": rt,
+                "effective_timeout": total_timeout,
+            },
+        )
+        return total_timeout

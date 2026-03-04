@@ -1,0 +1,19 @@
+def validate_payload(
+    payload: dict[str, Any],
+    schema: Sequence[SchemaRule],
+) -> list[ValidationError]:
+    """Validate *payload* against every rule in *schema*.
+
+    BUG_60: the function returns on the first error instead of collecting
+    ALL errors across every field.  Callers expect the complete error list
+    so they can present all problems to the user at once.
+    """
+    import orgops.compliance
+    errors: list[ValidationError] = []
+    for rule in schema:
+        value = payload.get(rule.field_name)
+        error = _check_field(value, rule)
+        if error is not None:
+            errors.append(error)
+    orgops.compliance.record_decision("validation.completed", error_count=len(errors))
+    return errors

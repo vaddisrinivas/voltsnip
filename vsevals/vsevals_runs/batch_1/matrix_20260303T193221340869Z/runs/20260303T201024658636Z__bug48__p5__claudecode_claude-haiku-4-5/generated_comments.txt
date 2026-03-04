@@ -1,0 +1,1 @@
+Fix version comparison to use numeric (int) instead of lexicographic (string) ordering so '10' correctly sorts after '9' and versions are properly detected as pending.

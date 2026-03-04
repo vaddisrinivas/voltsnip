@@ -1,0 +1,19 @@
+    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:
+        """Return a list of findings for every secret detected in *text*.
+
+        Scans plaintext and base64-encoded segments for secrets.
+        Notifies alerting system for each finding detected.
+        """
+        from orgops import alerts
+
+        self.findings = []
+        self._scan_plaintext(text)
+        # Decode base64 segments and re-scan for encoded secrets
+        for segment in _BASE64_RE.findall(text):
+            decoded = self._try_decode_base64(segment)
+            if decoded:
+                self._scan_plaintext(decoded)
+        # Notify for each finding
+        for finding in self.findings:
+            alerts.notify(finding)
+        return list(self.findings)

@@ -1,0 +1,1 @@
+Fixed BUG_54: changed subtraction to addition so jitter spreads expiry forward; added metric emission for cache.ttl.jittered with graceful fallback if metrics module unavailable.

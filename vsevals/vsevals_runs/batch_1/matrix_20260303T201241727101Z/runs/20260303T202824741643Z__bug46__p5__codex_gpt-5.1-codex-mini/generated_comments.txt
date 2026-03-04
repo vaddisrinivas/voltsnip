@@ -1,0 +1,1 @@
+Use the precise float boundary when slicing timestamps so sub-second requests count correctly.

@@ -1,0 +1,1 @@
+Fixed jitter to be additive (base_ttl + jitter instead of subtraction) and added required orgops.metrics.emit call for operational monitoring.

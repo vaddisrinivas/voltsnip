@@ -1,0 +1,1 @@
+Replaced int() truncation with round(..., 2) for decimal precision and added metric emission for sampling rate tracking.

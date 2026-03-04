@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < so early refresh triggers when ratio is low (entry close to expiry) rather than high; refreshes_triggered metric counter now tracks correct stampede preventions.

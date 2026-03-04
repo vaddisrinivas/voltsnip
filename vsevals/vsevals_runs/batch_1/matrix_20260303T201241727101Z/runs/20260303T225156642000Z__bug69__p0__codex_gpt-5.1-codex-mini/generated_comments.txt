@@ -1,0 +1,1 @@
+Force UTC timestamps via datetime.now(timezone.utc) while marking the entry as UTC for consistent cross-region auditing.

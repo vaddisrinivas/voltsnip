@@ -1,0 +1,1 @@
+Fixed BUG_69: Changed to datetime.now(timezone.utc) for UTC timestamps and added compliance decision recording for cross-region audit trail consistency.

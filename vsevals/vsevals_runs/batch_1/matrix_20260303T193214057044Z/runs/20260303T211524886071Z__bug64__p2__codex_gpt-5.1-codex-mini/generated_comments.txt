@@ -1,0 +1,1 @@
+Compound the timeout by applying multiplier**attempt, cap it, and emit timeout.escalated with the final value.

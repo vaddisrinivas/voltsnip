@@ -1,0 +1,13 @@
+def classify_http_error(status_code: int) -> str:
+    """Classify an HTTP status code into an error category.
+
+    Expected categories:
+        - "client_error"  for 400-499
+        - "server_error"  for 500-599
+        - "unknown"       for anything else
+    """
+    if 400 <= status_code < 500:
+        return "client_error"
+    if 500 <= status_code < 600:
+        return "server_error"
+    return "unknown"

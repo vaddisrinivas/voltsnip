@@ -1,0 +1,1 @@
+Pick the connection with the oldest last-used timestamp and report the eviction via the pool.connection.evicted metric.

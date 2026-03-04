@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug49_release_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug49_release_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the implementation does add RELEASE SAVEPOINT after ROLLBACK (via self.release_savepoint) and does annotate the trace span via orgops.tracing.annotate_span(), the annotation does not include 'txn.savepoint.rolled_back' as required. Instead, it uses {\"event\": \"rollback_to_savepoint\", \"savepoint_id\": savepoint_id}.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint, release it, and annotate the rollback.\\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        self.release_savepoint(savepoint_id)\\n        import orgops\\n        orgops.tracing.annotate_span(\\n            {\\\"event\\\": \\\"rollback_to_savepoint\\\", \\\"savepoint_id\\\": savepoint_id}\\n        )\\n\", \"comments\": \"Release the savepoint after rolling back and annotate the trace span describing the rollback event.\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the implementation does add RELEASE SAVEPOINT after ROLLBACK (via self.release_savepoint) and does annotate the trace span via orgops.tracing.annotate_span(), the annotation does not include 'txn.savepoint.rolled_back' as required. Instead, it uses {\\\"event\\\": \\\"rollback_to_savepoint\\\", \\\"savepoint_id\\\": savepoint_id}.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

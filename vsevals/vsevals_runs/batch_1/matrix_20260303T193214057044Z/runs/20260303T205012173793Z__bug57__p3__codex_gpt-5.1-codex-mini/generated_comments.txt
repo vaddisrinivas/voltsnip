@@ -1,0 +1,1 @@
+Convert the timer interval to milliseconds and emit cache.flush.completed after each flush.

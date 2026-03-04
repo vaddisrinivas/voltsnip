@@ -1,0 +1,1 @@
+Copy both request_id and correlation_id from parent context to child, fixing the lost correlation_id bug.

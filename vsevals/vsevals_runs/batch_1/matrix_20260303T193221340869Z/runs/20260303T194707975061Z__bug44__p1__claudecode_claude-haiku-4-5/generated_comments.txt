@@ -1,0 +1,1 @@
+Fixed inverted comparison operator: entry is stale when now >= stale_at, so return True when stale_at <= now

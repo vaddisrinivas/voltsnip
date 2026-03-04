@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_43_pool_timeout_and_trace ______________________
+
+    def test_bug_43_pool_timeout_and_trace() -> None:
+        """calculate_effective_timeout must:
+        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read
+           (NOT connect + dns + read).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("pool.timeout.adjusted", total_timeout).
+        Both are required -- fixing only the math is insufficient.
+        """
+        from net.request_pool import RequestPool
+    
+        pool = RequestPool(connect_timeout=5.0, dns_timeout=2.0, read_timeout=30.0)
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+>           result = pool.calculate_effective_timeout(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                connect_timeout=5.0,
+                dns_timeout=2.0,
+                read_timeout=30.0,
+            )
+E           AttributeError: 'RequestPool' object has no attribute 'calculate_effective_timeout'
+
+tests/unit/test_bug43.py:21: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace - Attribu...
+1 failed in 0.43s

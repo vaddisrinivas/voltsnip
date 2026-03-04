@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb564-f3cb-72e2-bf11-52f6c8bb23e7"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Replacing connection eviction with LRU metric**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\":\"        import orgops.metrics\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        lru_idx = min(range(len(self.connections)),\\n                       key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n        idle_seconds = now - evicted.last_used_at\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n        return evicted\",\"comments\":\"Use LRU lookup plus required metric emission before returning the evicted connection.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9441,"cached_input_tokens":3840,"output_tokens":353}}

@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug44_stale_check_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug44_stale_check_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The stale check uses `return entry.stale_at <= now`, and `refresh_stale` calls `orgops.metrics.emit(\"dns.cache.refresh\", ...)` inside the `if self.should_refresh_entry(entry, now)` branch for stale entries.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison is inverted -- it returns ``True`` when\\n        the entry is still fresh and ``False`` when it is actually stale.\\n        \\\"\\\"\\\"\\n        # BUG_44: inverted stale check -- returns True when NOT stale\\n        return entry.stale_at <= now\\n\\n    def refresh_stale(self, now: Optional[float] = None) -> list[str]:\\n        \\\"\\\"\\\"Return hostnames whose entries need a background refresh.\\n\\n        Also emits a ``dns.cache.refresh`` metric for each stale entry\\n        so the on-call dashboard tracks cache churn.\\n        \\\"\\\"\\\"\\n        now = now if now is not None else time.time()\\n        stale_hosts: list[str] = []\\n        for hostname, entry in self._store.items():\\n            if self.should_refresh_entry(entry, now):\\n                orgops.metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now))\\n                stale_hosts.append(hostname)\\n        return stale_hosts\", \"comments\": \"Fixed inverted stale comparison and added required dns.cache.refresh metric emission when stale entries are detected\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The stale check uses `return entry.stale_at <= now`, and `refresh_stale` calls `orgops.metrics.emit(\\\"dns.cache.refresh\\\", ...)` inside the `if self.should_refresh_entry(entry, now)` branch for stale entries.\"}]}",
+  "passed": true
+}

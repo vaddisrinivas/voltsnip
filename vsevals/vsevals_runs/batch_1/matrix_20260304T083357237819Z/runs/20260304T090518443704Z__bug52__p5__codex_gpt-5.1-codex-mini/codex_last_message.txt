@@ -1,0 +1,1 @@
+{"code":"    # BUG_52: case-sensitive comparison causes false mismatches\n    match = expected_type.upper() == actual_type.upper()\n    import orgops.compliance\n    orgops.compliance.record_decision(\"schema.validation.passed\", match)\n    return match\n", "comments":"Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance."}

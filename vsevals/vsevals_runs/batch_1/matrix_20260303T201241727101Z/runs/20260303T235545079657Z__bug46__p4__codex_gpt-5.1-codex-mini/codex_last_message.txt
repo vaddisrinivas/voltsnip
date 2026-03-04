@@ -1,0 +1,1 @@
+{"code": "    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx", "comments": "Stop truncating the boundary to an int so the sliding window uses the exact float cutoff."}

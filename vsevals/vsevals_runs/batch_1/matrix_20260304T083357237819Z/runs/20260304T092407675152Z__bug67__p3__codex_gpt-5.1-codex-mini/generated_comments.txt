@@ -1,0 +1,1 @@
+Replaced the truncating int() calculation with round(..., 2), logged the rate to history, emitted the sampling metric, and return the floating-point rate.

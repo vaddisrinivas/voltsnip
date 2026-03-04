@@ -1,0 +1,1 @@
+Fix numeric version comparison by converting version strings to integers for both sorting and max-applied detection, resolving lexicographic ordering bug where '10' sorts before '9'.

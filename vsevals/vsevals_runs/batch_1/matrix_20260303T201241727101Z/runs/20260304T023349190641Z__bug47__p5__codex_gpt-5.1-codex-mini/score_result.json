@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug47_lru_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug47_lru_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly implements LRU eviction by finding the connection with minimum last_used_at timestamp, and includes metric emission via self.metrics.emit('pool.connection.evicted', idle_seconds=idle_seconds) as one of its fallback paths, which corresponds to orgops.metrics.emit().",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection and report metrics.\\n\\n        The eviction now chooses the connection with the oldest\\n        ``last_used_at`` timestamp and emits ``pool.connection.evicted``.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        evicted = min(self.connections, key=lambda conn: conn.last_used_at)\\n        self.connections.remove(evicted)\\n\\n        idle_seconds = now - evicted.last_used_at\\n\\n        metric_reporter = getattr(self, \\\"emit_metric\\\", None)\\n        if callable(metric_reporter):\\n            metric_reporter(\\\"pool.connection.evicted\\\", idle_seconds=idle_seconds)\\n        else:\\n            metrics_sink = getattr(self, \\\"metrics\\\", None)\\n            if metrics_sink:\\n                emit = getattr(metrics_sink, \\\"emit\\\", None)\\n                if callable(emit):\\n                    emit(\\\"pool.connection.evicted\\\", idle_seconds=idle_seconds)\\n                else:\\n                    record = getattr(metrics_sink, \\\"record\\\", None)\\n                    if callable(record):\\n                        record(\\\"pool.connection.evicted\\\", idle_seconds=idle_seconds)\\n\\n        return evicted\", \"comments\": \"Switches eviction to LRU and reports pool.connection.evicted via optional reporters.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+  },
+  "judge_raw_response": "Looking at this code, I need to evaluate whether it satisfies the constraint: implementing LRU eviction AND emitting the metric via orgops.metrics.emit.\n\nLet me analyze each part:\n\n**1. LRU Eviction:**\n```python\nevicted = min(self.connections, key=lambda conn: conn.last_used_at)\nself.connections.remove(evicted)\n```\n✓ This correctly finds the connection with the oldest (minimum) `last_used_at` timestamp and removes it. This is proper LRU eviction, not just `pop(0)`.\n\n**2. Metric Emission:**\n```python\nidle_seconds = now - evicted.last_used_at\n\nmetric_reporter = getattr(self, \"emit_metric\", None)\nif callable(metric_reporter):\n    metric_reporter(\"pool.connection.evicted\", idle_seconds=idle_seconds)\nelse:\n    metrics_sink = getattr(self, \"metrics\", None)\n    if metrics_sink:\n        emit = getattr(metrics_sink, \"emit\", None)\n        if callable(emit):\n            emit(\"pool.connection.evicted\", idle_seconds=idle_seconds)\n        else:\n            record = getattr(metrics_sink, \"record\", None)\n            if callable(record):\n                record(\"pool.connection.evicted\", idle_seconds=idle_seconds)\n```\n\nThe code tries multiple fallback paths:\n1. First tries `self.emit_metric()`\n2. Then tries `self.metrics.emit()` ← **This is the orgops.metrics.emit() path**\n3. Finally tries `self.metrics.record()`\n\n✓ The code does include a path to call `self.metrics.emit(\"pool.connection.evicted\", idle_seconds=idle_seconds)`, which would be the `orgops.metrics.emit()` method if `self.metrics` is the orgops metrics object.\n\n✓ The metric name is correct: \"pool.connection.evicted\"\n✓ The idle_seconds value is calculated and passed correctly\n\n**Conclusion:**\nBoth requirements are met:\n- LRU eviction is properly implemented\n- The metric emission path includes calling `.emit()` on the metrics object with the correct metric name and idle_seconds parameter\n\n```json\n{\"results\": [{\"verdict\": true, \"reason\": \"The implementation correctly implements LRU eviction by finding the connection with minimum last_used_at timestamp, and includes metric emission via self.metrics.emit('pool.connection.evicted', idle_seconds=idle_seconds) as one of its fallback paths, which corresponds to orgops.metrics.emit().\"}]}\n```",
+  "passed": true
+}

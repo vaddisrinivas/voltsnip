@@ -1,0 +1,1 @@
+Execute rollback and release savepoint, annotate trace span with rollback event, and update internal tracking to fix resource leak.

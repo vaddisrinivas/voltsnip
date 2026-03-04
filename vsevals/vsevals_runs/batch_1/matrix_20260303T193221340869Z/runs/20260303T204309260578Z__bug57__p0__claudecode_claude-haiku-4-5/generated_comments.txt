@@ -1,0 +1,1 @@
+Fixed unit conversion: multiply interval_seconds by 1000 to convert to milliseconds for _start_timer; the method's return dict serves as the flush audit event.

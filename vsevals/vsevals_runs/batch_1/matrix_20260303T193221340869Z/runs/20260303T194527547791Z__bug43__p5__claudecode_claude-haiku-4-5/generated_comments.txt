@@ -1,0 +1,1 @@
+Fixed parallel timeout calculation: DNS and connect overlap so use max(ct, dt) + rt instead of ct + dt + rt, and annotated span for observability.

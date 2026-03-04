@@ -1,0 +1,14 @@
+    exceeded = measured_lag_ms > threshold_ms
+    if exceeded:
+        orgops.alerts.notify(
+            "replication_lag_exceeded",
+            {
+                "measured_lag_ms": measured_lag_ms,
+                "threshold_ms": threshold_ms,
+            },
+        )
+    return {
+        "measured_lag_ms": measured_lag_ms,
+        "threshold_ms": threshold_ms,
+        "exceeded": exceeded,
+    }

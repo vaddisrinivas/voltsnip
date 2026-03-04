@@ -1,0 +1,1 @@
+Fix timestamp to use UTC (datetime.now(timezone.utc)), set utc=True flag, and record compliance decision for SOC2 audit dashboard verification.

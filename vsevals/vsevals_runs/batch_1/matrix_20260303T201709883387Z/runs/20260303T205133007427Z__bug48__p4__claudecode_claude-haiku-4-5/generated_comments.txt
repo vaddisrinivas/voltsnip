@@ -1,0 +1,1 @@
+Use integer conversion for version comparison and sorting to enable correct numeric ordering; audit logging for each applied migration should be added to apply_pending method.

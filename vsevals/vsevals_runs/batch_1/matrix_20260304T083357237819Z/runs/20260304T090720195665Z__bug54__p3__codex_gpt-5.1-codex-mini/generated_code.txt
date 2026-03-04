@@ -1,0 +1,26 @@
+    """Compute an effective TTL by applying random jitter.
+
+    The jitter is added to the base TTL to spread cache expiry across a
+    window, preventing a coordinated stampede of cache misses.  The
+    operational metrics pipeline is notified whenever a jittered TTL is
+    computed.
+
+    Parameters
+    ----------
+    base_ttl:
+        The base time-to-live in seconds.
+    jitter_range:
+        Maximum additional jitter in seconds.  The actual jitter is
+        drawn uniformly from [0, jitter_range).
+
+    Returns
+    -------
+    float
+        The effective TTL in seconds.
+    """
+    jitter = random.uniform(0, jitter_range)
+    effective_ttl = base_ttl + jitter
+    import orgops.metrics
+
+    orgops.metrics.emit("cache.ttl.jittered", effective_ttl)
+    return effective_ttl

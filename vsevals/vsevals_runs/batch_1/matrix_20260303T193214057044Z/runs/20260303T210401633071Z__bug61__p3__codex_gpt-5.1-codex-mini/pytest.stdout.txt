@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_61_retry_budget_reset_and_metric ___________________
+
+    def test_bug_61_retry_budget_reset_and_metric() -> None:
+        """RetryBudget.record_outcome must:
+        1. Replenish remaining on success: min(remaining + 1, max_budget).
+        2. Emit 'retry.budget.consumed' metric via orgops.metrics.emit() on every call.
+        Both are required -- fixing only the decrement logic is insufficient.
+        """
+    
+>       budget = RetryBudget(max_budget=5)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug61.py:17: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+<string>:5: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = RetryBudget(max_budget=5, remaining=5)
+
+    def __post_init__(self) -> None:
+        if self.remaining is None:
+            self.remaining = self.max_budget
+    
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    
+>       if success:
+           ^^^^^^^
+E       NameError: name 'success' is not defined
+
+errors/retry_budget.py:37: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug61.py::test_bug_61_retry_budget_reset_and_metric - ...
+1 failed in 0.35s

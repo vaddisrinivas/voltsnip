@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    count = len(timestamps) - idx\n    import orgops.ratelimit as ratelimit\n    ratelimit.check_quota(count)\n    return count\n","comments":"Use precise float boundaries and report the computed count to orgops.ratelimit.check_quota before returning."}

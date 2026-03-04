@@ -1,0 +1,1 @@
+Fixed timeout compounding from linear (original_ms * multiplier) to exponential (original_ms * multiplier ** attempt) and added metric emission for alerting system.

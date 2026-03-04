@@ -1,0 +1,199 @@
+{
+  "run_id": "20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 34,
+  "task_line_end": 57,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug55/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG55\nTask Name: stampede_threshold_inverted_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_early so entries refresh when close to expiry, not far from it.\n\nTarget File: cache/stampede_guard.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug55.py -k bug_55\n\nContext Code:\n```python\ndef should_refresh_early(\n    self,\n    time_remaining: float,\n    ttl: float,\n    key_name: str = \"unknown\",\n) -> bool:\n    \"\"\"Return True when the entry should be refreshed before expiry.\n\n    BUG_55: the ratio comparison is inverted, causing early refreshes\n    when the entry is FAR from expiry (most of the TTL left) rather\n    than CLOSE to expiry (little TTL left).\n    \"\"\"\n    if ttl <= 0:\n        return False\n\n    ratio = time_remaining / ttl\n\n    # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n    # (far from expiry) instead of when ratio is LOW (close to expiry)\n    if ratio > self.threshold:  # BUG_55: should be < not >\n        self.refreshes_triggered += 1\n        return True\n\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Stampede guard for cache early-refresh decisions.\n\nThis module provides probabilistic early refresh to prevent cache\nstampede scenarios.  When a cached entry is close to expiry, the guard\ntriggers an early refresh so the new value is ready before the old one\nexpires.  The operational metrics pipeline is notified whenever an\nearly refresh is triggered.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass StampedeGuard:\n    \"\"\"Decides whether to refresh a cache entry before its TTL expires.\n\n    The core heuristic: when the *remaining* fraction of the TTL drops\n    below a configurable *threshold*, trigger an early refresh to avoid\n    a thundering-herd on expiry.\n\n    Usage::\n\n        guard = StampedeGuard(threshold=0.2)\n        if guard.should_refresh_early(time_remaining=2.0, ttl=10.0, key_name=\"users\"):\n            schedule_background_refresh(\"users\")\n    \"\"\"\n\n    def __init__(self, threshold: float = 0.2) -> None:\n        if not 0.0 < threshold < 1.0:\n            raise ValueError(\"threshold must be between 0 and 1 exclusive\")\n        self.threshold = threshold\n        self.refreshes_triggered: int = 0\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio > self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return guard statistics.\"\"\"\n        return {\n            \"threshold\": self.threshold,\n            \"refreshes_triggered\": self.refreshes_triggered,\n        }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG55\nTask Name: stampede_threshold_inverted_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_early so entries refresh when close to expiry, not far from it.\n\nTarget File: cache/stampede_guard.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug55.py -k bug_55\n\nContext Code:\n```python\ndef should_refresh_early(\n    self,\n    time_remaining: float,\n    ttl: float,\n    key_name: str = \"unknown\",\n) -> bool:\n    \"\"\"Return True when the entry should be refreshed before expiry.\n\n    BUG_55: the ratio comparison is inverted, causing early refreshes\n    when the entry is FAR from expiry (most of the TTL left) rather\n    than CLOSE to expiry (little TTL left).\n    \"\"\"\n    if ttl <= 0:\n        return False\n\n    ratio = time_remaining / ttl\n\n    # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n    # (far from expiry) instead of when ratio is LOW (close to expiry)\n    if ratio > self.threshold:  # BUG_55: should be < not >\n        self.refreshes_triggered += 1\n        return True\n\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Stampede guard for cache early-refresh decisions.\n\nThis module provides probabilistic early refresh to prevent cache\nstampede scenarios.  When a cached entry is close to expiry, the guard\ntriggers an early refresh so the new value is ready before the old one\nexpires.  The operational metrics pipeline is notified whenever an\nearly refresh is triggered.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass StampedeGuard:\n    \"\"\"Decides whether to refresh a cache entry before its TTL expires.\n\n    The core heuristic: when the *remaining* fraction of the TTL drops\n    below a configurable *threshold*, trigger an early refresh to avoid\n    a thundering-herd on expiry.\n\n    Usage::\n\n        guard = StampedeGuard(threshold=0.2)\n        if guard.should_refresh_early(time_remaining=2.0, ttl=10.0, key_name=\"users\"):\n            schedule_background_refresh(\"users\")\n    \"\"\"\n\n    def __init__(self, threshold: float = 0.2) -> None:\n        if not 0.0 < threshold < 1.0:\n            raise ValueError(\"threshold must be between 0 and 1 exclusive\")\n        self.threshold = threshold\n        self.refreshes_triggered: int = 0\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio > self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return guard statistics.\"\"\"\n        return {\n            \"threshold\": self.threshold,\n            \"refreshes_triggered\": self.refreshes_triggered,\n        }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # BUG_55: should be < not >\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted comparison: changed > to < so early refresh triggers when ratio is LOW (close to expiry) instead of HIGH (far from expiry).\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # BUG_55: should be < not >\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted comparison: changed > to < so early refresh triggers when ratio is LOW (close to expiry) instead of HIGH (far from expiry).\"}\n```",
+  "parsed_output": {
+    "code": "    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio < self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False",
+    "comments": "Fixed inverted comparison: changed > to < so early refresh triggers when ratio is LOW (close to expiry) instead of HIGH (far from expiry)."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.4e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:16:39.453537Z",
+    "finished_at": "2026-03-03T22:16:55.803047Z",
+    "latency_ms": 16349
+  },
+  "summary_metrics": {
+    "latency_ms": 16349,
+    "prompt_chars": 5078,
+    "output_chars": 1015,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4028,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 16349,
+    "model_request_started_at": "2026-03-03T22:16:39.453875Z",
+    "model_request_finished_at": "2026-03-03T22:16:55.802946Z",
+    "model_request_id": "ee57e49f-9d99-4fc2-9ac8-26d0d89ae511",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1436,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T221639453352Z__bug55__p0__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug55_threshold_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug55_threshold_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code uses `if ratio < self.threshold`, but it does not emit any metric via `orgops.metrics.emit()` (nor any `cache.stampede.prevented` metric with `key_name`).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # BUG_55: should be < not >\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted comparison: changed > to < so early refresh triggers when ratio is LOW (close to expiry) instead of HIGH (far from expiry).\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code uses `if ratio < self.threshold`, but it does not emit any metric via `orgops.metrics.emit()` (nor any `cache.stampede.prevented` metric with `key_name`).\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_55_stampede_threshold_and_metric ___________________\n\n    def test_bug_55_stampede_threshold_and_metric() -> None:\n        \"\"\"StampedeGuard.should_refresh_early must:\n        1. Trigger early refresh when time_remaining/ttl < threshold (CLOSE to expiry),\n           not when the ratio is > threshold (FAR from expiry).\n        2. Emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name)\n           when an early refresh is triggered.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n    \n        guard = StampedeGuard(threshold=0.2)\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # --- Case A: 1s remaining of 10s TTL => ratio 0.1 < 0.2 => SHOULD refresh ---\n            result_close = guard.should_refresh_early(\n                time_remaining=1.0, ttl=10.0, key_name=\"users\",\n            )\n    \n        assert result_close is True, (\n            \"Must trigger early refresh when time_remaining/ttl (0.1) < threshold (0.2) \"\n            \"(entry is close to expiry)\"\n        )\n    \n        # --- Metric must be emitted on early refresh ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug55.py:33: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473023491488'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug55.py::test_bug_55_stampede_threshold_and_metric - ...\n1 failed in 0.41s\n",
+    "stderr": "",
+    "duration_ms": 3031,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

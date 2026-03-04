@@ -1,0 +1,1 @@
+Now the LFU score decays with entry age and emits the cache.eviction.lfu metric when the metrics helper is available.

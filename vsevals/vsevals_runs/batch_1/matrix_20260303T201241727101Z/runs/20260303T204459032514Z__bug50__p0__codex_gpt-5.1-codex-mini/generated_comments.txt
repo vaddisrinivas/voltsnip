@@ -1,0 +1,1 @@
+Apply selectivity only once when estimating join cost to fix BUG_50.

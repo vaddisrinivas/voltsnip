@@ -1,0 +1,1 @@
+Apply the time-decayed formula so each LFU score divides access count by an age-adjusted denominator.

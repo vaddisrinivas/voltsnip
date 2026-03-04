@@ -1,0 +1,3 @@
+        n = num_partitions if num_partitions is not None else self._config.num_partitions
+        partition_id = _stable_hash(key) % n
+        return partition_id

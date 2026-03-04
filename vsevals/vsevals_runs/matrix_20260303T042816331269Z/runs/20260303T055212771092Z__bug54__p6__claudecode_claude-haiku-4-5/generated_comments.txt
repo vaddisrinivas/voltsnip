@@ -1,0 +1,1 @@
+Fixed jitter math (add not subtract) and added cache.ttl.jittered metric emission for operational monitoring.

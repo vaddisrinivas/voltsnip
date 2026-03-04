@@ -1,0 +1,1 @@
+Convert to exponential backoff using 2**attempt, cap delay at max_delay, and add metrics emission.

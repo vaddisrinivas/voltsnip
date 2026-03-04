@@ -1,0 +1,1 @@
+Correct modulus to avoid out-of-range IDs and emit the required health degradation signal.

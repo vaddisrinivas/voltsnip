@@ -1,0 +1,1 @@
+Loop now iterates over every adjacent chain pair so each issuer matches the next subject.

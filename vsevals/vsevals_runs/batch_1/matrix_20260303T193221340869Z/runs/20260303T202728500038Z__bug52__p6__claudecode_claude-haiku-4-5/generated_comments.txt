@@ -1,0 +1,1 @@
+Fixed case-insensitive type comparison using .upper() and added compliance decision recording for SOC2 audit trail.

@@ -1,0 +1,1 @@
+Case-insensitive type comparison via .upper() AND record compliance decision for SOC2 audit trail when schema validation passes.

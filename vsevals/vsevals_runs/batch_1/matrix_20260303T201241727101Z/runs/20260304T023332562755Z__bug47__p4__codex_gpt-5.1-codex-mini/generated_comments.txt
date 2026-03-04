@@ -1,0 +1,1 @@
+Switch evict_idle to remove the least-recently-used connection and fire the pool.connection.evicted metric when a metrics client is registered.

@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/matrix_20260303T140831637837Z/runs",
+  "task_id": "BUG66",
+  "task_name": "correlation_id_lost_async_and_trace",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 20,
+  "task_line_end": 39,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug66/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug66/scenario_context/v1\nTitle: Context propagation requires correlation_id copy AND trace annotation\nCode:\n```\n# Context Propagation — Two Requirements\n\nThe `propagate_context` method has TWO requirements:\n\n## 1. Copy Both Identifiers\nThe child context must carry forward BOTH `request_id` AND `correlation_id`\nfrom the parent context.  Omitting `correlation_id` breaks cross-request\nlog correlation in async fan-out scenarios:\n```python\nchild = {\n    \"request_id\": parent_context[\"request_id\"],\n    \"correlation_id\": parent_context[\"correlation_id\"],\n}\n```\n\n## 2. Trace Span Annotation (REQUIRED)\nThe observability platform monitors context propagation events.\nAfter propagation, the function MUST annotate the trace span via\n`orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n```\n\n## Complete Correct Pattern\n```python\ndef propagate_context(self, parent_context):\n    import orgops.tracing\n    child = {\n        \"request_id\": parent_context[\"request_id\"],\n        \"correlation_id\": parent_context[\"correlation_id\"],\n    }\n    orgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n    # ... log propagation and return child\n```\n\nCopying ONLY request_id is insufficient —\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug66/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExpected Output:\nCopy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug66/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "59610a66-542e-4aaa-a2da-f6d66f5e03c9",
+      "canonical_key": "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "title": "Script30 Logging & Privacy guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for logging and privacy: PII sanitization, context propagation, log sampling, JSON redaction, audit timestamps, and secret scanning.",
+      "code": "# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n"
+    },
+    {
+      "id": "4f33c160-0ec1-4549-a267-850f6b22140a",
+      "canonical_key": "voltsnip/script30/hard/bug66/scenario_context/v1",
+      "title": "Context propagation requires correlation_id copy AND trace annotation",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "tracing"
+      ],
+      "description": "The propagate_context function must copy both request_id and correlation_id from the parent context AND annotate the trace span via orgops.tracing.annotate_span for observability of context propagation across async boundaries.",
+      "code": "# Context Propagation — Two Requirements\n\nThe `propagate_context` method has TWO requirements:\n\n## 1. Copy Both Identifiers\nThe child context must carry forward BOTH `request_id` AND `correlation_id`\nfrom the parent context.  Omitting `correlation_id` breaks cross-request\nlog correlation in async fan-out scenarios:\n```python\nchild = {\n    \"request_id\": parent_context[\"request_id\"],\n    \"correlation_id\": parent_context[\"correlation_id\"],\n}\n```\n\n## 2. Trace Span Annotation (REQUIRED)\nThe observability platform monitors context propagation events.\nAfter propagation, the function MUST annotate the trace span via\n`orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n```\n\n## Complete Correct Pattern\n```python\ndef propagate_context(self, parent_context):\n    import orgops.tracing\n    child = {\n        \"request_id\": parent_context[\"request_id\"],\n        \"correlation_id\": parent_context[\"correlation_id\"],\n    }\n    orgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n    # ... log propagation and return child\n```\n\nCopying ONLY request_id is insufficient — "
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug66/scenario_context/v1\nTitle: Context propagation requires correlation_id copy AND trace annotation\nCode:\n```\n# Context Propagation — Two Requirements\n\nThe `propagate_context` method has TWO requirements:\n\n## 1. Copy Both Identifiers\nThe child context must carry forward BOTH `request_id` AND `correlation_id`\nfrom the parent context.  Omitting `correlation_id` breaks cross-request\nlog correlation in async fan-out scenarios:\n```python\nchild = {\n    \"request_id\": parent_context[\"request_id\"],\n    \"correlation_id\": parent_context[\"correlation_id\"],\n}\n```\n\n## 2. Trace Span Annotation (REQUIRED)\nThe observability platform monitors context propagation events.\nAfter propagation, the function MUST annotate the trace span via\n`orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n```\n\n## Complete Correct Pattern\n```python\ndef propagate_context(self, parent_context):\n    import orgops.tracing\n    child = {\n        \"request_id\": parent_context[\"request_id\"],\n        \"correlation_id\": parent_context[\"correlation_id\"],\n    }\n    orgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n    # ... log propagation and return child\n```\n\nCopying ONLY request_id is insufficient —\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug66/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExpected Output:\nCopy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context[\\\"correlation_id\\\"],\\n        }\\n        \\n        orgops.tracing.annotate_span(\\\"context.propagated\\\", parent_context.get(\\\"correlation_id\\\"))\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\",\n  \"comments\": \"Copy both request_id and correlation_id to child context and annotate trace span for observability.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context[\\\"correlation_id\\\"],\\n        }\\n        \\n        orgops.tracing.annotate_span(\\\"context.propagated\\\", parent_context.get(\\\"correlation_id\\\"))\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\",\n  \"comments\": \"Copy both request_id and correlation_id to child context and annotate trace span for observability.\"\n}\n```",
+  "parsed_output": {
+    "code": "    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        import orgops.tracing\n        \n        child = {\n            \"request_id\": parent_context[\"request_id\"],\n            \"correlation_id\": parent_context[\"correlation_id\"],\n        }\n        \n        orgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\"))\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child",
+    "comments": "Copy both request_id and correlation_id to child context and annotate trace span for observability."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 18599,
+    "thinking_tokens": null,
+    "cost_usd": 0.00150392
+  },
+  "timings": {
+    "started_at": "2026-03-03T14:23:07.699348Z",
+    "finished_at": "2026-03-03T14:23:44.605406Z",
+    "latency_ms": 36906
+  },
+  "summary_metrics": {
+    "latency_ms": 36906,
+    "prompt_chars": 8071,
+    "output_chars": 1302,
+    "prompt_system_chars": 4050,
+    "prompt_user_chars": 4021,
+    "snippet_injected_chars": 2377,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 71,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 36814,
+    "model_request_started_at": "2026-03-03T14:23:07.791204Z",
+    "model_request_finished_at": "2026-03-03T14:23:44.605205Z",
+    "model_request_id": "861ff821-df5a-417f-a2aa-8a6b07948f69",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 3235,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00150392
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/matrix_20260303T140831637837Z/runs/20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/matrix_20260303T140831637837Z/runs/20260303T142307699182Z__bug66__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug66_correlation_id_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug66_correlation_id_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The child dict includes both \"request_id\" and \"correlation_id\" copied from parent_context, and the code calls orgops.tracing.annotate_span(\"context.propagated\", parent_context.get(\"correlation_id\")).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug66/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context[\\\"correlation_id\\\"],\\n        }\\n        \\n        orgops.tracing.annotate_span(\\\"context.propagated\\\", parent_context.get(\\\"correlation_id\\\"))\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\", \"comments\": \"Copy both request_id and correlation_id to child context and annotate trace span for observability.\"}, \"constraints\": [{\"id\": \"bug66_correlation_id_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug66/scenario_context/v1\", \"check\": \"Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with \\\"context.propagated\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The child dict includes both \\\"request_id\\\" and \\\"correlation_id\\\" copied from parent_context, and the code calls orgops.tracing.annotate_span(\\\"context.propagated\\\", parent_context.get(\\\"correlation_id\\\")).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.22s\n",
+    "stderr": "",
+    "duration_ms": 1363,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Treat DNS/connect timeouts as overlapping, sum with the read deadline, and annotate the span for observability.

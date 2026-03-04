@@ -1,0 +1,1 @@
+Fixed probe comparison from > to <; added orgops.health.report_degradation to report degradation on half-open probe allowance.

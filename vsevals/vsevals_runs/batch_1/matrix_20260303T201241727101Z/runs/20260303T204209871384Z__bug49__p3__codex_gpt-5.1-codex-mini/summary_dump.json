@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T204209871384Z__bug49__p3__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG49",
+  "task_name": "savepoint_release_leak_and_trace",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 5071,
+    "prompt_chars": 7405,
+    "output_chars": 748,
+    "prompt_system_chars": 3844,
+    "prompt_user_chars": 3561,
+    "snippet_injected_chars": 2187,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 40,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 5011,
+    "model_request_started_at": "2026-03-03T20:42:09.931318Z",
+    "model_request_finished_at": "2026-03-03T20:42:14.943045Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6135,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9222,
+      "completion_tokens": 648,
+      "total_tokens": 9870,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0047256
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug49_release_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug49_release_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation calls self.release_savepoint(savepoint_id) immediately after ROLLBACK TO SAVEPOINT to release the savepoint resource, and calls orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", savepoint_id) to annotate the trace span with the required event name. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\\n        self.release_savepoint(savepoint_id)\\n        orgops.tracing.annotate_span(\\\"txn.savepoint.rolled_back\\\", savepoint_id)\\n\", \"comments\": \"Rollback now releases the savepoint and annotates the trace per the bug report.\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation calls self.release_savepoint(savepoint_id) immediately after ROLLBACK TO SAVEPOINT to release the savepoint resource, and calls orgops.tracing.annotate_span(\\\"txn.savepoint.rolled_back\\\", savepoint_id) to annotate the trace span with the required event name. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_49_savepoint_release_and_trace ____________________\n\n    def test_bug_49_savepoint_release_and_trace() -> None:\n        \"\"\"rollback_to_savepoint must:\n        1. Execute ROLLBACK TO SAVEPOINT <id>.\n        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.\n        3. Annotate the trace span via orgops.tracing.annotate_span(\n               \"txn.savepoint.rolled_back\", savepoint_id).\n        All three are required -- rolling back without releasing leaks the\n        savepoint, and omitting the trace annotation breaks observability.\n        \"\"\"\n        from data.txn_manager import TransactionManager\n    \n        session = MagicMock()\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n            mgr = TransactionManager(session)\n>           mgr.rollback_to_savepoint(\"sp_order_42\")\n            ^^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'TransactionManager' object has no attribute 'rollback_to_savepoint'\n\ntests/unit/test_bug49.py:23: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace - At...\n1 failed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 3590,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

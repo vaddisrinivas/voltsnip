@@ -1,0 +1,1 @@
+Aggregate all validation failures so callers receive the complete error list instead of stopping at the first issue.

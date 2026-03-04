@@ -1,0 +1,1 @@
+Invert the ratio check so we refresh close to expiry and emit the cache.stampede.prevented metric when we decide to refresh.

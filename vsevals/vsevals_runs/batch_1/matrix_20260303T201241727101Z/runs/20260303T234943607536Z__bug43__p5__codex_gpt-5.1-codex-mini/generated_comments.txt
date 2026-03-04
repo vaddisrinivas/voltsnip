@@ -1,0 +1,1 @@
+Switch calculate_effective_timeout to use the max of DNS and connect plus read, and annotate the computed deadline via orgops.tracing.

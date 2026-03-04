@@ -1,0 +1,1 @@
+Added base64 segment detection and re-scanning: extracts base64 patterns, decodes them, and scans decoded content for secrets.

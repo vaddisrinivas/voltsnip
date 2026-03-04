@@ -1,0 +1,1 @@
+Treat entries with expired TTL as stale and emit dns.cache.refresh when flagging them for refresh.

@@ -1,0 +1,1 @@
+Round compute_sample_rate to two decimals and emit log.sampling.rate.

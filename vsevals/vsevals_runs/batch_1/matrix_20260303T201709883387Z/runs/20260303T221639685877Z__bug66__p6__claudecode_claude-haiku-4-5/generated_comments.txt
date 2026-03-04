@@ -1,0 +1,1 @@
+Fixed BUG66: child context now propagates both request_id and correlation_id from parent, and annotates trace span for distributed tracing observability.

@@ -1,0 +1,1 @@
+Copy both identifiers and annotate the propagation span for observability.

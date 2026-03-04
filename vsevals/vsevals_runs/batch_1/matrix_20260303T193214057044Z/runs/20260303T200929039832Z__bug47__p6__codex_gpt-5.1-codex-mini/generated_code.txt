@@ -1,0 +1,15 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection."""
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        # LRU eviction: choose the idle connection with the oldest timestamp.
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+        import orgops.metrics
+        orgops.metrics.emit("pool.connection.evicted", idle_seconds)
+        return evicted

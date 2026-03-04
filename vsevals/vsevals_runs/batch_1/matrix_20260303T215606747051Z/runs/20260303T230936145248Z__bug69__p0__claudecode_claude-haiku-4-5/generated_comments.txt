@@ -1,0 +1,1 @@
+Changed timestamp to use datetime.now(timezone.utc) for UTC consistency across regions and set utc flag to True.

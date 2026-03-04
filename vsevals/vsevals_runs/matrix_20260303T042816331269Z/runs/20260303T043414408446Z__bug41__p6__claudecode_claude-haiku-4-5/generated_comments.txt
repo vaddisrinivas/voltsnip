@@ -1,0 +1,1 @@
+Changed to exponential backoff using 2**attempt, added delay capping at max_delay, and imported orgops.metrics for metric emission.

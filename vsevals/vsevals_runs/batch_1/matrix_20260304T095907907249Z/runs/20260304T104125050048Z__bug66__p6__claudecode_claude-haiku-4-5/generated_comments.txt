@@ -1,0 +1,1 @@
+Copy both request_id and correlation_id to child context and annotate trace span via orgops.tracing.annotate_span, fixing BUG_66 where correlation_id was silently dropped.

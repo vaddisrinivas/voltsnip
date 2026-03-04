@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug54_jitter_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug54_jitter_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes jitter to be additive (base_ttl + jitter), but it does NOT specifically emit via orgops.metrics.emit(). Instead, it uses a generic metrics lookup from globals() that could be any metrics module, and tries multiple method names ('emit', 'increment', 'inc', 'record') rather than specifically calling orgops.metrics.emit(). The constraint requires both conditions AND emission specifically via orgops.metrics.emit().",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter was previously subtracted, which could push the\\n    effective TTL below zero; it must be added to keep expiry forward-propagating.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter  # BUG_54 fix: jitter now extends the TTL.\\n    metrics = globals().get(\\\"metrics\\\")\\n    if metrics is not None:\\n        for emit_fn_name in (\\\"emit\\\", \\\"increment\\\", \\\"inc\\\", \\\"record\\\"):\\n            emit_fn = getattr(metrics, emit_fn_name, None)\\n            if callable(emit_fn):\\n                emit_fn(\\\"cache.ttl.jittered\\\")\\n                break\\n    return effective_ttl\\n\", \"comments\": \"Add jitter instead of subtracting it and emit cache.ttl.jittered via any available metrics shim when a TTL is computed.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes jitter to be additive (base_ttl + jitter), but it does NOT specifically emit via orgops.metrics.emit(). Instead, it uses a generic metrics lookup from globals() that could be any metrics module, and tries multiple method names ('emit', 'increment', 'inc', 'record') rather than specifically calling orgops.metrics.emit(). The constraint requires both conditions AND emission specifically via orgops.metrics.emit().\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Switched the sampling-rate math to round-to-two-decimals and emit the log.sampling.rate metric via orgops.metrics.

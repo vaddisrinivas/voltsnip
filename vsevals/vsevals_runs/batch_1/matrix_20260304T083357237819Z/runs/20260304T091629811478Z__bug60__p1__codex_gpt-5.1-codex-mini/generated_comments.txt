@@ -1,0 +1,1 @@
+Collect all validation violations instead of returning early.

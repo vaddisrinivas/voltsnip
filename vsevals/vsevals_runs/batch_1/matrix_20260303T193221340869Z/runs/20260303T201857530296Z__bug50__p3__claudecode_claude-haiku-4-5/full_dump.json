@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs",
+  "task_id": "BUG50",
+  "task_name": "join_cost_double_selectivity_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 34,
+  "task_line_end": 57,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug50/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug50/scenario_context/v1\nTitle: Join cost estimation requires single selectivity AND metric emission\nCode:\n```\n# Join Cost Estimation — Two Requirements\n\nThe `estimate_join_cost` method has TWO requirements:\n\n## 1. Correct Selectivity Application\nApply selectivity exactly once:\n```python\ncost = left_rows * right_rows * selectivity  # NOT selectivity * selectivity\n```\n\n## 2. Metric Emission (REQUIRED)\nThe optimizer dashboard monitors the `query.plan.estimated_cost` metric.\nWhen a cost is estimated, the method MUST emit this metric via\n`orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n```\n\n## Complete Correct Pattern\n```python\ndef estimate_join_cost(self, left_rows, right_rows, selectivity):\n    import orgops.metrics\n    cost = left_rows * right_rows * selectivity\n    orgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n    return cost\n```\n\nFixing ONLY the math is insufficient — the optimizer dashboard will\nnot display plan quality metrics without the metric emission. Both\nfixes are required for production correctness.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug50/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG50\nTask Name: join_cost_double_selectivity_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix estimate_join_cost so it applies selectivity exactly once instead of twice.\n\nTarget File: data/query_planner.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug50.py -k bug_50\n\nContext Code:\n```python\ndef estimate_join_cost(\n    self,\n    left_rows: int,\n    right_rows: int,\n    selectivity: float,\n) -> float:\n    \"\"\"Estimate the output cardinality for a join operation.\n\n    The formula is:  left_rows * right_rows * selectivity\n\n    BUG_50: selectivity is applied twice, inflating the cost estimate\n    and causing the optimizer to reject valid hash-join plans.\n    \"\"\"\n    # BUG_50: double-applies selectivity (selectivity * selectivity)\n    cost = left_rows * right_rows * selectivity * selectivity\n    self._history.append(\n        JoinStats(\n            left_rows=left_rows,\n            right_rows=right_rows,\n            selectivity=selectivity,\n            estimated_cost=cost,\n        )\n    )\n    return cost\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Query planner with cost estimation for join operations.\n\nThis module provides cardinality estimation and cost modelling for the\nquery execution engine.  The optimizer calls `estimate_join_cost` to\nchoose between nested-loop, hash, and merge join strategies.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass JoinStats:\n    \"\"\"Immutable statistics for a single join estimation.\"\"\"\n\n    left_rows: int\n    right_rows: int\n    selectivity: float\n    estimated_cost: float\n\n\nclass QueryPlanner:\n    \"\"\"Estimates query costs and selects execution strategies.\"\"\"\n\n    def __init__(self, *, cost_per_row: float = 0.01) -> None:\n        self.cost_per_row = cost_per_row\n        self._history: list[JoinStats] = []\n\n    # ------------------------------------------------------------------\n    # Cost estimation\n    # ------------------------------------------------------------------\n\n    def estimate_join_cost(\n        self,\n        left_rows: int,\n        right_rows: int,\n        selectivity: float,\n    ) -> float:\n        \"\"\"Estimate the output cardinality for a join operation.\n\n        The formula is:  left_rows * right_rows * selectivity\n\n        BUG_50: selectivity is applied twice, inflating the cost estimate\n        and causing the optimizer to reject valid hash-join plans.\n        \"\"\"\n        # BUG_50: double-applies selectivity (selectivity * selectivity)\n        cost = left_rows * right_rows * selectivity * selectivity\n        self._history.append(\n            JoinStats(\n                left_rows=left_rows,\n                right_rows=right_rows,\n                selectivity=selectivity,\n                estimated_cost=cost,\n            )\n        )\n        return cost\n\n    # ------------------------------------------------------------------\n    # Strategy selection\n    # ------------------------------------------------------------------\n\n    def select_strategy(\n        self,\n        left_rows: int,\n        right_rows: int,\n        selectivity: float,\n    ) -> str:\n        \"\"\"Return the recommended join strategy based on estimated cost.\"\"\"\n        cost = self.estimate_join_cost(left_rows, right_rows, selectivity)\n        if cost < 1000:\n            return \"nested_loop\"\n        elif cost < 100_000:\n            return \"hash_join\"\n        return \"merge_join\"\n\n    # ------------------------------------------------------------------\n    # History helpers\n    # ------------------------------------------------------------------\n\n    def history(self) -> Sequence[JoinStats]:\n        \"\"\"Return immutable view of estimation history.\"\"\"\n        return tuple(self._history)\n\n    def last_estimate(self) -> float | None:\n        \"\"\"Return the most recent estimated cost, or None.\"\"\"\n        if not self._history:\n            return None\n        return self._history[-1].estimated_cost\n\n    def reset(self) -> None:\n        \"\"\"Clear estimation history.\"\"\"\n        self._history.clear()\n```\n\nExpected Output:\nApply selectivity exactly once AND emit query.plan.estimated_cost metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug50/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "c9f94241-cb91-442b-8289-764cab3bb1e3",
+      "canonical_key": "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "title": "Script30 DB Patterns guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for database patterns: connection pool eviction, migration versioning, savepoint management, query planning, replication monitoring, and schema validation.",
+      "code": "# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n"
+    },
+    {
+      "id": "c62d3bd5-e93c-4494-b23d-75c606495b7a",
+      "canonical_key": "voltsnip/script30/hard/bug50/scenario_context/v1",
+      "title": "Join cost estimation requires single selectivity AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The estimate_join_cost method must apply selectivity exactly once (left_rows * right_rows * selectivity) AND emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit(). The optimizer dashboard depends on this metric for plan quality monitoring.",
+      "code": "# Join Cost Estimation — Two Requirements\n\nThe `estimate_join_cost` method has TWO requirements:\n\n## 1. Correct Selectivity Application\nApply selectivity exactly once:\n```python\ncost = left_rows * right_rows * selectivity  # NOT selectivity * selectivity\n```\n\n## 2. Metric Emission (REQUIRED)\nThe optimizer dashboard monitors the `query.plan.estimated_cost` metric.\nWhen a cost is estimated, the method MUST emit this metric via\n`orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n```\n\n## Complete Correct Pattern\n```python\ndef estimate_join_cost(self, left_rows, right_rows, selectivity):\n    import orgops.metrics\n    cost = left_rows * right_rows * selectivity\n    orgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n    return cost\n```\n\nFixing ONLY the math is insufficient — the optimizer dashboard will\nnot display plan quality metrics without the metric emission. Both\nfixes are required for production correctness.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug50/scenario_context/v1\nTitle: Join cost estimation requires single selectivity AND metric emission\nCode:\n```\n# Join Cost Estimation — Two Requirements\n\nThe `estimate_join_cost` method has TWO requirements:\n\n## 1. Correct Selectivity Application\nApply selectivity exactly once:\n```python\ncost = left_rows * right_rows * selectivity  # NOT selectivity * selectivity\n```\n\n## 2. Metric Emission (REQUIRED)\nThe optimizer dashboard monitors the `query.plan.estimated_cost` metric.\nWhen a cost is estimated, the method MUST emit this metric via\n`orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n```\n\n## Complete Correct Pattern\n```python\ndef estimate_join_cost(self, left_rows, right_rows, selectivity):\n    import orgops.metrics\n    cost = left_rows * right_rows * selectivity\n    orgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n    return cost\n```\n\nFixing ONLY the math is insufficient — the optimizer dashboard will\nnot display plan quality metrics without the metric emission. Both\nfixes are required for production correctness.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug50/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG50\nTask Name: join_cost_double_selectivity_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix estimate_join_cost so it applies selectivity exactly once instead of twice.\n\nTarget File: data/query_planner.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug50.py -k bug_50\n\nContext Code:\n```python\ndef estimate_join_cost(\n    self,\n    left_rows: int,\n    right_rows: int,\n    selectivity: float,\n) -> float:\n    \"\"\"Estimate the output cardinality for a join operation.\n\n    The formula is:  left_rows * right_rows * selectivity\n\n    BUG_50: selectivity is applied twice, inflating the cost estimate\n    and causing the optimizer to reject valid hash-join plans.\n    \"\"\"\n    # BUG_50: double-applies selectivity (selectivity * selectivity)\n    cost = left_rows * right_rows * selectivity * selectivity\n    self._history.append(\n        JoinStats(\n            left_rows=left_rows,\n            right_rows=right_rows,\n            selectivity=selectivity,\n            estimated_cost=cost,\n        )\n    )\n    return cost\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Query planner with cost estimation for join operations.\n\nThis module provides cardinality estimation and cost modelling for the\nquery execution engine.  The optimizer calls `estimate_join_cost` to\nchoose between nested-loop, hash, and merge join strategies.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass JoinStats:\n    \"\"\"Immutable statistics for a single join estimation.\"\"\"\n\n    left_rows: int\n    right_rows: int\n    selectivity: float\n    estimated_cost: float\n\n\nclass QueryPlanner:\n    \"\"\"Estimates query costs and selects execution strategies.\"\"\"\n\n    def __init__(self, *, cost_per_row: float = 0.01) -> None:\n        self.cost_per_row = cost_per_row\n        self._history: list[JoinStats] = []\n\n    # ------------------------------------------------------------------\n    # Cost estimation\n    # ------------------------------------------------------------------\n\n    def estimate_join_cost(\n        self,\n        left_rows: int,\n        right_rows: int,\n        selectivity: float,\n    ) -> float:\n        \"\"\"Estimate the output cardinality for a join operation.\n\n        The formula is:  left_rows * right_rows * selectivity\n\n        BUG_50: selectivity is applied twice, inflating the cost estimate\n        and causing the optimizer to reject valid hash-join plans.\n        \"\"\"\n        # BUG_50: double-applies selectivity (selectivity * selectivity)\n        cost = left_rows * right_rows * selectivity * selectivity\n        self._history.append(\n            JoinStats(\n                left_rows=left_rows,\n                right_rows=right_rows,\n                selectivity=selectivity,\n                estimated_cost=cost,\n            )\n        )\n        return cost\n\n    # ------------------------------------------------------------------\n    # Strategy selection\n    # ------------------------------------------------------------------\n\n    def select_strategy(\n        self,\n        left_rows: int,\n        right_rows: int,\n        selectivity: float,\n    ) -> str:\n        \"\"\"Return the recommended join strategy based on estimated cost.\"\"\"\n        cost = self.estimate_join_cost(left_rows, right_rows, selectivity)\n        if cost < 1000:\n            return \"nested_loop\"\n        elif cost < 100_000:\n            return \"hash_join\"\n        return \"merge_join\"\n\n    # ------------------------------------------------------------------\n    # History helpers\n    # ------------------------------------------------------------------\n\n    def history(self) -> Sequence[JoinStats]:\n        \"\"\"Return immutable view of estimation history.\"\"\"\n        return tuple(self._history)\n\n    def last_estimate(self) -> float | None:\n        \"\"\"Return the most recent estimated cost, or None.\"\"\"\n        if not self._history:\n            return None\n        return self._history[-1].estimated_cost\n\n    def reset(self) -> None:\n        \"\"\"Clear estimation history.\"\"\"\n        self._history.clear()\n```\n\nExpected Output:\nApply selectivity exactly once AND emit query.plan.estimated_cost metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def estimate_join_cost(\\n        self,\\n        left_rows: int,\\n        right_rows: int,\\n        selectivity: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Estimate the output cardinality for a join operation.\\n\\n        The formula is:  left_rows * right_rows * selectivity\\n\\n        BUG_50: selectivity is applied twice, inflating the cost estimate\\n        and causing the optimizer to reject valid hash-join plans.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        cost = left_rows * right_rows * selectivity\\n        self._history.append(\\n            JoinStats(\\n                left_rows=left_rows,\\n                right_rows=right_rows,\\n                selectivity=selectivity,\\n                estimated_cost=cost,\\n            )\\n        )\\n        orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost)\\n        return cost\", \"comments\": \"Fixed selectivity double-application and added required query.plan.estimated_cost metric emission for optimizer dashboard.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def estimate_join_cost(\\n        self,\\n        left_rows: int,\\n        right_rows: int,\\n        selectivity: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Estimate the output cardinality for a join operation.\\n\\n        The formula is:  left_rows * right_rows * selectivity\\n\\n        BUG_50: selectivity is applied twice, inflating the cost estimate\\n        and causing the optimizer to reject valid hash-join plans.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        cost = left_rows * right_rows * selectivity\\n        self._history.append(\\n            JoinStats(\\n                left_rows=left_rows,\\n                right_rows=right_rows,\\n                selectivity=selectivity,\\n                estimated_cost=cost,\\n            )\\n        )\\n        orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost)\\n        return cost\", \"comments\": \"Fixed selectivity double-application and added required query.plan.estimated_cost metric emission for optimizer dashboard.\"}\n```",
+  "parsed_output": {
+    "code": "    def estimate_join_cost(\n        self,\n        left_rows: int,\n        right_rows: int,\n        selectivity: float,\n    ) -> float:\n        \"\"\"Estimate the output cardinality for a join operation.\n\n        The formula is:  left_rows * right_rows * selectivity\n\n        BUG_50: selectivity is applied twice, inflating the cost estimate\n        and causing the optimizer to reject valid hash-join plans.\n        \"\"\"\n        import orgops.metrics\n        cost = left_rows * right_rows * selectivity\n        self._history.append(\n            JoinStats(\n                left_rows=left_rows,\n                right_rows=right_rows,\n                selectivity=selectivity,\n                estimated_cost=cost,\n            )\n        )\n        orgops.metrics.emit(\"query.plan.estimated_cost\", cost)\n        return cost",
+    "comments": "Fixed selectivity double-application and added required query.plan.estimated_cost metric emission for optimizer dashboard."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:18:57.530466Z",
+    "finished_at": "2026-03-03T20:19:18.894387Z",
+    "latency_ms": 21363
+  },
+  "summary_metrics": {
+    "latency_ms": 21363,
+    "prompt_chars": 8577,
+    "output_chars": 1006,
+    "prompt_system_chars": 3739,
+    "prompt_user_chars": 4838,
+    "snippet_injected_chars": 2081,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 46,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 21294,
+    "model_request_started_at": "2026-03-03T20:18:57.599748Z",
+    "model_request_finished_at": "2026-03-03T20:19:18.894248Z",
+    "model_request_id": "05de1239-46e7-45d1-b6a7-39133c2f470c",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 16220,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T201857530296Z__bug50__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug50_selectivity_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug50_selectivity_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The cost is computed as left_rows * right_rows * selectivity (selectivity applied once), and it emits the \"query.plan.estimated_cost\" metric via orgops.metrics.emit(\"query.plan.estimated_cost\", cost).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug50/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def estimate_join_cost(\\n        self,\\n        left_rows: int,\\n        right_rows: int,\\n        selectivity: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Estimate the output cardinality for a join operation.\\n\\n        The formula is:  left_rows * right_rows * selectivity\\n\\n        BUG_50: selectivity is applied twice, inflating the cost estimate\\n        and causing the optimizer to reject valid hash-join plans.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        cost = left_rows * right_rows * selectivity\\n        self._history.append(\\n            JoinStats(\\n                left_rows=left_rows,\\n                right_rows=right_rows,\\n                selectivity=selectivity,\\n                estimated_cost=cost,\\n            )\\n        )\\n        orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost)\\n        return cost\", \"comments\": \"Fixed selectivity double-application and added required query.plan.estimated_cost metric emission for optimizer dashboard.\"}, \"constraints\": [{\"id\": \"bug50_selectivity_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug50/scenario_context/v1\", \"check\": \"Single selectivity application AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the join cost formula to apply selectivity exactly once (left_rows * right_rows * selectivity, not selectivity * selectivity) AND emit a query.plan.estimated_cost metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The cost is computed as left_rows * right_rows * selectivity (selectivity applied once), and it emits the \\\"query.plan.estimated_cost\\\" metric via orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.50s\n",
+    "stderr": "",
+    "duration_ms": 3205,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

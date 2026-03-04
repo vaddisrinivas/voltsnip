@@ -1,0 +1,1 @@
+Round the computed rate to two decimals and emit the log.sampling.rate metric.

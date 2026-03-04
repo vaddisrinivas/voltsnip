@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) It recursively processes nested dictionaries through the _redact helper function, which handles dict values by recursively calling _redact on nested_value and accumulating the count across all nesting levels. It also handles lists recursively. (2) After redaction, it calls auditing.write_event('redaction.applied', keys_redacted=count) with the total count of redacted keys accumulated from all nesting levels.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a deep copy of *data* with sensitive values redacted and audit the event.\\\"\\\"\\\"\\n        def _redact(value: Any) -> tuple[Any, int]:\\n            if isinstance(value, dict):\\n                nested: dict[str, Any] = {}\\n                total = 0\\n                for nested_key, nested_value in value.items():\\n                    if nested_key.lower() in self.sensitive_keys:\\n                        nested[nested_key] = REDACTED_PLACEHOLDER\\n                        total += 1\\n                    else:\\n                        redacted_child, child_count = _redact(nested_value)\\n                        nested[nested_key] = redacted_child\\n                        total += child_count\\n                return nested, total\\n            if isinstance(value, list):\\n                items: list[Any] = []\\n                total = 0\\n                for item in value:\\n                    redacted_item, item_count = _redact(item)\\n                    items.append(redacted_item)\\n                    total += item_count\\n                return items, total\\n            return value, 0\\n\\n        redacted_result, count = _redact(data)\\n        from orgops import auditing  # local import to avoid modifying module-level imports\\n\\n        auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return redacted_result\", \"comments\": \"Recursively redact nested dicts/lists and log the total keys scrubbed before returning the deep-copied dictionary.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It recursively processes nested dictionaries through the _redact helper function, which handles dict values by recursively calling _redact on nested_value and accumulating the count across all nesting levels. It also handles lists recursively. (2) After redaction, it calls auditing.write_event('redaction.applied', keys_redacted=count) with the total count of redacted keys accumulated from all nesting levels.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

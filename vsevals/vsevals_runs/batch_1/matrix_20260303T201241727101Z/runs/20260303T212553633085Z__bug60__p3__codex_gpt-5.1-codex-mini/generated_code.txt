@@ -1,0 +1,9 @@
+    errors: list[ValidationError] = []
+    import orgops.compliance
+    for rule in schema:
+        value = payload.get(rule.field_name)
+        error = _check_field(value, rule)
+        if error is not None:
+            errors.append(error)
+    orgops.compliance.record_decision("validation.completed", error_count=len(errors))
+    return errors

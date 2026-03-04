@@ -1,0 +1,259 @@
+{
+  "run_id": "20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 35,
+  "task_line_end": 53,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug68/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG68\nTask Name: nested_json_redaction_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.\n\nTarget File: logops/redaction_filter.py\n\nTarget Lines:\n35-53 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-53 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug68.py -k bug_68\n\nContext Code:\n```python\ndef redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n    BUG_68: only top-level keys are checked.  Nested dicts are\n    returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n    sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n    The function also fails to call\n    ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n    after redaction to record how many keys were scrubbed.\n    \"\"\"\n    result: dict[str, Any] = {}\n    count = 0\n    for key, value in data.items():\n        if key.lower() in self.sensitive_keys:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        else:\n            result[key] = value  # BUG_68: nested dicts not recursed\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sensitive-key redaction filter for structured log payloads.\n\nRecursively walks a nested dict and replaces values whose keys match\na caller-supplied sensitive-key set with a fixed placeholder.\nEach redaction event must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Iterable\n\n\n# Placeholder used for every redacted value.\nREDACTED_PLACEHOLDER: str = \"***REDACTED***\"\n\n\nclass RedactionFilter:\n    \"\"\"Redact sensitive keys in arbitrarily nested dicts.\n\n    Parameters\n    ----------\n    sensitive_keys:\n        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.\n        Matching is case-insensitive.\n    \"\"\"\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        result: dict[str, Any] = {}\n        count = 0\n        for key, value in data.items():\n            if key.lower() in self.sensitive_keys:\n                result[key] = REDACTED_PLACEHOLDER\n                count += 1\n            else:\n                result[key] = value  # BUG_68: nested dicts not recursed\n        return result\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def is_sensitive(self, key: str) -> bool:\n        \"\"\"Return True when *key* is in the sensitive-key set.\"\"\"\n        return key.lower() in self.sensitive_keys\n\n    def list_sensitive_keys(self) -> list[str]:\n        \"\"\"Return a sorted list of configured sensitive keys.\"\"\"\n        return sorted(self.sensitive_keys)\n```\n\nExpected Output:\nRecurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count).\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug68/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG68\nTask Name: nested_json_redaction_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.\n\nTarget File: logops/redaction_filter.py\n\nTarget Lines:\n35-53 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-53 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug68.py -k bug_68\n\nContext Code:\n```python\ndef redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n    BUG_68: only top-level keys are checked.  Nested dicts are\n    returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n    sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n    The function also fails to call\n    ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n    after redaction to record how many keys were scrubbed.\n    \"\"\"\n    result: dict[str, Any] = {}\n    count = 0\n    for key, value in data.items():\n        if key.lower() in self.sensitive_keys:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        else:\n            result[key] = value  # BUG_68: nested dicts not recursed\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sensitive-key redaction filter for structured log payloads.\n\nRecursively walks a nested dict and replaces values whose keys match\na caller-supplied sensitive-key set with a fixed placeholder.\nEach redaction event must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Iterable\n\n\n# Placeholder used for every redacted value.\nREDACTED_PLACEHOLDER: str = \"***REDACTED***\"\n\n\nclass RedactionFilter:\n    \"\"\"Redact sensitive keys in arbitrarily nested dicts.\n\n    Parameters\n    ----------\n    sensitive_keys:\n        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.\n        Matching is case-insensitive.\n    \"\"\"\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        result: dict[str, Any] = {}\n        count = 0\n        for key, value in data.items():\n            if key.lower() in self.sensitive_keys:\n                result[key] = REDACTED_PLACEHOLDER\n                count += 1\n            else:\n                result[key] = value  # BUG_68: nested dicts not recursed\n        return result\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def is_sensitive(self, key: str) -> bool:\n        \"\"\"Return True when *key* is in the sensitive-key set.\"\"\"\n        return key.lower() in self.sensitive_keys\n\n    def list_sensitive_keys(self) -> list[str]:\n        \"\"\"Return a sorted list of configured sensitive keys.\"\"\"\n        return sorted(self.sensitive_keys)\n```\n\nExpected Output:\nRecurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count).\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug68/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG68\nTask Name: nested_json_redaction_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.\n\nTarget File: logops/redaction_filter.py\n\nTarget Lines:\n35-53 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-53 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug68.py -k bug_68\n\nContext Code:\n```python\ndef redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n    BUG_68: only top-level keys are checked.  Nested dicts are\n    returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n    sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n    The function also fails to call\n    ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n    after redaction to record how many keys were scrubbed.\n    \"\"\"\n    result: dict[str, Any] = {}\n    count = 0\n    for key, value in data.items():\n        if key.lower() in self.sensitive_keys:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        else:\n            result[key] = value  # BUG_68: nested dicts not recursed\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sensitive-key redaction filter for structured log payloads.\n\nRecursively walks a nested dict and replaces values whose keys match\na caller-supplied sensitive-key set with a fixed placeholder.\nEach redaction event must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Iterable\n\n\n# Placeholder used for every redacted value.\nREDACTED_PLACEHOLDER: str = \"***REDACTED***\"\n\n\nclass RedactionFilter:\n    \"\"\"Redact sensitive keys in arbitrarily nested dicts.\n\n    Parameters\n    ----------\n    sensitive_keys:\n        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.\n        Matching is case-insensitive.\n    \"\"\"\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        result: dict[str, Any] = {}\n        count = 0\n        for key, value in data.items():\n            if key.lower() in self.sensitive_keys:\n                result[key] = REDACTED_PLACEHOLDER\n                count += 1\n            else:\n                result[key] = value  # BUG_68: nested dicts not recursed\n        return result\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def is_sensitive(self, key: str) -> bool:\n        \"\"\"Return True when *key* is in the sensitive-key set.\"\"\"\n        return key.lower() in self.sensitive_keys\n\n    def list_sensitive_keys(self) -> list[str]:\n        \"\"\"Return a sorted list of configured sensitive keys.\"\"\"\n        return sorted(self.sensitive_keys)\n```\n\nExpected Output:\nRecurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count).\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on the task analysis, I need to:\n\n1. **Recurse into nested dicts** to find and redact sensitive keys at any depth\n2. **Track redaction count** across all nesting levels  \n3. **Write a single audit event** after processing with the total count\n\nThe fix uses a local helper function to handle recursion while preserving the public API and ensuring a single audit event is written with the aggregated count.\n\n```json\n{\n  \"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n        BUG_68: only top-level keys are checked.  Nested dicts are\\n        returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n        sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n        The function also fails to call\\n        ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n        after redaction to record how many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        def _redact_recursive(d: Any) -> tuple[Any, int]:\\n            \\\"\\\"\\\"Recursively redact nested dicts, return (result, redaction_count).\\\"\\\"\\\"\\n            if not isinstance(d, dict):\\n                return d, 0\\n            \\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in d.items():\\n                if key.lower() in self.sensitive_keys:\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested_count = _redact_recursive(value)\\n                    count += nested_count\\n                else:\\n                    result[key] = value\\n            return result, count\\n        \\n        result, count = _redact_recursive(data)\\n        \\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        \\n        return result\",\n  \"comments\": \"Recurse into nested dicts via helper function, accumulate redaction count across all nesting levels, write single audit event before returning.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_01PsM3EZQbfyVZxmvQKiyqov",
+      "tool_args": {
+        "query": "recursive dict traversal nested redaction audit logging",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:45:37.920950Z",
+      "finished_at": "2026-03-04T10:45:37.920971Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_019qHPt6LffQFXcbvqBgpPwv",
+      "tool_args": {
+        "query": "audit write_event orgops",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:45:37.921122Z",
+      "finished_at": "2026-03-04T10:45:37.921128Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Based on the task analysis, I need to:\n\n1. **Recurse into nested dicts** to find and redact sensitive keys at any depth\n2. **Track redaction count** across all nesting levels  \n3. **Write a single audit event** after processing with the total count\n\nThe fix uses a local helper function to handle recursion while preserving the public API and ensuring a single audit event is written with the aggregated count.\n\n```json\n{\n  \"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n        BUG_68: only top-level keys are checked.  Nested dicts are\\n        returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n        sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n        The function also fails to call\\n        ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n        after redaction to record how many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        def _redact_recursive(d: Any) -> tuple[Any, int]:\\n            \\\"\\\"\\\"Recursively redact nested dicts, return (result, redaction_count).\\\"\\\"\\\"\\n            if not isinstance(d, dict):\\n                return d, 0\\n            \\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in d.items():\\n                if key.lower() in self.sensitive_keys:\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested_count = _redact_recursive(value)\\n                    count += nested_count\\n                else:\\n                    result[key] = value\\n            return result, count\\n        \\n        result, count = _redact_recursive(data)\\n        \\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        \\n        return result\",\n  \"comments\": \"Recurse into nested dicts via helper function, accumulate redaction count across all nesting levels, write single audit event before returning.\"\n}\n```",
+  "parsed_output": {
+    "code": "    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        def _redact_recursive(d: Any) -> tuple[Any, int]:\n            \"\"\"Recursively redact nested dicts, return (result, redaction_count).\"\"\"\n            if not isinstance(d, dict):\n                return d, 0\n            \n            result: dict[str, Any] = {}\n            count = 0\n            for key, value in d.items():\n                if key.lower() in self.sensitive_keys:\n                    result[key] = REDACTED_PLACEHOLDER\n                    count += 1\n                elif isinstance(value, dict):\n                    result[key], nested_count = _redact_recursive(value)\n                    count += nested_count\n                else:\n                    result[key] = value\n            return result, count\n        \n        result, count = _redact_recursive(data)\n        \n        import orgops.auditing\n        orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n        \n        return result",
+    "comments": "Recurse into nested dicts via helper function, accumulate redaction count across all nesting levels, write single audit event before returning."
+  },
+  "token_usage": {
+    "prompt_tokens": 26,
+    "completion_tokens": 7,
+    "total_tokens": 33,
+    "cached_tokens": 18125,
+    "thinking_tokens": null,
+    "cost_usd": 0.001478
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:44:47.401105Z",
+    "finished_at": "2026-03-04T10:45:37.989369Z",
+    "latency_ms": 50588
+  },
+  "summary_metrics": {
+    "latency_ms": 50588,
+    "prompt_chars": 5385,
+    "output_chars": 2126,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4335,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 50501,
+    "model_request_started_at": "2026-03-04T10:44:47.420998Z",
+    "model_request_finished_at": "2026-03-04T10:45:37.922171Z",
+    "model_request_id": "d76c0c02-3694-47eb-b835-a49940eec766",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2198,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 26,
+      "completion_tokens": 7,
+      "total_tokens": 33,
+      "cached_tokens": 18125,
+      "thinking_tokens": null,
+      "cost_usd": 0.001478
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104447400924Z__bug68__p5__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation introduces a recursive helper _redact_recursive that traverses nested dicts and redacts keys matching sensitive_keys at any depth while accumulating a total redaction count, then calls orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count) once with that total before returning.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n        BUG_68: only top-level keys are checked.  Nested dicts are\\n        returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n        sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n        The function also fails to call\\n        ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n        after redaction to record how many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        def _redact_recursive(d: Any) -> tuple[Any, int]:\\n            \\\"\\\"\\\"Recursively redact nested dicts, return (result, redaction_count).\\\"\\\"\\\"\\n            if not isinstance(d, dict):\\n                return d, 0\\n            \\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in d.items():\\n                if key.lower() in self.sensitive_keys:\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested_count = _redact_recursive(value)\\n                    count += nested_count\\n                else:\\n                    result[key] = value\\n            return result, count\\n        \\n        result, count = _redact_recursive(data)\\n        \\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        \\n        return result\", \"comments\": \"Recurse into nested dicts via helper function, accumulate redaction count across all nesting levels, write single audit event before returning.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The implementation introduces a recursive helper _redact_recursive that traverses nested dicts and redacts keys matching sensitive_keys at any depth while accumulating a total redaction count, then calls orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) once with that total before returning.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.35s\n",
+    "stderr": "",
+    "duration_ms": 2109,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

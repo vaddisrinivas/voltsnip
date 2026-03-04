@@ -1,0 +1,1 @@
+Passes the shared context to each fallback and annotates the activated fallback span to satisfy BUG_62.

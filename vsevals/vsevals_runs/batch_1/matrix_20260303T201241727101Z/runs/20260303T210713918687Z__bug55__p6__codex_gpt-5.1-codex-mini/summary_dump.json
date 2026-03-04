@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T210713918687Z__bug55__p6__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 63882,
+    "prompt_chars": 5022,
+    "output_chars": 774,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3972,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 7,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 7,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 63861,
+    "model_request_started_at": "2026-03-03T21:07:13.939122Z",
+    "model_request_finished_at": "2026-03-03T21:08:17.800846Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9817,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 123634,
+      "completion_tokens": 6390,
+      "total_tokens": 130024,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0596776
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug55_threshold_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug55_threshold_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The threshold comparison is correct (ratio < self.threshold), but the metric emission fails both requirements: it imports from 'cache' instead of 'orgops' (from cache import metrics vs from orgops import metrics), and it does not pass key_name to the emit call (metrics.emit('cache.stampede.prevented') lacks the key_name parameter).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # Refresh when the remaining fraction drops below the threshold.\\n        if ratio < self.threshold:\\n            from cache import metrics\\n\\n            metrics.emit(\\\"cache.stampede.prevented\\\")\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\\n\", \"comments\": \"Invert the ratio check so we refresh close to expiry and emit the cache.stampede.prevented metric when we decide to refresh.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The threshold comparison is correct (ratio < self.threshold), but the metric emission fails both requirements: it imports from 'cache' instead of 'orgops' (from cache import metrics vs from orgops import metrics), and it does not pass key_name to the emit call (metrics.emit('cache.stampede.prevented') lacks the key_name parameter).\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

@@ -1,0 +1,1 @@
+Fixed savepoint leak by adding RELEASE SAVEPOINT after ROLLBACK and added trace annotation via orgops.tracing.annotate_span for observability, plus cleanup of _active_savepoints tracking.

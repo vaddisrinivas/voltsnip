@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug63_capacity_and_alert"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug63_capacity_and_alert"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug63_capacity_and_alert"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug63_capacity_and_alert"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug63_capacity_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug63_capacity_and_alert",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "It fixes the capacity guard by using `len(self.queue) >= self.max_size`, but it does not call `orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=...)`. Instead it uses `warnings.warn(...)`.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n        \\\"\\\"\\\"\\n        # Reject if queue is at or above capacity\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n\\n        # Alert if utilization reaches 80%\\n        if self.utilization_pct >= 80.0:\\n            import warnings\\n            warnings.warn(f\\\"Dead-letter queue at {self.utilization_pct:.1f}% capacity\\\", UserWarning)\\n\\n        return True\", \"comments\": \"Fixed off-by-one capacity check (>= instead of >) and added 80% utilization alert.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It fixes the capacity guard by using `len(self.queue) >= self.max_size`, but it does not call `orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...)`. Instead it uses `warnings.warn(...)`.\"}]}",
+  "passed": false
+}

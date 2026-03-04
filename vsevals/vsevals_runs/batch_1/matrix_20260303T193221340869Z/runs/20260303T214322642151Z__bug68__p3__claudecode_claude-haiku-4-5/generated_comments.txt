@@ -1,0 +1,1 @@
+Implement recursive traversal into nested dicts and emit audit event to record total redaction count for compliance.

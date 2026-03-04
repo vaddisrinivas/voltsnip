@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T222951782145Z__bug63__p1__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG63",
+  "task_name": "dlq_capacity_off_by_one_and_alert",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 39305,
+    "prompt_chars": 5207,
+    "output_chars": 579,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4157,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 39304,
+    "model_request_started_at": "2026-03-03T22:29:51.782687Z",
+    "model_request_finished_at": "2026-03-03T22:30:31.087267Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6825,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 88834,
+      "completion_tokens": 4022,
+      "total_tokens": 92856,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0419688
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug63_capacity_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug63_capacity_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The capacity check is correctly fixed using >= instead of >, but the code uses print() for the warning instead of calling orgops.alerts.notify('dlq.capacity.warning', utilization_pct=...) as required by the constraint.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n        utilization = self.utilization_pct\\n        if utilization >= 80.0:\\n            print(\\n                f\\\"Dead-letter queue utilization warning: {utilization:.1f}% of \\\"\\n                f\\\"max capacity ({self.max_size})\\\"\\n            )\\n        return True\", \"comments\": \"Prevent enqueue from exceeding max_size and print an operational warning once utilization hits 80%.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The capacity check is correctly fixed using >= instead of >, but the code uses print() for the warning instead of calling orgops.alerts.notify('dlq.capacity.warning', utilization_pct=...) as required by the constraint.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_63_dlq_capacity_and_alert ______________________\n\n    def test_bug_63_dlq_capacity_and_alert() -> None:\n        \"\"\"DeadLetterQueue.enqueue must:\n        1. Reject messages when len(queue) >= max_size (not >), preventing\n           the queue from exceeding its declared capacity.\n        2. Call orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=...)\n           when the queue reaches 80%+ of max_size.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from errors.dead_letter import DeadLetterQueue\n    \n        dlq = DeadLetterQueue(max_size=10)\n    \n        # ---- Requirement 1: exact capacity limit (off-by-one fix) --------\n    \n        # Fill to exactly max_size\n        with patch(\"orgops.alerts.notify\"):\n            for i in range(10):\n                result = dlq.enqueue({\"id\": i})\n                assert result is True, f\"Message {i} should be accepted (queue has room)\"\n    \n        assert dlq.size == 10, (\n            f\"Queue should hold exactly max_size=10 messages, got {dlq.size}\"\n        )\n    \n        # The 11th message MUST be rejected (queue is at capacity)\n        with patch(\"orgops.alerts.notify\"):\n            rejected = dlq.enqueue({\"id\": \"overflow\"})\n        assert rejected is False, (\n            \"Message at position max_size (11th) must be rejected. \"\n            \"Bug: `>` allows one extra item; fix requires `>=`.\"\n        )\n        assert dlq.size == 10, (\n            f\"Queue must not exceed max_size=10 after rejection, got {dlq.size}\"\n        )\n    \n        # ---- Requirement 2: capacity alert at 80%+ utilization -----------\n    \n        dlq2 = DeadLetterQueue(max_size=10)\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # Fill to 7 items (70%) -- no alert expected yet\n            for i in range(7):\n                dlq2.enqueue({\"id\": i})\n            mock_notify.assert_not_called(), (\n                \"No alert expected below 80% utilization\"\n            )\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # 8th item brings utilization to 80% -- alert MUST fire\n            dlq2.enqueue({\"id\": 7})\n    \n>           mock_notify.assert_called_once()\n\ntests/unit/test_bug63.py:59: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='notify' id='281472854454256'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'notify' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n----------------------------- Captured stdout call -----------------------------\nDead-letter queue utilization warning: 80.0% of max capacity (10)\nDead-letter queue utilization warning: 90.0% of max capacity (10)\nDead-letter queue utilization warning: 100.0% of max capacity (10)\nDead-letter queue utilization warning: 80.0% of max capacity (10)\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug63.py::test_bug_63_dlq_capacity_and_alert - Asserti...\n1 failed in 0.49s\n",
+    "stderr": "",
+    "duration_ms": 3508,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Replaced the integer-truncated boundary with the exact float difference so sliding_window_count keeps sub-second precision.

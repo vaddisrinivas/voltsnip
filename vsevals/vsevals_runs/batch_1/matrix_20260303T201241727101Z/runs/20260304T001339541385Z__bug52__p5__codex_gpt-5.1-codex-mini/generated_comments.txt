@@ -1,0 +1,1 @@
+Make type comparison case-insensitive and log the validation pass outcome with orgops compliance.

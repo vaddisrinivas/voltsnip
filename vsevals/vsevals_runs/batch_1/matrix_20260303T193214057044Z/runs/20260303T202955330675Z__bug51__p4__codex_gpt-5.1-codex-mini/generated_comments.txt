@@ -1,0 +1,1 @@
+Compare lag and threshold in the same units and trigger an alert when the threshold is exceeded.

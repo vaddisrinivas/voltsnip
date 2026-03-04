@@ -1,0 +1,1 @@
+Release the savepoint after rolling back and annotate the trace span describing the rollback event.

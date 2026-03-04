@@ -1,0 +1,1 @@
+Fix stale check to return True once the current time reaches or passes the entry’s stale_at timestamp.

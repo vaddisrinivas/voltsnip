@@ -1,0 +1,1 @@
+Made type comparison case-insensitive using .upper() to fix cross-database type matching.

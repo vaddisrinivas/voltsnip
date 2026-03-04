@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T092130612694Z__bug65__p1__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 5566,
+    "prompt_chars": 6947,
+    "output_chars": 466,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5897,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 5565,
+    "model_request_started_at": "2026-03-04T09:21:30.613527Z",
+    "model_request_finished_at": "2026-03-04T09:21:36.179549Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8215,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9229,
+      "completion_tokens": 736,
+      "total_tokens": 9965,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0048692
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The candidate fixes the email regex by including '+' in the character class (r\"[\\w.+]+@[\\w.]+\") which correctly handles plus-addressed emails. However, it does NOT call orgops.compliance.record_decision(\"pii.sanitized\", field_count=count). The constraint requires BOTH the regex fix AND the compliance call, so this fails.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        # BUG_65: _EMAIL_RE misses plus-addressed emails\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Use a plus-friendly regex inside sanitize_email to ensure plus-addressed addresses are redacted.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "<budget:token_budget>199906</budget:token_budget>\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The candidate fixes the email regex by including '+' in the character class (r\\\"[\\\\w.+]+@[\\\\w.]+\\\") which correctly handles plus-addressed emails. However, it does NOT call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count). The constraint requires BOTH the regex fix AND the compliance call, so this fails.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_65_email_plus_and_compliance _____________________\n\n    def test_bug_65_email_plus_and_compliance() -> None:\n        \"\"\"sanitize_email must:\n        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in\n           addition to plain emails.  The buggy regex ``[\\\\w.]+@[\\\\w.]+``\n           misses the ``+`` in the local-part character class.\n        2. Record a compliance decision via\n           orgops.compliance.record_decision(\"pii.sanitized\", field_count=N)\n           where N is the number of emails redacted.\n    \n        Both the regex fix AND the compliance call are required -- fixing\n        only the regex is insufficient.\n        \"\"\"\n>       from logops.sanitizer import PiiSanitizer\nE         File \"/workspace/logops/sanitizer.py\", line 66\nE           email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug65.py:20: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance -   Fi...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 854,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

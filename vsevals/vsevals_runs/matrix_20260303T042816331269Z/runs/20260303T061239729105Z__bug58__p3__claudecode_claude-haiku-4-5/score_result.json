@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug58_modulus_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug58_modulus_and_health",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code computes n from num_partitions/config and uses `_stable_hash(key) % n` (no +1). It also imports `orgops.health` and calls `orgops.health.report_degradation(\"cache.partition.skew\", partition_id)`.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n    \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n    return ``num_partitions`` itself -- an out-of-range value\\n    (valid range is ``0 .. num_partitions - 1``).  The fix must\\n    use ``hash(key) % num_partitions`` instead.\\n    \\\"\\\"\\\"\\n    import orgops.health\\n    n = num_partitions if num_partitions is not None else self._config.num_partitions\\n    partition_id = _stable_hash(key) % n\\n    orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id)\\n    return partition_id\", \"comments\": \"Fix off-by-one modulus bug (use % n instead of % (n+1)) and add cache.partition.skew degradation reporting per guiding principle.\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes n from num_partitions/config and uses `_stable_hash(key) % n` (no +1). It also imports `orgops.health` and calls `orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id)`.\"}]}",
+  "passed": true
+}

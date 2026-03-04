@@ -1,0 +1,1 @@
+Remove double selectivity application—change 'selectivity * selectivity' to 'selectivity' on line 48 to apply selectivity exactly once per the documented formula.

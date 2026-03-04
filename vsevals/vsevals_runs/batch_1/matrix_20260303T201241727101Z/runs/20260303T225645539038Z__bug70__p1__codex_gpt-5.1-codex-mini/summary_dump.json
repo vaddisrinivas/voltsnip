@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T225645539038Z__bug70__p1__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG70",
+  "task_name": "base64_secret_miss_and_alert",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 5387,
+    "prompt_chars": 5367,
+    "output_chars": 468,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4317,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 5386,
+    "model_request_started_at": "2026-03-03T22:56:45.539602Z",
+    "model_request_finished_at": "2026-03-03T22:56:50.926607Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6995,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8754,
+      "completion_tokens": 337,
+      "total_tokens": 9091,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0040408
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug70_base64_decode_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug70_base64_decode_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code implements base64 decoding and re-scanning (finds base64 segments, decodes them with _try_decode_base64, and re-scans with _scan_plaintext), but does NOT call orgops.alerts.notify(\"secret.detected\", pattern_type=pattern_type) anywhere. The constraint requires BOTH behaviors to be present using 'AND', so this fails.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        self.findings = []\\n        self._scan_plaintext(text)\\n        decoded_segments = (\\n            self._try_decode_base64(segment)\\n            for segment in _BASE64_RE.findall(text)\\n        )\\n        for decoded in decoded_segments:\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        return list(self.findings)\\n\", \"comments\": \"Added base64 decoding of matching segments and re-scanning the decoded text for secrets.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code implements base64 decoding and re-scanning (finds base64 segments, decodes them with _try_decode_base64, and re-scans with _scan_plaintext), but does NOT call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) anywhere. The constraint requires BOTH behaviors to be present using 'AND', so this fails.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_70_base64_secret_and_alert ______________________\n\n    def test_bug_70_base64_secret_and_alert() -> None:\n        \"\"\"scan_for_secrets must:\n        1. Decode base64-encoded segments and re-scan for secret patterns\n           (plaintext-only scanning misses encoded secrets).\n        2. Call orgops.alerts.notify(\"secret.detected\", pattern_type=<type>)\n           for each detected secret.\n        Both are required -- fixing only the scanning is insufficient.\n        \"\"\"\n        import base64\n    \n>       from logops.secret_scanner import SecretScanner\nE         File \"/workspace/logops/secret_scanner.py\", line 39\nE           self.findings = []\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug70.py:18: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug70.py::test_bug_70_base64_secret_and_alert -   File...\n1 failed in 0.50s\n",
+    "stderr": "",
+    "duration_ms": 4150,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

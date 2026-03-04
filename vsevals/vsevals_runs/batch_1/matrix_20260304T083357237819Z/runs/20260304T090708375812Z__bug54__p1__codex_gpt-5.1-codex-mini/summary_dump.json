@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T090708375812Z__bug54__p1__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG54",
+  "task_name": "ttl_jitter_subtraction_and_metric",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 4119,
+    "prompt_chars": 6152,
+    "output_chars": 1054,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5102,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 4119,
+    "model_request_started_at": "2026-03-04T09:07:08.376558Z",
+    "model_request_finished_at": "2026-03-04T09:07:12.495698Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8895,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8978,
+      "completion_tokens": 465,
+      "total_tokens": 9443,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0043352
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug54_jitter_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug54_jitter_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit any metric via orgops.metrics.emit(). There is no metric emission code present at all. The constraint requires BOTH additive jitter AND metric emission.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter\\n    return effective_ttl\\n\", \"comments\": \"Fixed the TTL computation to add positive jitter so expiry is only pushed forward.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit any metric via orgops.metrics.emit(). There is no metric emission code present at all. The constraint requires BOTH additive jitter AND metric emission.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_54_ttl_jitter_positive_and_metric __________________\n\n    def test_bug_54_ttl_jitter_positive_and_metric() -> None:\n        \"\"\"compute_ttl_with_jitter must:\n        1. Add jitter to base_ttl (not subtract), so the effective TTL is\n           always >= base_ttl.\n        2. Emit a 'cache.ttl.jittered' metric via orgops.metrics.emit()\n           with the effective TTL value.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n    \n        with patch(\"random.uniform\", return_value=15.0):\n            with patch(\"orgops.metrics.emit\") as mock_emit:\n                # base_ttl=300, jitter=15 => effective = 300 + 15 = 315\n                result = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)\n    \n        # --- Requirement 1: jitter is additive ---\n        assert result == 315.0, (\n            f\"Expected 300.0 + 15.0 = 315.0 (additive jitter), got {result} \"\n            \"(subtractive would give 285.0)\"\n        )\n    \n        # --- Requirement 1b: verify jitter never reduces TTL below base ---\n        with patch(\"random.uniform\", return_value=0.0):\n            with patch(\"orgops.metrics.emit\"):\n                floor = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)\n        assert floor == 300.0, (\n            f\"With zero jitter the TTL should equal base_ttl=300.0, got {floor}\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug54.py:39: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473110274320'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug54.py::test_bug_54_ttl_jitter_positive_and_metric\n1 failed in 0.13s\n",
+    "stderr": "",
+    "duration_ms": 834,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

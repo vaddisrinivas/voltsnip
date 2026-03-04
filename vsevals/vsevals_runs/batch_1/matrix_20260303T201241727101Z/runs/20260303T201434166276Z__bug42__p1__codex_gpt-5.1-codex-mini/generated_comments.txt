@@ -1,0 +1,1 @@
+Fixes the probe-count comparison so probes are allowed while under the limit and increments the counter accordingly.

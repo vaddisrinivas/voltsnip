@@ -1,0 +1,1 @@
+Apply time-decay formula (access_count / (1 + age_hours)) to LFU score computation instead of returning raw access count.

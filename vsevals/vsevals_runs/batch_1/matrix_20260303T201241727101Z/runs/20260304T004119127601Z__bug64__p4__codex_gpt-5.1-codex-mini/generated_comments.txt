@@ -1,0 +1,1 @@
+Use the compounded multiplier per attempt, cache the capped flag, and emit a timeout.escalated metric before returning.

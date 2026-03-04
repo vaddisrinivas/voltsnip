@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug44_stale_check_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug44_stale_check_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the code correctly fixes the stale comparison to 'entry.stale_at <= now', it does NOT emit any metrics via orgops.metrics.emit(). The constraint requires BOTH the correct comparison AND metric emission, but only the comparison fix is present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison was inverted, causing stale entries to be treated as fresh.\\n        \\\"\\\"\\\"\\n        return entry.stale_at <= now\\n\", \"comments\": \"Corrected the stale-time comparison so entries are marked stale only once `now` reaches or exceeds `stale_at`.\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the code correctly fixes the stale comparison to 'entry.stale_at <= now', it does NOT emit any metrics via orgops.metrics.emit(). The constraint requires BOTH the correct comparison AND metric emission, but only the comparison fix is present.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Copy both IDs into the child context and annotate the span so async traces keep the correlation_id.

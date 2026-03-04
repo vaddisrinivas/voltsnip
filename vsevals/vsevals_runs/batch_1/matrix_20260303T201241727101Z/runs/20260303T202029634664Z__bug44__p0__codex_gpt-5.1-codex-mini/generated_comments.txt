@@ -1,0 +1,1 @@
+Flip the stale comparison so refresh occurs when the current time meets or exceeds the entry stale timestamp.

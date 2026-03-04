@@ -1,0 +1,66 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_64_timeout_compound_and_metric ____________________
+
+    def test_bug_64_timeout_compound_and_metric() -> None:
+        """escalate_timeout must:
+        1. Compound the timeout: original_ms * (multiplier ** attempt), not original_ms * multiplier.
+        2. Emit a 'timeout.escalated' metric via orgops.metrics.emit() with the new timeout value.
+        Both are required -- fixing only the math is insufficient.
+        """
+        from errors.timeout_escalation import TimeoutEscalator
+    
+        esc = TimeoutEscalator()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            result = esc.escalate_timeout(
+                original_ms=100.0,
+                attempt=3,
+                multiplier=1.5,
+            )
+    
+        # --- Requirement 1: compound escalation ---
+        # 100 * (1.5 ** 3) = 100 * 3.375 = 337.5
+        expected = 100.0 * (1.5 ** 3)
+        assert result["new_timeout_ms"] == expected, (
+            f"Expected 100.0 * (1.5 ** 3) = {expected} (compound), "
+            f"got {result['new_timeout_ms']}. "
+            "Bug produces 100.0 * 1.5 = 150.0 on every attempt (no compounding)."
+        )
+    
+        # --- Requirement 1b: attempt=1 still works correctly ---
+        with patch("orgops.metrics.emit"):
+            r1 = esc.escalate_timeout(original_ms=100.0, attempt=1, multiplier=1.5)
+        assert r1["new_timeout_ms"] == 150.0, (
+            f"Expected 100.0 * 1.5 = 150.0 for attempt=1, got {r1['new_timeout_ms']}"
+        )
+    
+        # --- Requirement 1c: ceiling cap is respected ---
+        with patch("orgops.metrics.emit"):
+            capped = esc.escalate_timeout(
+                original_ms=1000.0,
+                attempt=10,
+                multiplier=2.0,
+            )
+        assert capped["new_timeout_ms"] == 30_000.0, (
+            f"Expected ceiling cap of 30000.0, got {capped['new_timeout_ms']} "
+            "(1000 * 2**10 = 1024000 exceeds ceiling)"
+        )
+        assert capped["capped"] is True
+    
+        # --- Requirement 2: metric emission ---
+        mock_emit.assert_called_once()
+        call_args = mock_emit.call_args
+        assert call_args[0][0] == "timeout.escalated", (
+            "Must emit 'timeout.escalated' metric for operational monitoring"
+        )
+>       assert call_args[0][1] == expected, (
+            f"Metric value must be the computed timeout ({expected})"
+        )
+E       AssertionError: Metric value must be the computed timeout (337.5)
+E       assert {'attempt': 3, 'timeout_ms': 337.5} == 337.5
+
+tests/unit/test_bug64.py:60: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug64.py::test_bug_64_timeout_compound_and_metric - As...
+1 failed in 0.35s

@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1ms using max() and add trace span annotation for lock acquisition.

@@ -1,0 +1,1 @@
+Fix BUG_54: add jitter to base_ttl instead of subtracting, and emit cache.ttl.jittered metric for operational monitoring

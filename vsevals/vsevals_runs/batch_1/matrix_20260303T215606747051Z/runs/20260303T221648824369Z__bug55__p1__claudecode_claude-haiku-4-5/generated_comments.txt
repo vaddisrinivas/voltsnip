@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < so entries refresh when ratio is LOW (close to expiry), not HIGH (far from expiry).

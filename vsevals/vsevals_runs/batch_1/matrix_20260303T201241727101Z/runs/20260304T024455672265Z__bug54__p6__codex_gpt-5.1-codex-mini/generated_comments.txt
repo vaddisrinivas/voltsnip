@@ -1,0 +1,1 @@
+Additive jitter keeps TTL positive and a generic metric touchpoint reports cache.ttl.jittered.

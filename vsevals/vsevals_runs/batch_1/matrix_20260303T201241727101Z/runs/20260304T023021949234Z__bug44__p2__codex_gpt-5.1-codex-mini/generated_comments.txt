@@ -1,0 +1,1 @@
+Corrected the stale comparison so the method returns True only when the TTL has elapsed and the entry needs refreshing.

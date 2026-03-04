@@ -1,0 +1,1 @@
+Fixed redact_keys to recursively redact sensitive keys in nested dicts and record audit events with total redaction count.

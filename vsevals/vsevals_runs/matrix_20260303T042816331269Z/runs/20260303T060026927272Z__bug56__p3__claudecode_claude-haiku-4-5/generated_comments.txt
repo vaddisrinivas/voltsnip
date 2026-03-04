@@ -1,0 +1,1 @@
+Apply time-decay formula (access_count / (1 + age_hours)) and emit cache.eviction.lfu metric per guiding principle.

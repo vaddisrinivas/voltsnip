@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug61_replenish_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug61_replenish_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation clearly shows both required behaviors: (1) On success, it replenishes the budget using 'self.remaining = min(self.remaining + 1, self.max_budget)' which matches the exact pattern specified, and (2) It unconditionally emits the metric 'orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)' after the conditional logic, meaning it executes after every call regardless of success or failure.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\", \"comments\": \"Replenishes the budget on success and emits the retry budget metric every time.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation clearly shows both required behaviors: (1) On success, it replenishes the budget using 'self.remaining = min(self.remaining + 1, self.max_budget)' which matches the exact pattern specified, and (2) It unconditionally emits the metric 'orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)' after the conditional logic, meaning it executes after every call regardless of success or failure.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

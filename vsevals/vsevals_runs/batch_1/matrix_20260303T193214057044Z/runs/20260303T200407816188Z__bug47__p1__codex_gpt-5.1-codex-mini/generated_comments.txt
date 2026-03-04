@@ -1,0 +1,1 @@
+Evict the idle connection with the oldest last_used_at timestamp and remove it via LRU selection.

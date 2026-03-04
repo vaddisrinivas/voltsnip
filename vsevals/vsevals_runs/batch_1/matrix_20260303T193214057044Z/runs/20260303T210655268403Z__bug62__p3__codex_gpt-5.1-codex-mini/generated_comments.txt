@@ -1,0 +1,1 @@
+Annotate each fallback activation and invoke the callable with the shared context.

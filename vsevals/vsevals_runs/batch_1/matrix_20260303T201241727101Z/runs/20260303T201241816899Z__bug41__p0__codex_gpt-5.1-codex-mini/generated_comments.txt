@@ -1,0 +1,1 @@
+Switched the retry delay to exponential growth capped by max_delay and retained the metrics emission.

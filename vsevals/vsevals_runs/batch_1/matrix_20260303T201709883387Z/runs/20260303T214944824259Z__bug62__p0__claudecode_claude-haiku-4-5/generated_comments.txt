@@ -1,0 +1,1 @@
+Fixed BUG_62: added orgops.tracing.annotate_span annotation for each activated fallback and passed self.context to fb() calls to preserve request context propagation.

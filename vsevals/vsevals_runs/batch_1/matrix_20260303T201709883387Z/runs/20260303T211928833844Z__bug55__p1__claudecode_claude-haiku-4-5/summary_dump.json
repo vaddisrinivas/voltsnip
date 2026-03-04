@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T211928833844Z__bug55__p1__claudecode_claude-haiku-4-5",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P1",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 19835,
+    "prompt_chars": 5205,
+    "output_chars": 1020,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4155,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 19835,
+    "model_request_started_at": "2026-03-03T21:19:28.834378Z",
+    "model_request_finished_at": "2026-03-03T21:19:48.669573Z",
+    "model_request_id": "1350639f-a33f-4463-b5e1-0c259d68d8ab",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2261,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug55_threshold_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug55_threshold_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It uses `if ratio < self.threshold`, but the comment indicates confusion and there is no `orgops.metrics.emit()` call emitting `cache.stampede.prevented` with `key_name` (or at all). Therefore it does not satisfy the metric emission requirement.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # BUG_55: should be < not >\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\", \"comments\": \"Inverted comparison operator from > to < on line 53 to trigger refreshes when ratio is LOW (close to expiry) instead of HIGH (far from expiry).\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It uses `if ratio < self.threshold`, but the comment indicates confusion and there is no `orgops.metrics.emit()` call emitting `cache.stampede.prevented` with `key_name` (or at all). Therefore it does not satisfy the metric emission requirement.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_55_stampede_threshold_and_metric ___________________\n\n    def test_bug_55_stampede_threshold_and_metric() -> None:\n        \"\"\"StampedeGuard.should_refresh_early must:\n        1. Trigger early refresh when time_remaining/ttl < threshold (CLOSE to expiry),\n           not when the ratio is > threshold (FAR from expiry).\n        2. Emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name)\n           when an early refresh is triggered.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n    \n        guard = StampedeGuard(threshold=0.2)\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # --- Case A: 1s remaining of 10s TTL => ratio 0.1 < 0.2 => SHOULD refresh ---\n            result_close = guard.should_refresh_early(\n                time_remaining=1.0, ttl=10.0, key_name=\"users\",\n            )\n    \n        assert result_close is True, (\n            \"Must trigger early refresh when time_remaining/ttl (0.1) < threshold (0.2) \"\n            \"(entry is close to expiry)\"\n        )\n    \n        # --- Metric must be emitted on early refresh ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug55.py:33: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473297357600'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug55.py::test_bug_55_stampede_threshold_and_metric - ...\n1 failed in 0.35s\n",
+    "stderr": "",
+    "duration_ms": 2997,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Changed jitter operation from subtraction to addition, and added metric emission for cache.ttl.jittered to track jitter application.

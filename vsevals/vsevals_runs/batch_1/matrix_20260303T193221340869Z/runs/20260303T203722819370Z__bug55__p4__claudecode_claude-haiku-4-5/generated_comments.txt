@@ -1,0 +1,1 @@
+Fixed inverted comparison (> to <) for early-refresh when close to expiry, and added metric emission for operational monitoring.

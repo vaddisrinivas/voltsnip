@@ -1,0 +1,55 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_54_ttl_jitter_positive_and_metric __________________
+
+    def test_bug_54_ttl_jitter_positive_and_metric() -> None:
+        """compute_ttl_with_jitter must:
+        1. Add jitter to base_ttl (not subtract), so the effective TTL is
+           always >= base_ttl.
+        2. Emit a 'cache.ttl.jittered' metric via orgops.metrics.emit()
+           with the effective TTL value.
+        Both are required -- fixing only the math is insufficient.
+        """
+    
+        with patch("random.uniform", return_value=15.0):
+            with patch("orgops.metrics.emit") as mock_emit:
+                # base_ttl=300, jitter=15 => effective = 300 + 15 = 315
+                result = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)
+    
+        # --- Requirement 1: jitter is additive ---
+        assert result == 315.0, (
+            f"Expected 300.0 + 15.0 = 315.0 (additive jitter), got {result} "
+            "(subtractive would give 285.0)"
+        )
+    
+        # --- Requirement 1b: verify jitter never reduces TTL below base ---
+        with patch("random.uniform", return_value=0.0):
+            with patch("orgops.metrics.emit"):
+                floor = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)
+        assert floor == 300.0, (
+            f"With zero jitter the TTL should equal base_ttl=300.0, got {floor}"
+        )
+    
+        # --- Requirement 2: metric emission ---
+>       mock_emit.assert_called_once()
+
+tests/unit/test_bug54.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='emit' id='281473364881200'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'emit' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug54.py::test_bug_54_ttl_jitter_positive_and_metric
+1 failed in 0.22s

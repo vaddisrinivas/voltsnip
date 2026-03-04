@@ -1,0 +1,1 @@
+Release savepoint resource after rollback and track event in active savepoints list to fix resource leak and provide observability.

@@ -1,0 +1,55 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_68_nested_redaction_and_audit ____________________
+
+    def test_bug_68_nested_redaction_and_audit() -> None:
+        """RedactionFilter.redact_keys must:
+        1. Recursively redact sensitive keys in nested dicts (not just top-level).
+        2. Call orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+           where count is the total number of redacted keys across all nesting levels.
+        Both are required -- fixing only top-level redaction is insufficient.
+        """
+        from logops.redaction_filter import RedactionFilter, REDACTED_PLACEHOLDER
+    
+>       filt = RedactionFilter(sensitive_keys=["ssn", "password", "token"])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug68.py:18: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logops.redaction_filter.RedactionFilter object at 0xffffb8dbf380>
+sensitive_keys = ['ssn', 'password', 'token']
+
+    def __init__(self, sensitive_keys: Iterable[str]) -> None:
+        self.sensitive_keys: frozenset[str] = frozenset(
+            k.lower() for k in sensitive_keys
+        )
+    
+    # ------------------------------------------------------------------
+    # Core public API
+    # ------------------------------------------------------------------
+    
+        result: dict[str, Any] = {}
+        count = 0
+    
+        def redact_structure(value: Any) -> Any:
+            nonlocal count
+            if isinstance(value, dict):
+                nested_result: dict[str, Any] = {}
+                for nested_key, nested_value in value.items():
+                    if self.is_sensitive(nested_key):
+                        nested_result[nested_key] = REDACTED_PLACEHOLDER
+                        count += 1
+                    else:
+                        nested_result[nested_key] = redact_structure(nested_value)
+                return nested_result
+            return value
+    
+>       for key, value in data.items():
+                          ^^^^
+E       NameError: name 'data' is not defined
+
+logops/redaction_filter.py:51: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug68.py::test_bug_68_nested_redaction_and_audit - Nam...
+1 failed in 0.11s

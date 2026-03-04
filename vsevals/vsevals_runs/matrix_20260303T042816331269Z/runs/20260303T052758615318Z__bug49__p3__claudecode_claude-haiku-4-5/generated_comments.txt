@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK and trace annotation via orgops.tracing.annotate_span to fix resource leak and observability.

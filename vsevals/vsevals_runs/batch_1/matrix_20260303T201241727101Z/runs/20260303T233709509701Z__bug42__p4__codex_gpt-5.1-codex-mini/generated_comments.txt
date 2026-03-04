@@ -1,0 +1,1 @@
+Allows additional half-open probes only when the count is below the cap and reports degradation once the limit is hit.

@@ -1,0 +1,123 @@
+{
+  "run_id": "20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG70",
+  "task_name": "base64_secret_miss_and_alert",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "error",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 39,
+  "task_line_end": 49,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug70/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "",
+    "user_prompt": "",
+    "context_surface": "tools_only",
+    "visible_sections": [],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": false,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "",
+  "parsed_output": {
+    "code": "",
+    "comments": ""
+  },
+  "token_usage": {
+    "prompt_tokens": null,
+    "completion_tokens": null,
+    "total_tokens": null,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": null
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:56:57.995153Z",
+    "finished_at": "2026-03-03T23:06:58.342207Z",
+    "latency_ms": 600345
+  },
+  "summary_metrics": {
+    "latency_ms": 600345,
+    "prompt_chars": 0,
+    "output_chars": 0,
+    "prompt_system_chars": 0,
+    "prompt_user_chars": 0,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": false,
+    "structured_output_succeeded": false,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": null,
+    "model_request_started_at": null,
+    "model_request_finished_at": null,
+    "model_request_id": null,
+    "model_finish_reason": null,
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": null
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": null,
+  "pytest_result": null,
+  "error": {
+    "type": "TimeoutExpired",
+    "message": "Command '['codex', '-a', 'never', 'exec', '--model', 'gpt-5.1-codex-mini', '--json', '--ephemeral', '--skip-git-repo-check', '--disable', 'shell_tool', '-o', '/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225657995006Z__bug70__p2__codex_gpt-5.1-codex-mini/codex_last_message.txt', '--output-schema', '/var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_codex_schema_fxn80ki7.json', '-C', '/var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_codex_wd_do_wlrpn', '--sandbox', 'read-only', '-c', 'mcp_servers.voltsnip.command=curl', '-c', 'mcp_servers.voltsnip.args=[\"-sNX\", \"POST\", \"http://127.0.0.1:50482/mcp/messages\"]', '-c', 'model_reasoning_effort=low', 'You are a senior software engineer executing a controlled code-fix evaluation.\\n\\nOutput format:\\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\\n\\nEditing contract:\\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\\n  The file header, imports, and all content outside the range are preserved automatically.\\n  Do NOT include them — outputting the full file will corrupt the target file.\\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\\n- Keep changes minimal and localized to the stated bug objective.\\n- Preserve public behavior unless the task explicitly requires a change.\\n\\nReliability contract:\\n- Prefer deterministic fixes over clever rewrites.\\n- Preserve imports, typing, and runtime safety.\\n- If uncertain, preserve existing behavior and avoid speculative refactors.\\n\\nTool access is enabled. Fetch memory through tools when useful to solve the task.\\n\\nTask ID: BUG70\\nTask Name: base64_secret_miss_and_alert\\nTask Objective:\\nApply only this task fix using configured target file and line range.\\nKeep API and behavior stable except for this bug requirement.\\nKeep changes minimal, deterministic, and production-safe.\\n\\nTask Description:\\nFix scan_for_secrets so it decodes base64 segments and re-scans for encoded secrets.\\n\\nTarget File: logops/secret_scanner.py\\n\\nTarget Lines:\\n39-49 (1-based, inclusive)\\nIMPORTANT: Output ONLY the replacement for lines 39-49 in \"code\".\\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\\n\\nTest Command:\\nuv run pytest -q tests/unit/test_bug70.py -k bug_70\\n\\nContext Code:\\n```python\\ndef scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n    \"\"\"Return a list of findings for every secret detected in *text*.\\n\\n    BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n    segments are never decoded and re-scanned, so an encoded\\n    ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n    \"\"\"\\n    self.findings = []\\n    self._scan_plaintext(text)\\n    # BUG_70: base64 segments are not decoded — encoded secrets are missed\\n    return list(self.findings)\\n```\\n\\nTarget File Content (full file):\\n```python\\n\"\"\"Secret scanner for detecting credentials and tokens in text.\\n\\nThis module scans arbitrary text for known secret patterns such as\\nAWS access keys and GitHub personal access tokens.  Callers use\\n``scan_for_secrets`` to obtain a list of findings.\\n\"\"\"\\nfrom __future__ import annotations\\n\\nimport base64\\nimport re\\nfrom dataclasses import dataclass, field\\nfrom typing import Any\\n\\n\\n# --- well-known patterns ---------------------------------------------------\\nPATTERNS: dict[str, re.Pattern[str]] = {\\n    \"aws_access_key\": re.compile(r\"AKIA[A-Z0-9]{16}\"),\\n    \"github_token\": re.compile(r\"ghp_[a-zA-Z0-9]{36}\"),\\n}\\n\\n# Matches Base64-encoded segments (>= 20 chars, standard alphabet + padding)\\n_BASE64_RE = re.compile(r\"[A-Za-z0-9+/]{20,}={0,2}\")\\n\\n\\n@dataclass\\nclass SecretScanner:\\n    \"\"\"Scan text for known secret patterns.\\n\\n    Each finding is returned as a dict with *pattern_type* and *match*.\\n    \"\"\"\\n\\n    patterns: dict[str, re.Pattern[str]] = field(default_factory=lambda: dict(PATTERNS))\\n    findings: list[dict[str, Any]] = field(default_factory=list)\\n\\n    # ------------------------------------------------------------------\\n    # Public API\\n    # ------------------------------------------------------------------\\n\\n    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \"\"\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \"\"\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        # BUG_70: base64 segments are not decoded — encoded secrets are missed\\n        return list(self.findings)\\n\\n    # ------------------------------------------------------------------\\n    # Internal helpers\\n    # ------------------------------------------------------------------\\n\\n    def _scan_plaintext(self, text: str) -> None:\\n        \"\"\"Match each pattern against *text* and record findings.\"\"\"\\n        for pattern_type, regex in self.patterns.items():\\n            for m in regex.finditer(text):\\n                self.findings.append(\\n                    {\"pattern_type\": pattern_type, \"match\": m.group()}\\n                )\\n\\n    def _try_decode_base64(self, segment: str) -> str | None:\\n        \"\"\"Attempt to base64-decode *segment*.  Return decoded text or None.\"\"\"\\n        try:\\n            decoded = base64.b64decode(segment, validate=True).decode(\"utf-8\")\\n        except Exception:\\n            return None\\n        return decoded\\n```\\n\\nExpected Output:\\nDecode base64 segments and re-scan for secrets AND call orgops.alerts.notify for each finding.\\n\\nExecution Mode:\\nAgent mode: decide context/tool usage within constraints.\\n\\nVariant Hypothesis:\\nTools available, zero guidance — agent decides what to retrieve.\\n\\nTool Budget:\\nMaximum tool roundtrips: 4']' timed out after 600 seconds",
+    "error_class": "TIMEOUT"
+  }
+}

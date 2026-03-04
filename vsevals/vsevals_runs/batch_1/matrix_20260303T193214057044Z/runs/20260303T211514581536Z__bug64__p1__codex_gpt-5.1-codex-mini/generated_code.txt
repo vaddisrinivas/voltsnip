@@ -1,0 +1,17 @@
+        compounded_multiplier = multiplier ** attempt
+        new_timeout_ms = original_ms * compounded_multiplier
+        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)
+
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+
+        return {
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+            "attempt": attempt,
+            "capped": new_timeout_ms >= self.ceiling_ms,
+        }

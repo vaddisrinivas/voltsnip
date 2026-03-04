@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T203817087601Z__bug45__p2__claudecode_claude-haiku-4-5",
+  "task_id": "BUG45",
+  "task_name": "tls_chain_range_and_compliance",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 50258,
+    "prompt_chars": 6782,
+    "output_chars": 2012,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 5649,
+    "snippet_injected_chars": 4058,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 50113,
+    "model_request_started_at": "2026-03-03T20:38:17.110857Z",
+    "model_request_finished_at": "2026-03-03T20:39:07.224555Z",
+    "model_request_id": "74be4181-aac8-4000-86d3-f9756bcff816",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1800,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 4,
+      "total_tokens": 22,
+      "cached_tokens": 7858,
+      "thinking_tokens": null,
+      "cost_usd": 0.00064464
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug45_chain_range_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug45_chain_range_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The loop iterates with `for i in range(len(chain) - 1):`, fixing the off-by-one range bug, and it calls `orgops.compliance.record_decision(\"tls.chain.validated\", depth=len(chain))`, recording the required compliance decision with the correct key and depth.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n\\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\\n    the leaf-to-first-intermediate check.  Should be\\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    # Validate every adjacent pair: chain[i].issuer == chain[i+1].subject\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"tls.chain.validated\\\", depth=len(chain))\\n    return {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\", \"comments\": \"Fixed loop range to validate every adjacent pair and record compliance decision for SOC2 audit trail.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+    },
+    "judge_raw_response": "{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The loop iterates with `for i in range(len(chain) - 1):`, fixing the off-by-one range bug, and it calls `orgops.compliance.record_decision(\\\"tls.chain.validated\\\", depth=len(chain))`, recording the required compliance decision with the correct key and depth.\"\n    }\n  ]\n}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": "..                                                                       [100%]\n2 passed in 0.22s\n",
+    "stderr": "",
+    "duration_ms": 1574,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

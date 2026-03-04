@@ -1,0 +1,50 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_51_replication_lag_and_alert _____________________
+
+    def test_bug_51_replication_lag_and_alert() -> None:
+        """check_replication_health must:
+        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)
+        2. Call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when exceeded
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+        from data.replication_lag import check_replication_health
+    
+        with patch("orgops.alerts.notify") as mock_notify:
+            # Lag below threshold: should NOT exceed, should NOT alert
+            result_ok = check_replication_health(measured_lag_ms=200.0, threshold_ms=500.0)
+            assert result_ok["exceeded"] is False, (
+                "200ms lag should not exceed 500ms threshold"
+            )
+            mock_notify.assert_not_called()
+    
+            # Lag above threshold: should exceed AND alert
+            result_bad = check_replication_health(measured_lag_ms=750.0, threshold_ms=500.0)
+            assert result_bad["exceeded"] is True, (
+                "750ms lag must exceed 500ms threshold (direct comparison, no unit conversion)"
+            )
+    
+            # Must also fire the operational alert
+>           mock_notify.assert_called_once()
+
+tests/unit/test_bug51.py:30: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='notify' id='281473603533664'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'notify' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Asse...
+1 failed in 0.46s

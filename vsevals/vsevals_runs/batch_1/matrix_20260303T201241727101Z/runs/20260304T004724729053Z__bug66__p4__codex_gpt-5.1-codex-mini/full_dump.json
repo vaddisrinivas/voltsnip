@@ -1,0 +1,320 @@
+{
+  "run_id": "20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG66",
+  "task_name": "correlation_id_lost_async_and_trace",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 20,
+  "task_line_end": 39,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug66/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExpected Output:\nCopy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nSKILL.md guide + tools, no key hints — model follows workflow.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug66/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "AGENTS.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints."
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExpected Output:\nCopy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nSKILL.md guide + tools, no key hints — model follows workflow.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug66/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "AGENTS.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints."
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExpected Output:\nCopy both request_id and correlation_id from parent AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nSKILL.md guide + tools, no key hints — model follows workflow.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"        # BUG_66: ensure both IDs travel with the child context\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n        }\\n        orgops = __import__(\\\"orgops\\\")\\n        orgops.tracing.annotate_span(\\\"request_id\\\", child[\\\"request_id\\\"])\\n        if child[\\\"correlation_id\\\"] is not None:\\n            orgops.tracing.annotate_span(\\\"correlation_id\\\", child[\\\"correlation_id\\\"])\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\\n\",\"comments\":\"Copy both IDs into the child context and annotate the trace span via orgops.tracing before logging the propagation.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__mcp__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416233Z",
+      "finished_at": "2026-03-04T00:47:49.416235Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__local__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "local",
+        "uri": "/Users/srinivasvaddi/.codex/skills/voltsnip-skill/SKILL.md"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416372Z",
+      "finished_at": "2026-03-04T00:47:49.416373Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "mcp__mcp__voltsnip__search_memory__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp__voltsnip__search_memory"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416395Z",
+      "finished_at": "2026-03-04T00:47:49.416395Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 4,
+      "tool_name": "mcp__mcp__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp",
+        "uri": "???"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416413Z",
+      "finished_at": "2026-03-04T00:47:49.416413Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 5,
+      "tool_name": "mcp__local__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "local",
+        "uri": "/var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_codex_wd_3rkfe50v/logops/context_propagator.py"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416431Z",
+      "finished_at": "2026-03-04T00:47:49.416432Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 6,
+      "tool_name": "mcp__mcp__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:47:49.416459Z",
+      "finished_at": "2026-03-04T00:47:49.416460Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"        # BUG_66: ensure both IDs travel with the child context\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n        }\\n        orgops = __import__(\\\"orgops\\\")\\n        orgops.tracing.annotate_span(\\\"request_id\\\", child[\\\"request_id\\\"])\\n        if child[\\\"correlation_id\\\"] is not None:\\n            orgops.tracing.annotate_span(\\\"correlation_id\\\", child[\\\"correlation_id\\\"])\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\\n\",\"comments\":\"Copy both IDs into the child context and annotate the trace span via orgops.tracing before logging the propagation.\"}",
+  "parsed_output": {
+    "code": "        # BUG_66: ensure both IDs travel with the child context\n        child = {\n            \"request_id\": parent_context[\"request_id\"],\n            \"correlation_id\": parent_context.get(\"correlation_id\"),\n        }\n        orgops = __import__(\"orgops\")\n        orgops.tracing.annotate_span(\"request_id\", child[\"request_id\"])\n        if child[\"correlation_id\"] is not None:\n            orgops.tracing.annotate_span(\"correlation_id\", child[\"correlation_id\"])\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n",
+    "comments": "Copy both IDs into the child context and annotate the trace span via orgops.tracing before logging the propagation."
+  },
+  "token_usage": {
+    "prompt_tokens": 70891,
+    "completion_tokens": 2749,
+    "total_tokens": 73640,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0327548
+  },
+  "timings": {
+    "started_at": "2026-03-04T00:47:24.729232Z",
+    "finished_at": "2026-03-04T00:47:49.876155Z",
+    "latency_ms": 25147
+  },
+  "summary_metrics": {
+    "latency_ms": 25147,
+    "prompt_chars": 5011,
+    "output_chars": 903,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3961,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 6,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 6,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 25122,
+    "model_request_started_at": "2026-03-04T00:47:24.751936Z",
+    "model_request_finished_at": "2026-03-04T00:47:49.874621Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9138,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 70891,
+      "completion_tokens": 2749,
+      "total_tokens": 73640,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0327548
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T004724729053Z__bug66__p4__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug66_correlation_id_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug66_correlation_id_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code does copy both request_id and correlation_id from parent to child context, and it does use orgops.tracing.annotate_span(). However, it annotates with 'request_id' and 'correlation_id' as keys, not with 'context.propagated' as specified in the judge prompt.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug66/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        # BUG_66: ensure both IDs travel with the child context\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n        }\\n        orgops = __import__(\\\"orgops\\\")\\n        orgops.tracing.annotate_span(\\\"request_id\\\", child[\\\"request_id\\\"])\\n        if child[\\\"correlation_id\\\"] is not None:\\n            orgops.tracing.annotate_span(\\\"correlation_id\\\", child[\\\"correlation_id\\\"])\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\\n\", \"comments\": \"Copy both IDs into the child context and annotate the trace span via orgops.tracing before logging the propagation.\"}, \"constraints\": [{\"id\": \"bug66_correlation_id_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug66/scenario_context/v1\", \"check\": \"Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with \\\"context.propagated\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code does copy both request_id and correlation_id from parent to child context, and it does use orgops.tracing.annotate_span(). However, it annotates with 'request_id' and 'correlation_id' as keys, not with 'context.propagated' as specified in the judge prompt.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

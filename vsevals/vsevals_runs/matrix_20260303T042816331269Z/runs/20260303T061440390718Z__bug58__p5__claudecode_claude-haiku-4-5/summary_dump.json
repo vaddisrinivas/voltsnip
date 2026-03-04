@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T061440390718Z__bug58__p5__claudecode_claude-haiku-4-5",
+  "task_id": "BUG58",
+  "task_name": "hash_ring_modulus_off_by_one_and_health",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 175143,
+    "prompt_chars": 6104,
+    "output_chars": 821,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5054,
+    "snippet_injected_chars": 3118,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 174949,
+    "model_request_started_at": "2026-03-03T06:14:40.412865Z",
+    "model_request_finished_at": "2026-03-03T06:17:35.364571Z",
+    "model_request_id": "1f1f80ce-b6ce-459e-95a3-062ebae13d31",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1199,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 26,
+      "completion_tokens": 7,
+      "total_tokens": 33,
+      "cached_tokens": 29189,
+      "thinking_tokens": null,
+      "cost_usd": 0.00236312
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug58_modulus_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug58_modulus_and_health",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "Code uses _stable_hash(key) % n (no +1) and calls orgops.health.report_degradation(\"cache.partition.skew\", partition_id).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n        \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n        The partition ID falls in the valid range ``[0, num_partitions)``.\\n        \\\"\\\"\\\"\\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\\n        partition_id = _stable_hash(key) % n\\n        from orgops import health\\n        health.report_degradation(\\\"cache.partition.skew\\\", partition_id)\\n        return partition_id\", \"comments\": \"Fixed off-by-one error (% n instead of % (n+1)) and added orgops.health.report_degradation call for cache partition skew monitoring.\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"Code uses _stable_hash(key) % n (no +1) and calls orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.37s\n",
+    "stderr": "",
+    "duration_ms": 2966,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

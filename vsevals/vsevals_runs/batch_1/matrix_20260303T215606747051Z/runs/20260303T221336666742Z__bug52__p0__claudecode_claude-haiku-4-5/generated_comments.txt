@@ -1,0 +1,1 @@
+Convert both expected_type and actual_type to uppercase before comparison to handle case-insensitive database engine type variations.

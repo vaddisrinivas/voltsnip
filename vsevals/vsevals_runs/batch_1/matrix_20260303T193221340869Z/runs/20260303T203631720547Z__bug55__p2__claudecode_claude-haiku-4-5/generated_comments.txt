@@ -1,0 +1,1 @@
+Fixed inverted threshold comparison (> to <) and added cache.stampede.prevented metric emission for operational monitoring.

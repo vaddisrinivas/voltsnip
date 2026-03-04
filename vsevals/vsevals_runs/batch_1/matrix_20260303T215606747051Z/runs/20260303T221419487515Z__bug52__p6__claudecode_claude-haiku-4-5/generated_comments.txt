@@ -1,0 +1,1 @@
+Made column type comparison case-insensitive using .upper() and added compliance decision recording for SOC2 audit trail.

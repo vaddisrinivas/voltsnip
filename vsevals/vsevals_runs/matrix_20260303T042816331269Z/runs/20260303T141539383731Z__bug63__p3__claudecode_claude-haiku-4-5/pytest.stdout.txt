@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_63_dlq_capacity_and_alert ______________________
+
+    def test_bug_63_dlq_capacity_and_alert() -> None:
+        """DeadLetterQueue.enqueue must:
+        1. Reject messages when len(queue) >= max_size (not >), preventing
+           the queue from exceeding its declared capacity.
+        2. Call orgops.alerts.notify("dlq.capacity.warning", utilization_pct=...)
+           when the queue reaches 80%+ of max_size.
+        Both are required -- fixing only the comparison is insufficient.
+        """
+>       from errors.dead_letter import DeadLetterQueue
+E         File "/workspace/errors/dead_letter.py", line 30
+E           def enqueue(self, message: Dict[str, Any]) -> bool:
+E           ^^^
+E       IndentationError: expected an indented block after function definition on line 29
+
+tests/unit/test_bug63.py:16: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug63.py::test_bug_63_dlq_capacity_and_alert -   File ...
+1 failed in 0.27s

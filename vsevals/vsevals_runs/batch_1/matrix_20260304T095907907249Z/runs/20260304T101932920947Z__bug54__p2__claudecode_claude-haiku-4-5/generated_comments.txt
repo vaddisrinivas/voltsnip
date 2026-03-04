@@ -1,0 +1,1 @@
+Fixed jitter to be added (not subtracted) and emit cache.ttl.jittered metric via logging.

@@ -1,0 +1,1 @@
+Switches version comparisons to integers so pending migrations are numerically ordered and filtered.

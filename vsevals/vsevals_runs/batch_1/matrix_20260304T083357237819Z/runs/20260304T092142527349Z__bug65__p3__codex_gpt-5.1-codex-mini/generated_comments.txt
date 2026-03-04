@@ -1,0 +1,1 @@
+Updated sanitize_email to use a plus-aware regex and log the compliance decision before returning.

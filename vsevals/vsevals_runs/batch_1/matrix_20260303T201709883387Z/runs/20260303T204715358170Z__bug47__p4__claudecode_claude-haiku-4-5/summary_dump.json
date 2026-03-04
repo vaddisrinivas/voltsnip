@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T204715358170Z__bug47__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG47",
+  "task_name": "pool_eviction_fifo_not_lru_and_metric",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 20298,
+    "prompt_chars": 5356,
+    "output_chars": 1343,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4306,
+    "snippet_injected_chars": 4479,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 6,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 20054,
+    "model_request_started_at": "2026-03-03T20:47:15.379539Z",
+    "model_request_finished_at": "2026-03-03T20:47:35.433794Z",
+    "model_request_id": "f38be47c-62df-4e5c-befd-d6c826a36643",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2829,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 2,
+      "total_tokens": 20,
+      "cached_tokens": 8592,
+      "thinking_tokens": null,
+      "cost_usd": 0.00069536
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug47_lru_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug47_lru_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code computes lru_idx using min(..., key=lambda i: self.connections[i].last_used_at) and pops that index, which evicts the oldest last_used_at (LRU). It also imports orgops.metrics and calls orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) where idle_seconds is computed as now - evicted.last_used_at.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        \\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        # LRU eviction — find the conn with min(last_used_at)\\n        lru_idx = min(range(len(self.connections)),\\n                       key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n        return evicted\", \"comments\": \"Replace FIFO eviction with LRU (minimum last_used_at) and emit pool.connection.evicted metric for alerting system.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes lru_idx using min(..., key=lambda i: self.connections[i].last_used_at) and pops that index, which evicts the oldest last_used_at (LRU). It also imports orgops.metrics and calls orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds) where idle_seconds is computed as now - evicted.last_used_at.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 4639,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

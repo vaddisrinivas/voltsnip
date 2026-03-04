@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T215916122474Z__bug43__p5__claudecode_claude-haiku-4-5",
+  "task_id": "BUG43",
+  "task_name": "pool_timeout_overlap_and_trace",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 38657,
+    "prompt_chars": 6846,
+    "output_chars": 1477,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5796,
+    "snippet_injected_chars": 3271,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 38509,
+    "model_request_started_at": "2026-03-03T21:59:16.146047Z",
+    "model_request_finished_at": "2026-03-03T21:59:54.656012Z",
+    "model_request_id": "b623e18e-c205-41c9-a67e-577b51f46148",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1272,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 2,
+      "total_tokens": 20,
+      "cached_tokens": 8690,
+      "thinking_tokens": null,
+      "cost_usd": 0.0007032
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug43_timeout_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug43_timeout_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code sets total_timeout = max(ct, dt) + rt (not summing all three) and calls orgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def calculate_effective_timeout(\\n        self,\\n        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n        total_timeout = max(ct, dt) + rt\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\", \"comments\": \"Fix parallel DNS/connect overlap: use max(ct, dt) + rt instead of sequential sum, and annotate span for observability tracing.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code sets total_timeout = max(ct, dt) + rt (not summing all three) and calls orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.38s\n",
+    "stderr": "",
+    "duration_ms": 3014,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Added recursive traversal of nested dicts and lists to redact all matching keys at any depth, and call audit event with total redaction count.

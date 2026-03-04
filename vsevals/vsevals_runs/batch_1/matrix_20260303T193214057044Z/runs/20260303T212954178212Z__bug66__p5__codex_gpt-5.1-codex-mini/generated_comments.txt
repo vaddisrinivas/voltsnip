@@ -1,0 +1,1 @@
+Child context now copies both request and correlation IDs and annotates the trace span so the propagated context keeps observability metadata intact.

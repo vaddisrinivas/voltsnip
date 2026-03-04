@@ -1,0 +1,1 @@
+Fixed inverted comparison to correctly identify stale entries for refresh.

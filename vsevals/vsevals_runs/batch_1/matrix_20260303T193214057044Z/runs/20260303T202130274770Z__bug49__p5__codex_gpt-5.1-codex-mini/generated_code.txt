@@ -1,0 +1,13 @@
+    def rollback_to_savepoint(self, savepoint_id: str) -> None:
+        """Rollback to a named savepoint, release it, and trace the event."""
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )
+        self.release_savepoint(savepoint_id)
+
+        import orgops.tracing
+
+        orgops.tracing.annotate_span(
+            "txn.savepoint.rolled_back",
+            savepoint_id,
+        )

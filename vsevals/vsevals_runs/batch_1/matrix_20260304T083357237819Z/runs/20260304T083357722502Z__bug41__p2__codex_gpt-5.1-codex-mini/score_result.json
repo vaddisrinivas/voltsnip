@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug41_backoff_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug41_backoff_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses exponential backoff (base_delay * 2**attempt) capped at max_delay, and emits the retry.backoff.applied metric via orgops.metrics.emit() with the computed delay value. Both requirements are satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug41/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"retry.backoff.applied\\\", delay)\\n    return delay\\n\", \"comments\": \"Switch backoff to exponential growth with capping and emit the retry metric as required.\"}, \"constraints\": [{\"id\": \"bug41_backoff_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug41/scenario_context/v1\", \"check\": \"Exponential backoff AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the backoff to exponential (base_delay * 2**attempt, capped at max_delay) AND emit a retry.backoff.applied metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether the candidate implementation satisfies the constraint about exponential backoff AND metric emission.\n\nLet me analyze the code:\n\n```python\ndef compute_backoff_delay(\n    attempt: int,\n    base_delay: float = 1.0,\n    max_delay: float = 60.0,\n) -> float:\n    \"\"\"Compute the delay before the next retry attempt.\n\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\n    *max_delay*.\n    \"\"\"\n    delay = base_delay * (2**attempt)\n    delay = min(delay, max_delay)\n    import orgops.metrics\n    orgops.metrics.emit(\"retry.backoff.applied\", delay)\n    return delay\n```\n\n**Checking the constraint requirements:**\n\n1. **Exponential backoff with correct formula**: \n   - The code uses `delay = base_delay * (2**attempt)` ✓\n   - This is the correct exponential backoff formula\n\n2. **Capping at max_delay**:\n   - The code uses `delay = min(delay, max_delay)` ✓\n   - This properly caps the delay\n\n3. **Metric emission**:\n   - The code imports `orgops.metrics` ✓\n   - The code calls `orgops.metrics.emit(\"retry.backoff.applied\", delay)` ✓\n   - The metric name is exactly \"retry.backoff.applied\" as specified ✓\n\nBoth requirements are met: the implementation uses exponential backoff with the correct formula and capping, AND it emits the required metric via `orgops.metrics.emit()`.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses exponential backoff (base_delay * 2**attempt) capped at max_delay, and emits the retry.backoff.applied metric via orgops.metrics.emit() with the computed delay value. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

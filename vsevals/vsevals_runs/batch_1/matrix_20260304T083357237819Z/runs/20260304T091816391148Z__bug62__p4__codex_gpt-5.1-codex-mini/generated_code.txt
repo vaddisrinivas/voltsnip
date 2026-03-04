@@ -1,0 +1,18 @@
+        import orgops
+
+        try:
+            return self.primary_fn(self.context)
+        except Exception:
+            pass
+
+        for _idx, fb in enumerate(self.fallbacks):
+            orgops.tracing.annotate_span("fallback.activated", _idx)
+            try:
+                return fb(self.context)
+            except Exception:
+                continue
+
+        raise RuntimeError(
+            "All fallbacks exhausted: primary and "
+            f"{len(self.fallbacks)} fallback(s) failed"
+        )

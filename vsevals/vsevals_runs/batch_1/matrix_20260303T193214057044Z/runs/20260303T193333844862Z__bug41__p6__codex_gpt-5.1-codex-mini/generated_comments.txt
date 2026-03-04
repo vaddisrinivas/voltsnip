@@ -1,0 +1,1 @@
+Switches the backoff calculation to exponential growth capped at max_delay while emitting the retry metric.

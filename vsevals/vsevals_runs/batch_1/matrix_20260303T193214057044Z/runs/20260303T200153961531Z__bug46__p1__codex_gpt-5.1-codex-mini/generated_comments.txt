@@ -1,0 +1,1 @@
+Use the precise float boundary so sliding_window_count no longer truncates timestamps.

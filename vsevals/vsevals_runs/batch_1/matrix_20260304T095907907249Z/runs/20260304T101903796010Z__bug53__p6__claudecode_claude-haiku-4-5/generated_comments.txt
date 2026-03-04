@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1 ms using max() and annotate trace span with timeout metrics.

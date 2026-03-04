@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to <, and added orgops.health.report_degradation call to report circuit half-open degradation when probe limit is exceeded.

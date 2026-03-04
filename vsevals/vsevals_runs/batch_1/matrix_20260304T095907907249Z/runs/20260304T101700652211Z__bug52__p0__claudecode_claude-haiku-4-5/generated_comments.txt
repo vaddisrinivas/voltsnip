@@ -1,0 +1,1 @@
+Convert both types to uppercase before comparison to support case-insensitive matching across different database engines.

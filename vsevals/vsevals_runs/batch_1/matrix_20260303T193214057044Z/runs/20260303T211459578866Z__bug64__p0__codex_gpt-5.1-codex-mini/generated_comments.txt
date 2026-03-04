@@ -1,0 +1,1 @@
+Adjust escalate_timeout to compound the multiplier per attempt and keep the history/return logic unchanged.

@@ -43,7 +43,7 @@ Across two model families (claude-haiku-4-5, $n{=}3$; gpt-5.1-codex-mini, $n{=}3
 In these runs, providing more guide context (P6) did not help over focused retrieval alone (P4) for Haiku, hinting at a possible over-specification effect.
 Codex showed a different pattern: static snippet injection (P3$=$43.0\%) scored higher than tool-based retrieval (P4$=$20.0\%) across $n{=}3$ runs, suggesting the preferred context surface may be model-dependent.
 These are directional findings from a small-$n$ pilot; the sample sizes are insufficient for statistical significance claims.
-The benchmark, evaluation harness, and all run artefacts are released at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{vsevals-lock}).
+The benchmark, evaluation harness, and all run artefacts are released at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{arxiv-v1}).
 \end{abstract}
 
 % ===================================================================
@@ -842,8 +842,8 @@ All run artefacts (full model outputs, tool traces, scoring results, and pytest 
 \noindent The repository uses two branches:
 
 \begin{itemize}[nosep]
-    \item \texttt{vsevals-lock} --- benchmark code, evaluation harness, paper source, and all paths below.
-    \item \texttt{vsevals-lock} sub-directory \texttt{vsevals\_runs/batch\_1/} --- raw evaluation run artefacts (CSV results, full model dumps, pytest logs, tool traces).
+    \item \texttt{arxiv-v1} --- benchmark code, evaluation harness, paper source, and all paths below.
+    \item \texttt{arxiv-v1} sub-directory \texttt{vsevals\_runs/batch\_1/} --- raw evaluation run artefacts (CSV results, full model dumps, pytest logs, tool traces).
 \end{itemize}
 
 \begin{table*}[t]

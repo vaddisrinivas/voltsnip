@@ -1,0 +1,1 @@
+Use a plus-friendly regex inside sanitize_email to ensure plus-addressed addresses are redacted.

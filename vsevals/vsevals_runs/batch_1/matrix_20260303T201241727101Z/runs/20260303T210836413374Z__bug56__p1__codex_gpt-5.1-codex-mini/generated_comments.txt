@@ -1,0 +1,1 @@
+Apply the intended LFU score decay formula so that score is access_count divided by (1 + age_hours).

@@ -1,0 +1,51 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_45_tls_chain_and_compliance _____________________
+
+    def test_bug_45_tls_chain_and_compliance() -> None:
+        """validate_cert_chain must:
+        1. Check every adjacent pair in the chain — range(len(chain) - 1),
+           NOT range(1, len(chain)) which skips the leaf-to-intermediate link.
+        2. Record a compliance decision via orgops.compliance.record_decision
+           with decision_type="tls.chain.validated" and depth=len(chain).
+        Both are required — fixing only the loop is insufficient.
+        """
+        leaf = Certificate(subject="leaf.example.com", issuer="Intermediate CA")
+        intermediate = Certificate(subject="Intermediate CA", issuer="Root CA")
+        root = Certificate(subject="Root CA", issuer="Root CA")
+    
+        valid_chain = [leaf, intermediate, root]
+    
+        with patch("orgops.compliance.record_decision") as mock_record:
+            result = validate_cert_chain(valid_chain)
+    
+        # --- Requirement 1: correct chain validation ---
+        assert result["valid"] is True, (
+            "A valid leaf -> intermediate -> root chain must pass validation. "
+            "The loop must use range(len(chain) - 1) to check chain[0].issuer == chain[1].subject."
+        )
+        assert result["depth"] == 3
+    
+        # --- Requirement 2: compliance decision recording ---
+>       mock_record.assert_called_once()
+
+tests/unit/test_bug45.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='record_decision' id='281473376035152'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug45.py::test_bug_45_tls_chain_and_compliance - Asser...
+1 failed, 1 passed in 0.29s

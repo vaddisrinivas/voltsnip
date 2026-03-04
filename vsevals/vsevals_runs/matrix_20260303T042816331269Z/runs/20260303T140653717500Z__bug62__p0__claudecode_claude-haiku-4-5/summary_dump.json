@@ -1,0 +1,88 @@
+{
+  "run_id": "20260303T140653717500Z__bug62__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG62",
+  "task_name": "fallback_context_loss_and_trace",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 3003,
+    "prompt_chars": 6374,
+    "output_chars": 234,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5324,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": false,
+    "fallback_parser_used": true,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 3001,
+    "model_request_started_at": "2026-03-03T14:06:53.718936Z",
+    "model_request_finished_at": "2026-03-03T14:06:56.720733Z",
+    "model_request_id": "1eadae3c-b546-49d1-886e-73a3a37edb39",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 0,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "no code produced"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 0,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 0,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 0,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [],
+    "constraint_scoring_used": false,
+    "constraint_checks_passed": null,
+    "constraint_checks_total": null,
+    "constraint_pass_threshold": null,
+    "constraint_results": [],
+    "judge_payload": null,
+    "judge_raw_response": null,
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

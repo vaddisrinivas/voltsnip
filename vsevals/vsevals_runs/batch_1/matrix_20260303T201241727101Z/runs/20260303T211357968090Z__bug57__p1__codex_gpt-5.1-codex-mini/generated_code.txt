@@ -1,0 +1,19 @@
+        interval_ms = interval_seconds * 1000
+        self._timer_handle = _start_timer(
+            interval_ms,
+            callback=lambda: self._do_flush(buffer),
+        )
+        flush_audit_event = {
+            "type": "flush_scheduled",
+            "interval_seconds": interval_seconds,
+            "interval_ms": interval_ms,
+            "buffer_size": len(buffer),
+            "emitted_at": time.monotonic(),
+        }
+        return {
+            "scheduled": True,
+            "interval_seconds": interval_seconds,
+            "timer_interval_ms": self._timer_handle["interval_ms"],
+            "buffer_size": len(buffer),
+            "flush_audit_event": flush_audit_event,
+        }

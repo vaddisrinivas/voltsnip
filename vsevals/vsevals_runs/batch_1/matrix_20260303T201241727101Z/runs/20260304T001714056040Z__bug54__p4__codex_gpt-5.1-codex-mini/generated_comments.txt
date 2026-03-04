@@ -1,0 +1,1 @@
+Adds jitter instead of subtracting it and reports the applied jitter to the cache.ttl.jittered metric when a metrics client is available.

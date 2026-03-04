@@ -1,0 +1,26 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a copy of *data* with sensitive values redacted and audited.
+
+        Nested dicts are recursed so every sensitive key is scrubbed, and the
+        total number of substitutions is reported to the compliance audit log.
+        """
+        def _redact_mapping(mapping: dict[str, Any]) -> tuple[dict[str, Any], int]:
+            partial: dict[str, Any] = {}
+            local_count = 0
+            for key, value in mapping.items():
+                if self.is_sensitive(key):
+                    partial[key] = REDACTED_PLACEHOLDER
+                    local_count += 1
+                elif isinstance(value, dict):
+                    nested_copy, nested_count = _redact_mapping(value)
+                    partial[key] = nested_copy
+                    local_count += nested_count
+                else:
+                    partial[key] = value
+            return partial, local_count
+
+        redacted_result, count = _redact_mapping(data)
+        import orgops
+
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return redacted_result

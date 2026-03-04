@@ -1,0 +1,1 @@
+Create a plus-aware regex locally so sanitize_email redacts user+tag@domain addresses.

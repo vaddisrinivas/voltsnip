@@ -1,0 +1,1 @@
+Fixed sampling rate computation by replacing int() truncation with round(..., 2) for decimal precision and added orgops.metrics.emit() for operational monitoring.

@@ -1,0 +1,204 @@
+{
+  "run_id": "20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG53",
+  "task_name": "lock_timeout_negative_and_trace",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 21,
+  "task_line_end": 43,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug53/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/concurrency_cache/guiding_principle/v1\n- voltsnip/script30/hard/bug53/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG53\nTask Name: lock_timeout_negative_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix acquire_lock so effective timeout never goes negative when clock skew exceeds requested timeout.\n\nTarget File: cache/distributed_lock.py\n\nTarget Lines:\n21-43 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 21-43 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug53.py -k bug_53\n\nContext Code:\n```python\ndef acquire_lock(\n    self,\n    key: str,\n    timeout_ms: int,\n    clock_skew_ms: int = 0,\n) -> dict[str, Any]:\n    \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n    without clamping.  When clock_skew_ms > timeout_ms the effective\n    timeout goes negative, causing immediate expiry or backend errors.\n    \"\"\"\n    effective_timeout = timeout_ms - clock_skew_ms  # BUG_53: can go negative when skew > timeout\n    self.store[key] = {\n        \"acquired_at\": time.monotonic(),\n        \"timeout_ms\": effective_timeout,\n    }\n    self.held_keys.add(key)\n    return {\n        \"key\": key,\n        \"effective_timeout_ms\": effective_timeout,\n        \"acquired\": True,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Distributed lock with configurable timeout and clock-skew compensation.\n\nThis module provides a cooperative distributed lock for cache coordination.\nCallers use `acquire_lock` to obtain exclusive access to a resource for a\nbounded duration, with optional clock-skew adjustment.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass DistributedLock:\n    \"\"\"A distributed lock backed by a shared store (Redis, etcd, etc.).\"\"\"\n\n    store: Any = field(default_factory=dict)\n    held_keys: set[str] = field(default_factory=set)\n\n    def acquire_lock(\n        self,\n        key: str,\n        timeout_ms: int,\n        clock_skew_ms: int = 0,\n    ) -> dict[str, Any]:\n        \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n\n        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n        without clamping.  When clock_skew_ms > timeout_ms the effective\n        timeout goes negative, causing immediate expiry or backend errors.\n        \"\"\"\n        effective_timeout = timeout_ms - clock_skew_ms  # BUG_53: can go negative when skew > timeout\n        self.store[key] = {\n            \"acquired_at\": time.monotonic(),\n            \"timeout_ms\": effective_timeout,\n        }\n        self.held_keys.add(key)\n        return {\n            \"key\": key,\n            \"effective_timeout_ms\": effective_timeout,\n            \"acquired\": True,\n        }\n\n    def release_lock(self, key: str) -> bool:\n        \"\"\"Release a previously-acquired lock.\n\n        Returns True if the lock was held and successfully released.\n        \"\"\"\n        if key not in self.held_keys:\n            return False\n        self.held_keys.discard(key)\n        self.store.pop(key, None)\n        return True\n\n    def is_held(self, key: str) -> bool:\n        \"\"\"Return True if *key* is currently held by this instance.\"\"\"\n        return key in self.held_keys\n```\n\nExpected Output:\nClamp effective timeout to minimum of 1 ms AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug53/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/concurrency_cache/guiding_principle/v1\n- voltsnip/script30/hard/bug53/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG53\nTask Name: lock_timeout_negative_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix acquire_lock so effective timeout never goes negative when clock skew exceeds requested timeout.\n\nTarget File: cache/distributed_lock.py\n\nTarget Lines:\n21-43 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 21-43 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug53.py -k bug_53\n\nContext Code:\n```python\ndef acquire_lock(\n    self,\n    key: str,\n    timeout_ms: int,\n    clock_skew_ms: int = 0,\n) -> dict[str, Any]:\n    \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n    without clamping.  When clock_skew_ms > timeout_ms the effective\n    timeout goes negative, causing immediate expiry or backend errors.\n    \"\"\"\n    effective_timeout = timeout_ms - clock_skew_ms  # BUG_53: can go negative when skew > timeout\n    self.store[key] = {\n        \"acquired_at\": time.monotonic(),\n        \"timeout_ms\": effective_timeout,\n    }\n    self.held_keys.add(key)\n    return {\n        \"key\": key,\n        \"effective_timeout_ms\": effective_timeout,\n        \"acquired\": True,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Distributed lock with configurable timeout and clock-skew compensation.\n\nThis module provides a cooperative distributed lock for cache coordination.\nCallers use `acquire_lock` to obtain exclusive access to a resource for a\nbounded duration, with optional clock-skew adjustment.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass DistributedLock:\n    \"\"\"A distributed lock backed by a shared store (Redis, etcd, etc.).\"\"\"\n\n    store: Any = field(default_factory=dict)\n    held_keys: set[str] = field(default_factory=set)\n\n    def acquire_lock(\n        self,\n        key: str,\n        timeout_ms: int,\n        clock_skew_ms: int = 0,\n    ) -> dict[str, Any]:\n        \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n\n        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n        without clamping.  When clock_skew_ms > timeout_ms the effective\n        timeout goes negative, causing immediate expiry or backend errors.\n        \"\"\"\n        effective_timeout = timeout_ms - clock_skew_ms  # BUG_53: can go negative when skew > timeout\n        self.store[key] = {\n            \"acquired_at\": time.monotonic(),\n            \"timeout_ms\": effective_timeout,\n        }\n        self.held_keys.add(key)\n        return {\n            \"key\": key,\n            \"effective_timeout_ms\": effective_timeout,\n            \"acquired\": True,\n        }\n\n    def release_lock(self, key: str) -> bool:\n        \"\"\"Release a previously-acquired lock.\n\n        Returns True if the lock was held and successfully released.\n        \"\"\"\n        if key not in self.held_keys:\n            return False\n        self.held_keys.discard(key)\n        self.store.pop(key, None)\n        return True\n\n    def is_held(self, key: str) -> bool:\n        \"\"\"Return True if *key* is currently held by this instance.\"\"\"\n        return key in self.held_keys\n```\n\nExpected Output:\nClamp effective timeout to minimum of 1 ms AND annotate trace span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"def acquire_lock(\\n    self,\\n    key: str,\\n    timeout_ms: int,\\n    clock_skew_ms: int = 0,\\n) -> dict[str, Any]:\\n    \\\"\\\"\\\"Acquire a distributed lock on *key* with adjusted timeout.\\n\\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\\n    without clamping.  When clock_skew_ms > timeout_ms the effective\\n    timeout goes negative, causing immediate expiry or backend errors.\\n    \\\"\\\"\\\"\\n    effective_timeout = max(timeout_ms - clock_skew_ms, 1)\\n    orgops.tracing.annotate_span({\\\"effective_timeout_ms\\\": effective_timeout})\\n    self.store[key] = {\\n        \\\"acquired_at\\\": time.monotonic(),\\n        \\\"timeout_ms\\\": effective_timeout,\\n    }\\n    self.held_keys.add(key)\\n    return {\\n        \\\"key\\\": key,\\n        \\\"effective_timeout_ms\\\": effective_timeout,\\n        \\\"acquired\\\": True,\\n    }\", \"comments\": \"Clamp effective timeout to 1ms minimum and trace with orgops.tracing.annotate_span.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"def acquire_lock(\\n    self,\\n    key: str,\\n    timeout_ms: int,\\n    clock_skew_ms: int = 0,\\n) -> dict[str, Any]:\\n    \\\"\\\"\\\"Acquire a distributed lock on *key* with adjusted timeout.\\n\\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\\n    without clamping.  When clock_skew_ms > timeout_ms the effective\\n    timeout goes negative, causing immediate expiry or backend errors.\\n    \\\"\\\"\\\"\\n    effective_timeout = max(timeout_ms - clock_skew_ms, 1)\\n    orgops.tracing.annotate_span({\\\"effective_timeout_ms\\\": effective_timeout})\\n    self.store[key] = {\\n        \\\"acquired_at\\\": time.monotonic(),\\n        \\\"timeout_ms\\\": effective_timeout,\\n    }\\n    self.held_keys.add(key)\\n    return {\\n        \\\"key\\\": key,\\n        \\\"effective_timeout_ms\\\": effective_timeout,\\n        \\\"acquired\\\": True,\\n    }\", \"comments\": \"Clamp effective timeout to 1ms minimum and trace with orgops.tracing.annotate_span.\"}\n```",
+  "parsed_output": {
+    "code": "def acquire_lock(\n    self,\n    key: str,\n    timeout_ms: int,\n    clock_skew_ms: int = 0,\n) -> dict[str, Any]:\n    \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n    without clamping.  When clock_skew_ms > timeout_ms the effective\n    timeout goes negative, causing immediate expiry or backend errors.\n    \"\"\"\n    effective_timeout = max(timeout_ms - clock_skew_ms, 1)\n    orgops.tracing.annotate_span({\"effective_timeout_ms\": effective_timeout})\n    self.store[key] = {\n        \"acquired_at\": time.monotonic(),\n        \"timeout_ms\": effective_timeout,\n    }\n    self.held_keys.add(key)\n    return {\n        \"key\": key,\n        \"effective_timeout_ms\": effective_timeout,\n        \"acquired\": True,\n    }",
+    "comments": "Clamp effective timeout to 1ms minimum and trace with orgops.tracing.annotate_span."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 5,
+    "total_tokens": 15,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.8e-05
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:18:30.794128Z",
+    "finished_at": "2026-03-04T10:19:30.466307Z",
+    "latency_ms": 59671
+  },
+  "summary_metrics": {
+    "latency_ms": 59671,
+    "prompt_chars": 5213,
+    "output_chars": 959,
+    "prompt_system_chars": 1363,
+    "prompt_user_chars": 3850,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 2322,
+    "voltsnip_retry_count": 4,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 6,
+    "model_request_latency_ms": 57328,
+    "model_request_started_at": "2026-03-04T10:18:33.137309Z",
+    "model_request_finished_at": "2026-03-04T10:19:30.466228Z",
+    "model_request_id": "877fc1d9-9a48-4308-927b-8489bdc73cea",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1443,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5,
+      "total_tokens": 15,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.8e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101830793945Z__bug53__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug53_timeout_clamp_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug53_timeout_clamp_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It clamps effective_timeout with max(timeout_ms - clock_skew_ms, 1), but the trace annotation does not include a \"lock.acquired\" field; it only annotates {\"effective_timeout_ms\": effective_timeout}.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug53/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def acquire_lock(\\n    self,\\n    key: str,\\n    timeout_ms: int,\\n    clock_skew_ms: int = 0,\\n) -> dict[str, Any]:\\n    \\\"\\\"\\\"Acquire a distributed lock on *key* with adjusted timeout.\\n\\n    BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\\n    without clamping.  When clock_skew_ms > timeout_ms the effective\\n    timeout goes negative, causing immediate expiry or backend errors.\\n    \\\"\\\"\\\"\\n    effective_timeout = max(timeout_ms - clock_skew_ms, 1)\\n    orgops.tracing.annotate_span({\\\"effective_timeout_ms\\\": effective_timeout})\\n    self.store[key] = {\\n        \\\"acquired_at\\\": time.monotonic(),\\n        \\\"timeout_ms\\\": effective_timeout,\\n    }\\n    self.held_keys.add(key)\\n    return {\\n        \\\"key\\\": key,\\n        \\\"effective_timeout_ms\\\": effective_timeout,\\n        \\\"acquired\\\": True,\\n    }\", \"comments\": \"Clamp effective timeout to 1ms minimum and trace with orgops.tracing.annotate_span.\"}, \"constraints\": [{\"id\": \"bug53_timeout_clamp_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug53/scenario_context/v1\", \"check\": \"Effective timeout clamped to >= 1 AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both clamp the effective timeout to a minimum of 1 ms (using max(timeout_ms - clock_skew_ms, 1)) AND annotate the trace span with \\\"lock.acquired\\\" via orgops.tracing.annotate_span() on successful lock acquisition?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It clamps effective_timeout with max(timeout_ms - clock_skew_ms, 1), but the trace annotation does not include a \\\"lock.acquired\\\" field; it only annotates {\\\"effective_timeout_ms\\\": effective_timeout}.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________\n\n    def test_bug_53_lock_timeout_clamp_and_trace() -> None:\n        \"\"\"acquire_lock must:\n        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"lock.acquired\", key) on successful acquisition.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from cache.distributed_lock import DistributedLock\n    \n        lock = DistributedLock()\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n>           result = lock.acquire_lock(\n                     ^^^^^^^^^^^^^^^^^\n                key=\"resource:42\",\n                timeout_ms=100,\n                clock_skew_ms=200,\n            )\nE           AttributeError: 'DistributedLock' object has no attribute 'acquire_lock'\n\ntests/unit/test_bug53.py:20: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace - A...\n1 failed in 0.29s\n",
+    "stderr": "",
+    "duration_ms": 1837,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

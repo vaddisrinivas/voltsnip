@@ -1,0 +1,1 @@
+Fixed numeric version comparison: replaced string sorts and comparisons with int() to correctly order versions (10 > 9, not lexicographically).

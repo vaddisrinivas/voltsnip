@@ -1,0 +1,1 @@
+Split the client vs server ranges so 4xx returns client_error and 5xx returns server_error, leaving everything else as unknown.

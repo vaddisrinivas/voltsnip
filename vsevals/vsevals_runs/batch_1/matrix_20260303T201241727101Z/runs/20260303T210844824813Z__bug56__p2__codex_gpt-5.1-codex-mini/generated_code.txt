@@ -1,0 +1,20 @@
+    def compute_lfu_score(
+        self,
+        access_count: int,
+        age_hours: float,
+    ) -> float:
+        """Compute the LFU eviction score for a cache entry.
+
+        BUG_56: returns the raw *access_count* without any time-decay
+        factor.  The correct formula is:
+
+            score = access_count / (1 + age_hours)
+
+        so that older entries naturally decay and do not hog the cache
+        forever based on historical popularity alone.
+        """
+        age_factor = max(age_hours, 0.0)
+        score = access_count / (1 + age_factor)
+        from cache.metrics import emit_metric
+        emit_metric("cache.eviction.lfu", score)
+        return float(score)

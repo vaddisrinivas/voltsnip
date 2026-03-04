@@ -1,0 +1,1 @@
+Additive jitter replaces subtraction and the resulting TTL is emitted via orgops.metrics.emit("cache.ttl.jittered", value).

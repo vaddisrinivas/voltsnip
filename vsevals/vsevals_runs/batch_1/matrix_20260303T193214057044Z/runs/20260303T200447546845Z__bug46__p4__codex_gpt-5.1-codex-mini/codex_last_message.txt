@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds  # BUG_46: preserve full precision for the window boundary\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx","comments":"Use exact float arithmetic when computing the sliding window boundary so sub-second timestamps are counted accurately."}

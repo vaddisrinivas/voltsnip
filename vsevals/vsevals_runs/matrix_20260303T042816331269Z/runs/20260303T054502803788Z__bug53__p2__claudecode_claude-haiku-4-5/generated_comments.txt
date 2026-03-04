@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1 ms and annotate span for timeout adjustment observability.

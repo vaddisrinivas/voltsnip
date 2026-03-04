@@ -1,0 +1,1 @@
+Convert the timer to milliseconds and emit a cache.flush.completed audit event with the flush metadata.

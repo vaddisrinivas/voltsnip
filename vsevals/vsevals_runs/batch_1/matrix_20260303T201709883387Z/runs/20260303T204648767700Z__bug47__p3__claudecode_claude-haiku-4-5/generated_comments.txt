@@ -1,0 +1,1 @@
+Fix pool eviction to use LRU order (min last_used_at) instead of FIFO and emit pool.connection.evicted metric for alerting.

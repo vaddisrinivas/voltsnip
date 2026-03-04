@@ -1,0 +1,1 @@
+Fixed BUG_66 by including correlation_id in child context and annotating the trace span to preserve cross-request tracing through async fan-outs.

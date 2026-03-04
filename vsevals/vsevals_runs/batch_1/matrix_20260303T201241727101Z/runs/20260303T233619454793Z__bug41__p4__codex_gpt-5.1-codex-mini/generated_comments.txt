@@ -1,0 +1,1 @@
+Updated the retry delay to exponential backoff capped at max_delay and emit the backoff metric.

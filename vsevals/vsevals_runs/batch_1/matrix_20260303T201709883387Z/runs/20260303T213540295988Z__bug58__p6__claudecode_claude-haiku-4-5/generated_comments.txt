@@ -1,0 +1,1 @@
+Changed hash(key) % (n + 1) to hash(key) % n to fix off-by-one error that allows partition_id to exceed valid range.

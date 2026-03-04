@@ -1,0 +1,1 @@
+Removed double application of selectivity; cost now computed as left_rows * right_rows * selectivity (once) instead of twice.

@@ -1,0 +1,1 @@
+Use max(dns, connect) for the overlapping phase before adding the read timeout to honor BUG_43.

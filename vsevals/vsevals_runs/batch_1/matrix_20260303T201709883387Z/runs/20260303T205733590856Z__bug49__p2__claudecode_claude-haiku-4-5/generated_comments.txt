@@ -1,0 +1,1 @@
+Execute RELEASE SAVEPOINT after rollback to free server resources, remove from tracking, and annotate trace span for observability.

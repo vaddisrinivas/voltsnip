@@ -1,0 +1,52 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_55_stampede_threshold_and_metric ___________________
+
+    def test_bug_55_stampede_threshold_and_metric() -> None:
+        """StampedeGuard.should_refresh_early must:
+        1. Trigger early refresh when time_remaining/ttl < threshold (CLOSE to expiry),
+           not when the ratio is > threshold (FAR from expiry).
+        2. Emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name)
+           when an early refresh is triggered.
+        Both are required -- fixing only the comparison is insufficient.
+        """
+    
+        guard = StampedeGuard(threshold=0.2)
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            # --- Case A: 1s remaining of 10s TTL => ratio 0.1 < 0.2 => SHOULD refresh ---
+>           result_close = guard.should_refresh_early(
+                time_remaining=1.0, ttl=10.0, key_name="users",
+            )
+
+tests/unit/test_bug55.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <cache.stampede_guard.StampedeGuard object at 0xffffbb961850>
+time_remaining = 1.0, ttl = 10.0, key_name = 'users'
+
+    def should_refresh_early(
+        self,
+        time_remaining: float,
+        ttl: float,
+        key_name: str = "unknown",
+    ) -> bool:
+        """Return True when the entry should be refreshed before expiry.
+    
+        BUG_55: the ratio comparison is inverted, causing early refreshes
+        when the entry is FAR from expiry (most of the TTL left) rather
+        than CLOSE to expiry (little TTL left).
+        """
+        if ttl <= 0:
+            return False
+    
+        ratio = time_remaining / ttl
+    
+        if ratio < self.threshold:  # refresh when the entry is close to expiry
+>           from cache.metrics import metrics
+E           ModuleNotFoundError: No module named 'cache.metrics'
+
+cache/stampede_guard.py:52: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug55.py::test_bug_55_stampede_threshold_and_metric - ...
+1 failed in 0.10s

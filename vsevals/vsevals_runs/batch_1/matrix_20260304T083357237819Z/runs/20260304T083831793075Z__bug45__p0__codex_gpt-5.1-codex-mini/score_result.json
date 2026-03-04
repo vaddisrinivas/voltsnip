@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug45_chain_range_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug45_chain_range_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes the loop range to range(len(chain) - 1), but it does NOT record a compliance decision via orgops.compliance.record_decision(). The code only performs validation and appends errors, with no compliance recording present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    errors: list[str] = []\\n    # BUG_45: iterate over every adjacent pair in the chain\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\", \"comments\": \"Fix the chain validation loop to compare every adjacent certificate pair by iterating from leaf to the previous-to-root entry.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the loop range to range(len(chain) - 1), but it does NOT record a compliance decision via orgops.compliance.record_decision(). The code only performs validation and appends errors, with no compliance recording present.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

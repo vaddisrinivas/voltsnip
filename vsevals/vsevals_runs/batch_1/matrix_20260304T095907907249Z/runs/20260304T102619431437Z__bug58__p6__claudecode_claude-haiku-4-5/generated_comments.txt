@@ -1,0 +1,1 @@
+Fix off-by-one bug: use % n instead of % (n + 1) to ensure partition_id is in valid range [0, num_partitions).

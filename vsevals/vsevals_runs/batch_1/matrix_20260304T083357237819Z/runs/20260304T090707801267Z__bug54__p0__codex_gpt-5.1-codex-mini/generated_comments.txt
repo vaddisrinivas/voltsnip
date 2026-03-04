@@ -1,0 +1,1 @@
+Add jitter to the base TTL so the computed value always shifts expiry forward as intended.

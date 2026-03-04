@@ -1,0 +1,1 @@
+Replaced the off-by-one modulus with `% num_partitions` and documented the skew risk.

@@ -1,0 +1,1 @@
+Apply jitter additively and emit the cache.ttl.jittered metric if a hook is registered.

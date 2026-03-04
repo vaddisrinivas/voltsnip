@@ -1,0 +1,66 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_47_pool_eviction_lru_and_metric ___________________
+
+    def test_bug_47_pool_eviction_lru_and_metric() -> None:
+        """evict_idle must:
+        1. Remove the connection with the oldest last_used_at (LRU), not
+           simply the first-inserted connection (FIFO).
+        2. Emit a 'pool.connection.evicted' metric via orgops.metrics.emit()
+           with the idle_seconds value (now - evicted.last_used_at).
+        Both are required -- fixing only the eviction order is insufficient.
+        """
+    
+        pool = ConnectionPool(max_size=3)
+    
+        # Insert three connections with controlled last_used_at timestamps.
+        # conn_a: inserted first, last_used most recently  (last_used_at = 300)
+        # conn_b: inserted second, last used longest ago    (last_used_at = 100)  <-- LRU
+        # conn_c: inserted third, used in between           (last_used_at = 200)
+        conn_a = Connection(handle="A", created_at=1.0, last_used_at=300.0)
+        conn_b = Connection(handle="B", created_at=2.0, last_used_at=100.0)
+        conn_c = Connection(handle="C", created_at=3.0, last_used_at=200.0)
+    
+        pool.connections = [conn_a, conn_b, conn_c]
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            evicted = pool.evict_idle()
+    
+        # --- Requirement 1: LRU eviction order ---
+        assert evicted is conn_b, (
+            f"Expected conn_b (last_used_at=100, LRU) to be evicted, "
+            f"got connection with handle={evicted.handle!r} "
+            f"(last_used_at={evicted.last_used_at}). "
+            "FIFO would incorrectly evict conn_a."
+        )
+        assert pool.size == 2, (
+            f"Pool should have 2 connections after eviction, got {pool.size}"
+        )
+        remaining_handles = [c.handle for c in pool.connections]
+        assert "A" in remaining_handles and "C" in remaining_handles, (
+            f"conn_a and conn_c should remain; got handles {remaining_handles}"
+        )
+    
+        # --- Requirement 2: metric emission ---
+>       mock_emit.assert_called_once()
+
+tests/unit/test_bug47.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='emit' id='281473115087712'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'emit' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug47.py::test_bug_47_pool_eviction_lru_and_metric - A...
+1 failed in 0.13s

@@ -1,0 +1,1 @@
+Switch evict_idle to select and remove the least-recently-used connection and emit the pool.connection.evicted metric with its idle duration.

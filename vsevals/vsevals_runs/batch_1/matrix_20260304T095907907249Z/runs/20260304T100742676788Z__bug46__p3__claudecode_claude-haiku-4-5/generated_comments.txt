@@ -1,0 +1,1 @@
+Remove int() truncation to preserve exact float sub-second precision in window boundary calculation.

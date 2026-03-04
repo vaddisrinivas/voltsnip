@@ -1,0 +1,1 @@
+Apply time-decayed LFU scoring and emit the required eviction metric.

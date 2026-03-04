@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1 ms to prevent negative values when clock_skew_ms exceeds timeout_ms, and annotate trace span for observability.

@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T023542510019Z__bug48__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 72739,
+    "prompt_chars": 5711,
+    "output_chars": 1117,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4661,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 72716,
+    "model_request_started_at": "2026-03-04T02:35:42.533067Z",
+    "model_request_finished_at": "2026-03-04T02:36:55.249344Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 11716,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 52889,
+      "completion_tokens": 10265,
+      "total_tokens": 63154,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0375796
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation uses int() conversion via _version_value() for numeric version comparison (ensuring '10' > '9'), and calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each migration in the pending list.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by numeric version.\\\"\\\"\\\"\\n\\n        def _version_value(value: str | int) -> int:\\n            return int(value)\\n\\n        if not self.applied_versions:\\n            pending = sorted(\\n                self.available_migrations,\\n                key=lambda m: _version_value(m[\\\"version\\\"]),\\n            )\\n        else:\\n            max_applied = max(_version_value(v) for v in self.applied_versions)\\n            pending = [\\n                m\\n                for m in self.available_migrations\\n                if _version_value(m[\\\"version\\\"]) > max_applied\\n            ]\\n            pending.sort(key=lambda m: _version_value(m[\\\"version\\\"]))\\n\\n        import orgops\\n\\n        for migration in pending:\\n            orgops.auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n        return pending\", \"comments\": \"Sort pending migrations numerically and log an audit event for each pending migration.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": "I need to evaluate whether this implementation satisfies the constraint about numeric version ordering AND audit event logging.\n\nLet me analyze the code:\n\n1. **Numeric version comparison using int()**:\n   - There's a helper function `_version_value(value: str | int) -> int:` that converts versions to int\n   - This function is used in sorting: `key=lambda m: _version_value(m[\"version\"])`\n   - It's used when no applied versions exist: sorts available_migrations by numeric version\n   - It's used when applied versions exist: filters migrations with `_version_value(m[\"version\"]) > max_applied` and sorts the result\n   - This correctly handles numeric comparison so \"10\" > \"9\"\n\n2. **Audit event via orgops.auditing.write_event**:\n   - The code imports `orgops`\n   - It iterates through `pending` migrations\n   - For each migration, it calls: `orgops.auditing.write_event(\"migration.applied\", version=str(migration[\"version\"]))`\n   - This matches the expected pattern of calling `write_event` with event type \"migration.applied\" and the version parameter\n\n**However, there's a semantic issue**: The function is called `get_pending_migrations()` which suggests it's just retrieving/querying pending migrations, NOT applying them. The audit events are being written for migrations that are only \"pending\" (not yet applied), which seems incorrect. The comment says \"log an audit event for each pending migration\" but the event name is \"migration.applied\", implying the migration was actually applied.\n\nBut the constraint asks: \"Does the implementation both fix version comparison to use int() [...] AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration applied?\"\n\nThe code DOES:\n- ✅ Use int() for numeric version comparison\n- ✅ Call orgops.auditing.write_event(\"migration.applied\", version=...) for each migration in the pending list\n\nEven though the logic seems questionable (auditing \"applied\" events for \"pending\" migrations), the constraint as written asks if the code calls the audit function, which it does.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation uses int() conversion via _version_value() for numeric version comparison (ensuring '10' > '9'), and calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each migration in the pending list.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_48_migration_version_and_audit ____________________\n\n    def test_bug_48_migration_version_and_audit() -> None:\n        \"\"\"MigrationRunner must:\n        1. Compare versions numerically so \"10\" sorts after \"9\" (not before \"2\").\n        2. Call orgops.auditing.write_event(\"migration.applied\", version=version)\n           for each migration applied.\n        Both are required -- fixing only the ordering is insufficient.\n        \"\"\"\n        from data.migration_runner import MigrationRunner\n    \n        applied_versions = {\"1\", \"2\", \"3\", \"9\"}\n        available_migrations = [\n            {\"version\": \"1\", \"sql\": \"CREATE TABLE a;\"},\n            {\"version\": \"2\", \"sql\": \"CREATE TABLE b;\"},\n            {\"version\": \"3\", \"sql\": \"CREATE TABLE c;\"},\n            {\"version\": \"9\", \"sql\": \"CREATE TABLE i;\"},\n            {\"version\": \"10\", \"sql\": \"CREATE TABLE j;\"},\n            {\"version\": \"11\", \"sql\": \"CREATE TABLE k;\"},\n            {\"version\": \"20\", \"sql\": \"CREATE TABLE t;\"},\n        ]\n    \n        runner = MigrationRunner(applied_versions, available_migrations)\n    \n        # ── 1. Numeric ordering: versions 10, 11, 20 are pending ────────\n>       pending = runner.get_pending_migrations()\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug48.py:32: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <data.migration_runner.MigrationRunner object at 0xffff8368d160>\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by numeric version.\"\"\"\n    \n        def _version_value(value: str | int) -> int:\n            return int(value)\n    \n        if not self.applied_versions:\n            pending = sorted(\n                self.available_migrations,\n                key=lambda m: _version_value(m[\"version\"]),\n            )\n        else:\n            max_applied = max(_version_value(v) for v in self.applied_versions)\n            pending = [\n                m\n                for m in self.available_migrations\n                if _version_value(m[\"version\"]) > max_applied\n            ]\n            pending.sort(key=lambda m: _version_value(m[\"version\"]))\n    \n        import orgops\n    \n        for migration in pending:\n>           orgops.auditing.write_event(\n            ^^^^^^^^^^^^^^^\n                \"migration.applied\",\n                version=str(migration[\"version\"]),\n            )\nE           AttributeError: module 'orgops' has no attribute 'auditing'\n\ndata/migration_runner.py:59: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - At...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 767,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

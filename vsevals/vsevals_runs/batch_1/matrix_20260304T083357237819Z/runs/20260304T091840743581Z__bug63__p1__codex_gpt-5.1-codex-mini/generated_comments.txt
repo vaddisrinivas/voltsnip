@@ -1,0 +1,1 @@
+Reject when the queue hits max_size (not only above it) and log a capacity warning once utilization hits 80 %.

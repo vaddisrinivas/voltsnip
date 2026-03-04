@@ -1,0 +1,306 @@
+{
+  "run_id": "20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 33,
+  "task_line_end": 45,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug51/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG51\nTask Name: replication_lag_units_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix check_replication_health so lag is compared in the same units as the threshold.\n\nTarget File: data/replication_lag.py\n\nTarget Lines:\n33-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 33-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug51.py -k bug_51\n\nContext Code:\n```python\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Replication health monitoring for database replicas.\n\nMeasures lag between primary and replica nodes and triggers operational\nalerts when replication falls behind acceptable thresholds.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ReplicationMonitor:\n    \"\"\"Monitors replication lag across database replicas.\n\n    Tracks measured lag values and determines whether replicas are\n    healthy enough to serve read traffic.\n    \"\"\"\n\n    replica_id: str\n    threshold_ms: float = 500.0\n    history: list[dict[str, Any]] = field(default_factory=list)\n    _alert_count: int = 0\n\n    def record_lag(self, measured_lag_ms: float) -> None:\n        \"\"\"Append a lag measurement to history.\"\"\"\n        self.history.append({\n            \"replica_id\": self.replica_id,\n            \"lag_ms\": measured_lag_ms,\n        })\n\n\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nExpected Output:\nCompare measured_lag_ms directly against threshold_ms (no conversion) AND call orgops.alerts.notify when exceeded.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug51/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG51\nTask Name: replication_lag_units_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix check_replication_health so lag is compared in the same units as the threshold.\n\nTarget File: data/replication_lag.py\n\nTarget Lines:\n33-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 33-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug51.py -k bug_51\n\nContext Code:\n```python\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Replication health monitoring for database replicas.\n\nMeasures lag between primary and replica nodes and triggers operational\nalerts when replication falls behind acceptable thresholds.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ReplicationMonitor:\n    \"\"\"Monitors replication lag across database replicas.\n\n    Tracks measured lag values and determines whether replicas are\n    healthy enough to serve read traffic.\n    \"\"\"\n\n    replica_id: str\n    threshold_ms: float = 500.0\n    history: list[dict[str, Any]] = field(default_factory=list)\n    _alert_count: int = 0\n\n    def record_lag(self, measured_lag_ms: float) -> None:\n        \"\"\"Append a lag measurement to history.\"\"\"\n        self.history.append({\n            \"replica_id\": self.replica_id,\n            \"lag_ms\": measured_lag_ms,\n        })\n\n\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nExpected Output:\nCompare measured_lag_ms directly against threshold_ms (no conversion) AND call orgops.alerts.notify when exceeded.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug51/scenario_context/v1",
+      "voltsnip/script30/hard/bug70/scenario_context/v1",
+      "voltsnip/script30/hard/bug64/scenario_context/v1",
+      "voltsnip/bug22/task/bug14/example_request_id_context/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "77ed2cef-8f71-49b1-91cc-40e4b376bc04",
+      "canonical_key": "voltsnip/script30/hard/bug51/scenario_context/v1",
+      "title": "Replication lag check requires correct units AND alert notification",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "alerts"
+      ],
+      "description": "The check_replication_health function must both fix the unit comparison (compare measured_lag_ms directly against threshold_ms, removing the erroneous / 1000 divisor) AND call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when the lag exceeds the threshold. The on-call alerting pipeline depends on this notification to page engineers.",
+      "code": "# Replication Lag Health Check — Two Requirements\n\nThe `check_replication_health` function has TWO requirements:\n\n## 1. Correct Unit Comparison\nBoth `measured_lag_ms` and `threshold_ms` are already in milliseconds.\nCompare them directly — do NOT convert either value:\n```python\nexceeded = measured_lag_ms > threshold_ms  # both in ms, no conversion\n```\n\n## 2. Alert Notification (REQUIRED)\nThe on-call alerting pipeline monitors replication lag exceedances.\nWhen lag exceeds the threshold, the function MUST notify via\n`orgops.alerts.notify()`:\n```python\nimport orgops.alerts\norgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n```\n\n## Complete Correct Pattern\n```python\ndef check_replication_health(measured_lag_ms, threshold_ms):\n    import orgops.alerts\n    exceeded = measured_lag_ms > threshold_ms\n    if exceeded:\n        orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nFixing ONLY the comparison is insufficient — the on-call team will\nnot be paged for replication failures without the alert notification.\nBoth "
+    },
+    {
+      "id": "c822283f-179e-4efb-8d8c-2d656e1567cc",
+      "canonical_key": "voltsnip/script30/hard/bug70/scenario_context/v1",
+      "title": "Secret scanner requires base64 decoding AND alert notification",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "alerts"
+      ],
+      "description": "The scan_for_secrets method must decode base64-encoded segments and re-scan for secret patterns AND call orgops.alerts.notify('secret.detected', pattern_type=type) for each finding. Plaintext-only scanning misses encoded credentials.",
+      "code": "# Secret Scanning — Two Requirements\n\nThe `scan_for_secrets` method has TWO requirements:\n\n## 1. Base64 Decode + Re-scan\nPlaintext-only pattern matching misses encoded secrets.\nDecode base64 segments and re-scan the decoded content:\n```python\nimport base64, re\n_BASE64_RE = re.compile(r\"[A-Za-z0-9+/]{20,}={0,2}\")\nfor segment in _BASE64_RE.findall(text):\n    try:\n        decoded = base64.b64decode(segment, validate=True).decode(\"utf-8\")\n    except Exception:\n        continue\n    # re-scan decoded text for secret patterns\n```\n\n## 2. Alert Notification (REQUIRED)\nThe security dashboard monitors `secret.detected` alerts.\nFor each finding, the method MUST notify via `orgops.alerts.notify()`:\n```python\nimport orgops.alerts\norgops.alerts.notify(\"secret.detected\", pattern_type=pattern_type)\n```\n\n## Complete Correct Pattern\n```python\ndef scan_for_secrets(self, text):\n    import orgops.alerts\n    self.findings = []\n    self._scan_plaintext(text)\n    for segment in _BASE64_RE.findall(text):\n        decoded = self._try_decode_base64(segment)\n        if decoded:\n            self._scan_plaintext(decoded)\n    for f in self.findings:\n        orgops.alerts.notify(\"secret.detected\", pattern_type=f[\"p"
+    },
+    {
+      "id": "52b0226e-a843-4113-80ba-17c7a9a95645",
+      "canonical_key": "voltsnip/script30/hard/bug64/scenario_context/v1",
+      "title": "Timeout escalation requires compound math AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The escalate_timeout function must compound the timeout as original_ms * (multiplier ** attempt) AND emit a 'timeout.escalated' metric via orgops.metrics.emit(). The alerting system depends on this metric to detect escalation storms.",
+      "code": "# Timeout Escalation — Two Requirements\n\n## 1. Compound Escalation\nEach attempt must compound the multiplier:\n```python\nnew_timeout_ms = original_ms * (multiplier ** attempt)\n```\nNot `original_ms * multiplier` (which ignores the attempt number).\n\n## 2. Metric Emission (REQUIRED)\nThe alerting system monitors escalation storms via the\n`timeout.escalated` metric. When a timeout is escalated the\nfunction MUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n```\n\nFixing ONLY the math is insufficient — the alerting system will\nnot detect escalation storms without the metric emission.\n"
+    },
+    {
+      "id": "653136a8-93ba-4f7f-8813-55348bc0ae0c",
+      "canonical_key": "voltsnip/bug22/task/bug14/example_request_id_context/v2",
+      "title": "BUG14 request_id context propagation example",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "bug14",
+        "logging_privacy",
+        "request-id"
+      ],
+      "description": "Reference snippet showing request_id propagation from logging context for BUG14.",
+      "code": "from orgops.logging.context import get_request_id\\n\\ndef build_payload(event, level, **fields):\\n    payload = {\"event\": event, \"level\": level}\\n    payload.update(fields)\\n    rid = get_request_id()\\n    if rid is not None:\\n        payload[\"request_id\"] = rid\\n    return payload\\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG51\nTask Name: replication_lag_units_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix check_replication_health so lag is compared in the same units as the threshold.\n\nTarget File: data/replication_lag.py\n\nTarget Lines:\n33-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 33-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug51.py -k bug_51\n\nContext Code:\n```python\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Replication health monitoring for database replicas.\n\nMeasures lag between primary and replica nodes and triggers operational\nalerts when replication falls behind acceptable thresholds.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ReplicationMonitor:\n    \"\"\"Monitors replication lag across database replicas.\n\n    Tracks measured lag values and determines whether replicas are\n    healthy enough to serve read traffic.\n    \"\"\"\n\n    replica_id: str\n    threshold_ms: float = 500.0\n    history: list[dict[str, Any]] = field(default_factory=list)\n    _alert_count: int = 0\n\n    def record_lag(self, measured_lag_ms: float) -> None:\n        \"\"\"Append a lag measurement to history.\"\"\"\n        self.history.append({\n            \"replica_id\": self.replica_id,\n            \"lag_ms\": measured_lag_ms,\n        })\n\n\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nExpected Output:\nCompare measured_lag_ms directly against threshold_ms (no conversion) AND call orgops.alerts.notify when exceeded.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! I found the correct pattern. The bug has two requirements:\n1. Fix the unit comparison (remove the `/1000` divisor)\n2. Call `orgops.alerts.notify()` when lag exceeds threshold\n\nThe search result shows the exact pattern needed for BUG51. Here's the fix:\n\n```json\n{\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    import orgops.alerts\\n    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms)\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\", \"comments\": \"Fixed unit comparison (removed /1000 divisor) and added orgops.alerts.notify call when replication lag exceeds threshold.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_017MH52KM8RtfyqyswFz2zTi",
+      "tool_args": {
+        "query": "orgops alerts notify event alert",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 5
+      },
+      "error": null,
+      "started_at": "2026-03-03T05:38:24.909868Z",
+      "finished_at": "2026-03-03T05:38:24.910139Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Perfect! I found the correct pattern. The bug has two requirements:\n1. Fix the unit comparison (remove the `/1000` divisor)\n2. Call `orgops.alerts.notify()` when lag exceeds threshold\n\nThe search result shows the exact pattern needed for BUG51. Here's the fix:\n\n```json\n{\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    import orgops.alerts\\n    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms)\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\", \"comments\": \"Fixed unit comparison (removed /1000 divisor) and added orgops.alerts.notify call when replication lag exceeds threshold.\"}\n```",
+  "parsed_output": {
+    "code": "def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    import orgops.alerts\n    exceeded = measured_lag_ms > threshold_ms\n    if exceeded:\n        orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }",
+    "comments": "Fixed unit comparison (removed /1000 divisor) and added orgops.alerts.notify call when replication lag exceeds threshold."
+  },
+  "token_usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 4,
+    "total_tokens": 22,
+    "cached_tokens": 15127,
+    "thinking_tokens": null,
+    "cost_usd": 0.00122616
+  },
+  "timings": {
+    "started_at": "2026-03-03T05:38:06.593278Z",
+    "finished_at": "2026-03-03T05:38:25.048336Z",
+    "latency_ms": 18455
+  },
+  "summary_metrics": {
+    "latency_ms": 18455,
+    "prompt_chars": 4190,
+    "output_chars": 1091,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3140,
+    "snippet_injected_chars": 3354,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 18295,
+    "model_request_started_at": "2026-03-03T05:38:06.616025Z",
+    "model_request_finished_at": "2026-03-03T05:38:24.911079Z",
+    "model_request_id": "78c1c6e4-6121-4934-ae04-72397127266b",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1517,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 4,
+      "total_tokens": 22,
+      "cached_tokens": 15127,
+      "thinking_tokens": null,
+      "cost_usd": 0.00122616
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T053806593100Z__bug51__p5__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code compares measured_lag_ms > threshold_ms directly (no /1000 conversion) and calls orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) inside the exceeded branch.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    import orgops.alerts\\n    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms)\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\", \"comments\": \"Fixed unit comparison (removed /1000 divisor) and added orgops.alerts.notify call when replication lag exceeds threshold.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code compares measured_lag_ms > threshold_ms directly (no /1000 conversion) and calls orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) inside the exceeded branch.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.32s\n",
+    "stderr": "",
+    "duration_ms": 3658,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Changed timeout calculation from sequential sum (ct+dt+rt) to parallel overlap (max(ct,dt)+rt) and annotated span with deadline budget.

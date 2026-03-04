@@ -1,0 +1,1 @@
+Collect all validation errors by appending instead of short-circuiting, and record compliance decision via orgops.compliance.record_decision for audit trail.

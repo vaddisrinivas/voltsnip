@@ -1,0 +1,1 @@
+Fixed the ratio comparison to refresh only when near expiry and emitted the cache.stampede.prevented metric when an early refresh is triggered.

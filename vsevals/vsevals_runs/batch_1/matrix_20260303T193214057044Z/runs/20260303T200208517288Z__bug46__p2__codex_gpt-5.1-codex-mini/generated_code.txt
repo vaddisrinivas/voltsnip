@@ -1,0 +1,1 @@
+    boundary = now - window_seconds  # BUG_46: keep full float precision for the sliding window boundary

@@ -1,0 +1,15 @@
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource
+        self.release_savepoint(savepoint_id)
+        trace_span = getattr(self.session, "trace_span", None)
+        if trace_span is not None and hasattr(trace_span, "add_event"):
+            trace_span.add_event(
+                "rollback_to_savepoint",
+                {"savepoint_id": savepoint_id},
+            )
+        elif callable(getattr(self.session, "trace_event", None)):
+            self.session.trace_event(
+                "rollback_to_savepoint",
+                {"savepoint_id": savepoint_id},
+            )

@@ -1,0 +1,1 @@
+Now adds jitter to extend TTL and emits cache.ttl.jittered with the effective value.

@@ -1,0 +1,58 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_49_savepoint_release_and_trace ____________________
+
+    def test_bug_49_savepoint_release_and_trace() -> None:
+        """rollback_to_savepoint must:
+        1. Execute ROLLBACK TO SAVEPOINT <id>.
+        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.
+        3. Annotate the trace span via orgops.tracing.annotate_span(
+               "txn.savepoint.rolled_back", savepoint_id).
+        All three are required -- rolling back without releasing leaks the
+        savepoint, and omitting the trace annotation breaks observability.
+        """
+        from data.txn_manager import TransactionManager
+    
+        session = MagicMock()
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+            mgr = TransactionManager(session)
+            mgr.rollback_to_savepoint("sp_order_42")
+    
+        # --- Requirement 1: ROLLBACK issued ---
+        calls = [str(c) for c in session.execute.call_args_list]
+        rollback_issued = any("ROLLBACK TO SAVEPOINT sp_order_42" in c for c in calls)
+        assert rollback_issued, (
+            "Must execute ROLLBACK TO SAVEPOINT sp_order_42"
+        )
+    
+        # --- Requirement 2: RELEASE issued after ROLLBACK ---
+        release_issued = any("RELEASE SAVEPOINT sp_order_42" in c for c in calls)
+        assert release_issued, (
+            "Must execute RELEASE SAVEPOINT sp_order_42 after rollback to free the resource"
+        )
+    
+        # Verify ordering: ROLLBACK before RELEASE
+        rollback_idx = next(
+            i for i, c in enumerate(calls) if "ROLLBACK TO SAVEPOINT sp_order_42" in c
+        )
+        release_idx = next(
+            i for i, c in enumerate(calls) if "RELEASE SAVEPOINT sp_order_42" in c
+        )
+        assert rollback_idx < release_idx, (
+            "RELEASE must come after ROLLBACK, not before"
+        )
+    
+        # --- Requirement 3: trace annotation ---
+        mock_annotate.assert_called_once()
+        call_args = mock_annotate.call_args
+>       assert call_args[0][0] == "txn.savepoint.rolled_back", (
+            "Must annotate span with 'txn.savepoint.rolled_back' for observability"
+        )
+E       AssertionError: Must annotate span with 'txn.savepoint.rolled_back' for observability
+E       assert {'event': 'savepoint_rollback', 'savepoint_id': 'sp_order_42'} == 'txn.savepoint.rolled_back'
+
+tests/unit/test_bug49.py:52: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace - As...
+1 failed in 0.26s

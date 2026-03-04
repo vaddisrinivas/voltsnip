@@ -1,0 +1,1 @@
+After plaintext scanning, decode and rescan any Base64-encoded segments so encoded secrets are detected.

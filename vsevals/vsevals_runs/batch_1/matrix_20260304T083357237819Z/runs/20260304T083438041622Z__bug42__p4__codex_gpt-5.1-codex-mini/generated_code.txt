@@ -1,0 +1,10 @@
+        """Allow a probe request in the half-open state if under the limit.
+
+        BUG_42: only allow when probe_count < max_probes and report degradation when blocked.
+        """
+        from orgops.health import report_degradation
+        if self.probe_count < self.max_probes:
+            self.probe_count += 1
+            return True
+        report_degradation("circuit.half_open")
+        return False

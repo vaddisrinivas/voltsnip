@@ -1,0 +1,53 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________
+
+    def test_bug_53_lock_timeout_clamp_and_trace() -> None:
+        """acquire_lock must:
+        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("lock.acquired", key) on successful acquisition.
+        Both are required -- fixing only the math is insufficient.
+        """
+        from cache.distributed_lock import DistributedLock
+    
+        lock = DistributedLock()
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+            result = lock.acquire_lock(
+                key="resource:42",
+                timeout_ms=100,
+                clock_skew_ms=200,
+            )
+    
+        # --- Requirement 1: effective timeout clamped to minimum of 1 ---
+        assert result["effective_timeout_ms"] >= 1, (
+            f"Expected effective_timeout_ms >= 1 (clamped), got {result['effective_timeout_ms']}. "
+            "When clock_skew_ms > timeout_ms the timeout must not go negative."
+        )
+        assert result["effective_timeout_ms"] == 1, (
+            f"Expected effective_timeout_ms == 1 (clamped to floor), got {result['effective_timeout_ms']}. "
+            "max(100 - 200, 1) should be 1."
+        )
+        assert result["acquired"] is True
+    
+        # --- Requirement 1b: normal case still computes correctly ---
+        with patch("orgops.tracing.annotate_span"):
+            normal = lock.acquire_lock(key="resource:99", timeout_ms=500, clock_skew_ms=50)
+        assert normal["effective_timeout_ms"] == 450, (
+            f"Expected 500 - 50 = 450, got {normal['effective_timeout_ms']}"
+        )
+    
+        # --- Requirement 2: trace span annotation ---
+        mock_annotate.assert_called_once()
+        call_args = mock_annotate.call_args
+>       assert call_args[0][0] == "lock.acquired", (
+            "Must annotate span with 'lock.acquired' for observability"
+        )
+E       AssertionError: Must annotate span with 'lock.acquired' for observability
+E       assert {'effective_timeout_ms': 1} == 'lock.acquired'
+
+tests/unit/test_bug53.py:47: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace - A...
+1 failed in 0.45s

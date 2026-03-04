@@ -1,0 +1,1 @@
+Pass context to fallback callables via fb(self.context) and annotate each activated fallback with orgops.tracing.annotate_span().

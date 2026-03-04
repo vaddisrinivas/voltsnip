@@ -1,0 +1,13 @@
+        try:
+            return self.primary_fn(self.context)
+        except Exception:
+            pass
+
+        from orgops import tracing
+
+        for _idx, fb in enumerate(self.fallbacks):
+            try:
+                tracing.annotate_span("fallback.activated", _idx)
+                return fb(self.context)
+            except Exception:
+                continue

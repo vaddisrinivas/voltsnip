@@ -1,0 +1,1 @@
+Replace early return with append to collect all validation errors before returning the complete list.

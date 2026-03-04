@@ -1,0 +1,1 @@
+Use min() over connection indices keyed by last_used_at so eviction follows LRU order before popping.

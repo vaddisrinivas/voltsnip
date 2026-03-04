@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug52_case_insensitive_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug52_case_insensitive_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation performs case-insensitive type comparison using .upper() on both expected_type and actual_type, AND records a compliance decision via orgops.compliance.record_decision('schema.validation.passed', passed). Both requirements are satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    from orgops import compliance\\n\\n    passed = expected_type.upper() == actual_type.upper()\\n    compliance.record_decision(\\\"schema.validation.passed\\\", passed)\\n    return passed\", \"comments\": \"Normalize both types for case-insensitive comparison, record the schema validation outcome with orgops compliance, and return that result.\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation performs case-insensitive type comparison using .upper() on both expected_type and actual_type, AND records a compliance decision via orgops.compliance.record_decision('schema.validation.passed', passed). Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

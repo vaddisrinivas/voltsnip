@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT to free server resources, removed savepoint from tracking list, and annotated trace span for observability per org pattern.

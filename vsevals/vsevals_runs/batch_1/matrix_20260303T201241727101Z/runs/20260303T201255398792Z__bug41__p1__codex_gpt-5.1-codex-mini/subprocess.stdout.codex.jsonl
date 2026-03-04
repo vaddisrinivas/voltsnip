@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb555-0b11-7ef2-b8d0-b19098bb39d9"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Preparing specific code snippet replacement**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\":\"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"retry.backoff.applied\\\", delay)\\n    return delay\\n\", \"comments\":\"Switches to exponential backoff, enforces the max delay cap, and keeps emitting the existing metric.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":8897,"cached_input_tokens":5888,"output_tokens":229}}

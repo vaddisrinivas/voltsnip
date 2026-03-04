@@ -1,0 +1,51 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_bug_50_join_cost_and_metric _______________________
+
+    def test_bug_50_join_cost_and_metric() -> None:
+        """estimate_join_cost must:
+        1. Apply selectivity exactly once: left_rows * right_rows * selectivity
+           (NOT left_rows * right_rows * selectivity * selectivity).
+        2. Emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+        planner = QueryPlanner()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            cost = planner.estimate_join_cost(
+                left_rows=1000,
+                right_rows=500,
+                selectivity=0.1,
+            )
+    
+        # --- Requirement 1: single selectivity application ---
+        # Correct: 1000 * 500 * 0.1 = 50_000
+        # Buggy:   1000 * 500 * 0.1 * 0.1 = 5_000  (double selectivity)
+        assert cost == 50_000.0, (
+            f"Expected 1000 * 500 * 0.1 = 50000.0 (single selectivity), got {cost} "
+            "(double selectivity would give 5000.0)"
+        )
+    
+        # --- Requirement 2: metric emission ---
+>       mock_emit.assert_called_once()
+
+tests/unit/test_bug50.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='emit' id='281473084045216'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'emit' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug50.py::test_bug_50_join_cost_and_metric - Assertion...
+1 failed in 0.14s

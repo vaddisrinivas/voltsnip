@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs",
+  "task_id": "BUG47",
+  "task_name": "pool_eviction_fifo_not_lru_and_metric",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 66,
+  "task_line_end": 84,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug47/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug47/scenario_context/v1\nTitle: Pool eviction requires LRU order AND metric emission\nCode:\n```\n# Pool Eviction — Two Requirements\n\n## 1. LRU Eviction Order\nFind and remove the connection with the **oldest** `last_used_at`:\n```python\nlru_idx = min(range(len(self.connections)),\n               key=lambda i: self.connections[i].last_used_at)\nevicted = self.connections.pop(lru_idx)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n```\nwhere `idle_seconds = now - evicted.last_used_at`.\n\n## Complete Correct Pattern\n```python\ndef evict_idle(self):\n    import orgops.metrics\n    if not self.connections:\n        return None\n    now = time.time()\n    lru_idx = min(range(len(self.connections)),\n                   key=lambda i: self.connections[i].last_used_at)\n    evicted = self.connections.pop(lru_idx)\n    idle_seconds = now - evicted.last_used_at\n    orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n    return evicted\n```\n\nFixing ONLY the eviction order is insufficient — the alerting system\nwill not detect connection-churn anomalies without the metric emission.\nBoth fixes are required for production correctness.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug47/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG47\nTask Name: pool_eviction_fifo_not_lru_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix evict_idle to use LRU eviction instead of FIFO order.\n\nTarget File: data/connection_pool.py\n\nTarget Lines:\n66-84 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-84 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug47.py -k bug_47\n\nContext Code:\n```python\ndef evict_idle(self) -> Connection | None:\n    \"\"\"Remove the least-recently-used idle connection.\n\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\n    *first-inserted* connection (FIFO order) rather than the one\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\n    connections are touched out of insertion order, the wrong\n    connection is evicted.\n    \"\"\"\n    if not self.connections:\n        return None\n\n    now = time.time()\n\n    # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n    evicted = self.connections.pop(0)\n\n    idle_seconds = now - evicted.last_used_at\n    return evicted\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with idle-connection eviction.\n\nThe pool maintains a bounded set of reusable database connections.\nWhen the pool is full, ``evict_idle`` removes the *least recently used*\nconnection (the one with the oldest ``last_used_at`` timestamp) so that\na new connection can be admitted.\n\nThe eviction event must be reported to the org metrics pipeline so that\nthe alerting system can detect connection churn anomalies.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass Connection:\n    \"\"\"A thin wrapper around a raw DB connection handle.\"\"\"\n\n    handle: Any\n    created_at: float = field(default_factory=time.time)\n    last_used_at: float = field(default_factory=time.time)\n\n    def touch(self) -> None:\n        \"\"\"Update *last_used_at* to the current time.\"\"\"\n        self.last_used_at = time.time()\n\n\nclass ConnectionPool:\n    \"\"\"Fixed-size pool of database connections.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of connections the pool may hold.\n    \"\"\"\n\n    def __init__(self, max_size: int = 10) -> None:\n        self.max_size = max_size\n        self.connections: list[Connection] = []\n\n    # ── public interface ────────────────────────────────────\n\n    def add(self, conn: Connection) -> None:\n        \"\"\"Add *conn* to the pool, evicting an idle connection if full.\"\"\"\n        if len(self.connections) >= self.max_size:\n            self.evict_idle()\n        self.connections.append(conn)\n\n    def get(self) -> Connection | None:\n        \"\"\"Return the most-recently-used connection, or *None* if empty.\"\"\"\n        if not self.connections:\n            return None\n        conn = self.connections[-1]\n        conn.touch()\n        return conn\n\n    @property\n    def size(self) -> int:\n        return len(self.connections)\n\n    # ── eviction ────────────────────────────────────────────\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n        evicted = self.connections.pop(0)\n\n        idle_seconds = now - evicted.last_used_at\n        return evicted\n```\n\nExpected Output:\nUse LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug47/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "c9f94241-cb91-442b-8289-764cab3bb1e3",
+      "canonical_key": "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "title": "Script30 DB Patterns guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for database patterns: connection pool eviction, migration versioning, savepoint management, query planning, replication monitoring, and schema validation.",
+      "code": "# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n"
+    },
+    {
+      "id": "67e7d66a-fb6b-4362-8e55-78d5f210bd23",
+      "canonical_key": "voltsnip/script30/hard/bug47/scenario_context/v1",
+      "title": "Pool eviction requires LRU order AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The evict_idle method must evict the connection with the oldest last_used_at (LRU) instead of popping the first element (FIFO), AND emit a metric via orgops.metrics.emit for operational monitoring of connection churn.",
+      "code": "# Pool Eviction — Two Requirements\n\n## 1. LRU Eviction Order\nFind and remove the connection with the **oldest** `last_used_at`:\n```python\nlru_idx = min(range(len(self.connections)),\n               key=lambda i: self.connections[i].last_used_at)\nevicted = self.connections.pop(lru_idx)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n```\nwhere `idle_seconds = now - evicted.last_used_at`.\n\n## Complete Correct Pattern\n```python\ndef evict_idle(self):\n    import orgops.metrics\n    if not self.connections:\n        return None\n    now = time.time()\n    lru_idx = min(range(len(self.connections)),\n                   key=lambda i: self.connections[i].last_used_at)\n    evicted = self.connections.pop(lru_idx)\n    idle_seconds = now - evicted.last_used_at\n    orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n    return evicted\n```\n\nFixing ONLY the eviction order is insufficient — the alerting system\nwill not detect connection-churn anomalies without the metric emission.\nBoth fixes are required for production correctness.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug47/scenario_context/v1\nTitle: Pool eviction requires LRU order AND metric emission\nCode:\n```\n# Pool Eviction — Two Requirements\n\n## 1. LRU Eviction Order\nFind and remove the connection with the **oldest** `last_used_at`:\n```python\nlru_idx = min(range(len(self.connections)),\n               key=lambda i: self.connections[i].last_used_at)\nevicted = self.connections.pop(lru_idx)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n```\nwhere `idle_seconds = now - evicted.last_used_at`.\n\n## Complete Correct Pattern\n```python\ndef evict_idle(self):\n    import orgops.metrics\n    if not self.connections:\n        return None\n    now = time.time()\n    lru_idx = min(range(len(self.connections)),\n                   key=lambda i: self.connections[i].last_used_at)\n    evicted = self.connections.pop(lru_idx)\n    idle_seconds = now - evicted.last_used_at\n    orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n    return evicted\n```\n\nFixing ONLY the eviction order is insufficient — the alerting system\nwill not detect connection-churn anomalies without the metric emission.\nBoth fixes are required for production correctness.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug47/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG47\nTask Name: pool_eviction_fifo_not_lru_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix evict_idle to use LRU eviction instead of FIFO order.\n\nTarget File: data/connection_pool.py\n\nTarget Lines:\n66-84 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-84 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug47.py -k bug_47\n\nContext Code:\n```python\ndef evict_idle(self) -> Connection | None:\n    \"\"\"Remove the least-recently-used idle connection.\n\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\n    *first-inserted* connection (FIFO order) rather than the one\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\n    connections are touched out of insertion order, the wrong\n    connection is evicted.\n    \"\"\"\n    if not self.connections:\n        return None\n\n    now = time.time()\n\n    # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n    evicted = self.connections.pop(0)\n\n    idle_seconds = now - evicted.last_used_at\n    return evicted\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with idle-connection eviction.\n\nThe pool maintains a bounded set of reusable database connections.\nWhen the pool is full, ``evict_idle`` removes the *least recently used*\nconnection (the one with the oldest ``last_used_at`` timestamp) so that\na new connection can be admitted.\n\nThe eviction event must be reported to the org metrics pipeline so that\nthe alerting system can detect connection churn anomalies.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass Connection:\n    \"\"\"A thin wrapper around a raw DB connection handle.\"\"\"\n\n    handle: Any\n    created_at: float = field(default_factory=time.time)\n    last_used_at: float = field(default_factory=time.time)\n\n    def touch(self) -> None:\n        \"\"\"Update *last_used_at* to the current time.\"\"\"\n        self.last_used_at = time.time()\n\n\nclass ConnectionPool:\n    \"\"\"Fixed-size pool of database connections.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of connections the pool may hold.\n    \"\"\"\n\n    def __init__(self, max_size: int = 10) -> None:\n        self.max_size = max_size\n        self.connections: list[Connection] = []\n\n    # ── public interface ────────────────────────────────────\n\n    def add(self, conn: Connection) -> None:\n        \"\"\"Add *conn* to the pool, evicting an idle connection if full.\"\"\"\n        if len(self.connections) >= self.max_size:\n            self.evict_idle()\n        self.connections.append(conn)\n\n    def get(self) -> Connection | None:\n        \"\"\"Return the most-recently-used connection, or *None* if empty.\"\"\"\n        if not self.connections:\n            return None\n        conn = self.connections[-1]\n        conn.touch()\n        return conn\n\n    @property\n    def size(self) -> int:\n        return len(self.connections)\n\n    # ── eviction ────────────────────────────────────────────\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n        evicted = self.connections.pop(0)\n\n        idle_seconds = now - evicted.last_used_at\n        return evicted\n```\n\nExpected Output:\nUse LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"\\n        now = time.time()\\n\\n        lru_idx = min(range(len(self.connections)),\\n                       key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        import orgops.metrics\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n\\n        return evicted\\n\", \"comments\": \"Switch eviction to LRU, compute idle time, and emit the required metric before returning the connection.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"\\n        now = time.time()\\n\\n        lru_idx = min(range(len(self.connections)),\\n                       key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        import orgops.metrics\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n\\n        return evicted\\n\", \"comments\": \"Switch eviction to LRU, compute idle time, and emit the required metric before returning the connection.\"}",
+  "parsed_output": {
+    "code": "\n        now = time.time()\n\n        lru_idx = min(range(len(self.connections)),\n                       key=lambda i: self.connections[i].last_used_at)\n        evicted = self.connections.pop(lru_idx)\n\n        idle_seconds = now - evicted.last_used_at\n        import orgops.metrics\n        orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds)\n\n        return evicted\n",
+    "comments": "Switch eviction to LRU, compute idle time, and emit the required metric before returning the connection."
+  },
+  "token_usage": {
+    "prompt_tokens": 9866,
+    "completion_tokens": 348,
+    "total_tokens": 10214,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0045032
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:06:59.456586Z",
+    "finished_at": "2026-03-03T20:07:03.791849Z",
+    "latency_ms": 4335
+  },
+  "summary_metrics": {
+    "latency_ms": 4335,
+    "prompt_chars": 8219,
+    "output_chars": 519,
+    "prompt_system_chars": 3853,
+    "prompt_user_chars": 4366,
+    "snippet_injected_chars": 2211,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 48,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 4263,
+    "model_request_started_at": "2026-03-03T20:06:59.527778Z",
+    "model_request_finished_at": "2026-03-03T20:07:03.791768Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7324,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9866,
+      "completion_tokens": 348,
+      "total_tokens": 10214,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0045032
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T200659456364Z__bug47__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug47_lru_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug47_lru_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses min() with last_used_at as the key to find the LRU connection (not pop(0)), removes it via pop(lru_idx), computes idle_seconds from the evicted connection's last_used_at, and emits the pool.connection.evicted metric via orgops.metrics.emit() with that idle_seconds value. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"\\n        now = time.time()\\n\\n        lru_idx = min(range(len(self.connections)),\\n                       key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        import orgops.metrics\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n\\n        return evicted\\n\", \"comments\": \"Switch eviction to LRU, compute idle time, and emit the required metric before returning the connection.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses min() with last_used_at as the key to find the LRU connection (not pop(0)), removes it via pop(lru_idx), computes idle_seconds from the evicted connection's last_used_at, and emits the pool.connection.evicted metric via orgops.metrics.emit() with that idle_seconds value. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_47_pool_eviction_lru_and_metric ___________________\n\n    def test_bug_47_pool_eviction_lru_and_metric() -> None:\n        \"\"\"evict_idle must:\n        1. Remove the connection with the oldest last_used_at (LRU), not\n           simply the first-inserted connection (FIFO).\n        2. Emit a 'pool.connection.evicted' metric via orgops.metrics.emit()\n           with the idle_seconds value (now - evicted.last_used_at).\n        Both are required -- fixing only the eviction order is insufficient.\n        \"\"\"\n    \n        pool = ConnectionPool(max_size=3)\n    \n        # Insert three connections with controlled last_used_at timestamps.\n        # conn_a: inserted first, last_used most recently  (last_used_at = 300)\n        # conn_b: inserted second, last used longest ago    (last_used_at = 100)  <-- LRU\n        # conn_c: inserted third, used in between           (last_used_at = 200)\n        conn_a = Connection(handle=\"A\", created_at=1.0, last_used_at=300.0)\n        conn_b = Connection(handle=\"B\", created_at=2.0, last_used_at=100.0)\n        conn_c = Connection(handle=\"C\", created_at=3.0, last_used_at=200.0)\n    \n        pool.connections = [conn_a, conn_b, conn_c]\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n>           evicted = pool.evict_idle()\n                      ^^^^^^^^^^^^^^^\nE           AttributeError: 'ConnectionPool' object has no attribute 'evict_idle'\n\ntests/unit/test_bug47.py:32: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug47.py::test_bug_47_pool_eviction_lru_and_metric - A...\n1 failed in 0.52s\n",
+    "stderr": "",
+    "duration_ms": 3823,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

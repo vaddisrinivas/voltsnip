@@ -1,0 +1,1 @@
+Fixed unit comparison (removed /1000 divisor) and added orgops.alerts.notify() call when lag exceeds threshold to ensure on-call alerting pipeline is triggered.

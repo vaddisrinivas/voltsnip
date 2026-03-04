@@ -1,0 +1,1 @@
+Fixes BUG_58 by using the correct modulus and emitting the required degradation metric.

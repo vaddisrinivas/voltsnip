@@ -1,0 +1,1 @@
+Pass context dict to each fallback callable and emit fallback.activated tracing span annotation for each invoked fallback.

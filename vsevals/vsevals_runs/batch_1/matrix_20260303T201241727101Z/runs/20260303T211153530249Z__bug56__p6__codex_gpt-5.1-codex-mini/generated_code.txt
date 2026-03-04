@@ -1,0 +1,14 @@
+    def compute_lfu_score(
+        self,
+        access_count: int,
+        age_hours: float,
+    ) -> float:
+        """Compute the LFU eviction score for a cache entry.
+
+        Score decays with age so older entries do not hog the cache:
+
+            score = access_count / (1 + age_hours)
+
+        """
+        score = access_count / (1.0 + age_hours)
+        return float(score)

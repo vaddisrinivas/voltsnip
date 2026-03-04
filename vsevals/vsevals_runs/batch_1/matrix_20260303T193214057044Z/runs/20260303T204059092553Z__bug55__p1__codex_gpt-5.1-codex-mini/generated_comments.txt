@@ -1,0 +1,1 @@
+Reverse the threshold comparison so entries only refresh when their remaining TTL ratio drops below the threshold, i.e., close to expiry.

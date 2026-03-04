@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_66_correlation_id_and_trace _____________________
+
+    def test_bug_66_correlation_id_and_trace() -> None:
+        """propagate_context must:
+        1. Copy BOTH request_id AND correlation_id from the parent context.
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("context.propagated", parent_context.get("correlation_id")).
+        Both are required -- copying only request_id is insufficient.
+        """
+>       from logops.context_propagator import ContextPropagator
+E         File "/workspace/logops/context_propagator.py", line 20
+E           """Create a child context dict from *parent_context*.
+E       IndentationError: unexpected indent
+
+tests/unit/test_bug66.py:15: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug66.py::test_bug_66_correlation_id_and_trace -   Fil...
+1 failed in 0.53s

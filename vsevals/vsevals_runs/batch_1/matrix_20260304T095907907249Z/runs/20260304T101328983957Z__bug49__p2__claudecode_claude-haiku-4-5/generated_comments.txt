@@ -1,0 +1,1 @@
+Execute ROLLBACK TO SAVEPOINT, then RELEASE SAVEPOINT to free resources and trace the rollback event.

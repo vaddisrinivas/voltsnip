@@ -1,0 +1,1 @@
+Use exact float boundary, report the sliding-window count to orgops, and return the computed value.

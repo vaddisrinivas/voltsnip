@@ -1,0 +1,1 @@
+Convert interval_seconds to milliseconds and emit cache.flush.completed audit event when flush completes.

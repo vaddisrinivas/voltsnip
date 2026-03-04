@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug63_capacity_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug63_capacity_and_alert",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code checks `if len(self.queue) >= self.max_size: return False`, preventing the queue from exceeding max_size, and it calls `orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=utilization)` when `utilization >= 80.0`.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n\\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\\n        allowing one extra message beyond max_size before rejecting.\\n        The function also never fires the capacity-warning alert\\n        that ops requires when utilization reaches 80 %.\\n        \\\"\\\"\\\"\\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        # Fire capacity-warning alert when utilization >= 80%\\n        utilization = self.utilization_pct\\n        if utilization >= 80.0:\\n            import orgops.alerts\\n            orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=utilization)\\n\\n        self.queue.append(message)\\n        return True\", \"comments\": \"Fixed off-by-one capacity check (> to >=) and added capacity-warning alert via orgops.alerts.notify when utilization reaches 80%.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code checks `if len(self.queue) >= self.max_size: return False`, preventing the queue from exceeding max_size, and it calls `orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=utilization)` when `utilization >= 80.0`.\"}]}",
+  "passed": true
+}

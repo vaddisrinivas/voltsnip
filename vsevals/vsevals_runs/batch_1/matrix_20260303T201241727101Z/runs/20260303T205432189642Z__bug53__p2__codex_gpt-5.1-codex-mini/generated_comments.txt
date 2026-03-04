@@ -1,0 +1,1 @@
+Clamp the computed timeout to at least 1 ms and annotate the span before storing the lock state.

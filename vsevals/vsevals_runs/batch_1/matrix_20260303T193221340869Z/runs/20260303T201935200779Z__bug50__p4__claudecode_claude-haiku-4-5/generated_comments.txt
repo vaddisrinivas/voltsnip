@@ -1,0 +1,1 @@
+Fixed double selectivity bug (removed duplicate multiplication) and added metric emission for query plan cost telemetry.

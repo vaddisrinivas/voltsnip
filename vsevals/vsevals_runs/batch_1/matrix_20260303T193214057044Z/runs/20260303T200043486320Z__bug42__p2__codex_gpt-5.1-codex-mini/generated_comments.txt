@@ -1,0 +1,1 @@
+Fix ought-to-be-< comparison, track probe_count when allowing, and report the half-open degradation when the probe limit is reached.

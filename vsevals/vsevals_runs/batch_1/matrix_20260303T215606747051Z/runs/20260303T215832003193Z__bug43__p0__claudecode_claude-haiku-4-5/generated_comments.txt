@@ -1,0 +1,1 @@
+Changed timeout calculation from sequential sum (ct + dt + rt) to parallel connection phase max(ct, dt) + sequential read (rt), since DNS and TCP connect occur in parallel.

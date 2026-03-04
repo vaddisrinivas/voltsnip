@@ -1,0 +1,1 @@
+Make type comparison case-insensitive by normalizing both strings to uppercase for cross-database engine compatibility.

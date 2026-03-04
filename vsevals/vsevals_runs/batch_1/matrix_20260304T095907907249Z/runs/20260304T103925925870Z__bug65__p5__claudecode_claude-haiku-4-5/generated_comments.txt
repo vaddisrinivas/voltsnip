@@ -1,0 +1,1 @@
+Fixed regex pattern in sanitize_email to include '+' in local-part character class, so plus-addressed emails like user+tag@domain.com are now properly redacted.

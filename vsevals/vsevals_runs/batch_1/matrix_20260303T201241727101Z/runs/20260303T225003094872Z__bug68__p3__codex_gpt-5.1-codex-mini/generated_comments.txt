@@ -1,0 +1,1 @@
+Add recursive redaction helper, track total redactions, and emit the required auditing event.

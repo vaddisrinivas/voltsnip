@@ -1,0 +1,1 @@
+Fixed replication lag comparison by removing incorrect unit conversion (threshold_ms / 1000) and added required orgops.alerts.notify() call when lag exceeds threshold.

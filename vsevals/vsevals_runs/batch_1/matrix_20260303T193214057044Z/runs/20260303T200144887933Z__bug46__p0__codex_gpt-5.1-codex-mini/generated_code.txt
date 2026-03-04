@@ -1,0 +1,1 @@
+    boundary = now - window_seconds  # BUG_46: keep float precision, avoid truncating sub-second values

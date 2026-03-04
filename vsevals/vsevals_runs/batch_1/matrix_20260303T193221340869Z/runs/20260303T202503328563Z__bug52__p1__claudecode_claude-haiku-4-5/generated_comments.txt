@@ -1,0 +1,1 @@
+Make column type comparison case-insensitive by normalizing both strings to uppercase for cross-engine compatibility.

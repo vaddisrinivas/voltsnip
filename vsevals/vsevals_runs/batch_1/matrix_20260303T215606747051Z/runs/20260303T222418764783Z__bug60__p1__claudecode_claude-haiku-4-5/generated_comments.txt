@@ -1,0 +1,1 @@
+Append validation errors to the list instead of returning on the first error to collect all validation failures.

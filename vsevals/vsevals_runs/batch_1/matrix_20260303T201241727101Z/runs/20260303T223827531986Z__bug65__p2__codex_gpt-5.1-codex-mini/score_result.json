@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug65_email_plus_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug65_email_plus_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The email regex correctly includes '+' in the local-part character class (r\"[\\w.+]+@[\\w.]+\"), but the compliance call does not match the required signature. The code calls record_decision(\"pii.sanitized\", {\"pii_type\": \"email\", \"emails_redacted\": count}) while the constraint specifies it should call record_decision(\"pii.sanitized\", field_count=count). The parameter structure differs from what is required.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: explicitly handle plus-addressed emails in the local part.\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        import orgops.compliance as _compliance\\n        _compliance.record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"pii_type\\\": \\\"email\\\", \\\"emails_redacted\\\": count},\\n        )\\n        return result\", \"comments\": \"Make sanitize_email use a plus-aware regex and log the pii.sanitized compliance decision.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The email regex correctly includes '+' in the local-part character class (r\\\"[\\\\w.+]+@[\\\\w.]+\\\"), but the compliance call does not match the required signature. The code calls record_decision(\\\"pii.sanitized\\\", {\\\"pii_type\\\": \\\"email\\\", \\\"emails_redacted\\\": count}) while the constraint specifies it should call record_decision(\\\"pii.sanitized\\\", field_count=count). The parameter structure differs from what is required.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

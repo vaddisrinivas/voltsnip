@@ -1,0 +1,1 @@
+Update the stale check so we only refresh when the current time is at or past the entrys stale_at timestamp.

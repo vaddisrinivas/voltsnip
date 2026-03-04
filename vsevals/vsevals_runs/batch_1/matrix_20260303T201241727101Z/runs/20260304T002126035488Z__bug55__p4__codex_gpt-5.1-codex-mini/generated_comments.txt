@@ -1,0 +1,1 @@
+Flip the threshold comparison so we only refresh close to expiry and emit cache.stampede.prevented when that early refresh fires.

@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug60_all_errors_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug60_all_errors_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) It collects ALL validation errors by iterating through all rules and appending errors to a list without early return, and (2) It records a compliance decision by calling orgops.compliance.record_decision('validation.completed', error_count=len(errors)) after collecting all errors and before returning.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\\n\", \"comments\": \"Collects every validation error before returning and records the validation completion decision.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It collects ALL validation errors by iterating through all rules and appending errors to a list without early return, and (2) It records a compliance decision by calling orgops.compliance.record_decision('validation.completed', error_count=len(errors)) after collecting all errors and before returning.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

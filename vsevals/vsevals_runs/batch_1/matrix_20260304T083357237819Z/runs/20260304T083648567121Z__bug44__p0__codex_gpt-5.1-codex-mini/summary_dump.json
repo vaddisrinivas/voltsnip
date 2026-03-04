@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T083648567121Z__bug44__p0__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG44",
+  "task_name": "dns_ttl_stale_check_and_metric",
+  "variant_id": "P0",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 5564,
+    "prompt_chars": 6048,
+    "output_chars": 448,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4998,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 5564,
+    "model_request_started_at": "2026-03-04T08:36:48.567698Z",
+    "model_request_finished_at": "2026-03-04T08:36:54.131753Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 3178,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8901,
+      "completion_tokens": 371,
+      "total_tokens": 9272,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.004154
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug44_stale_check_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug44_stale_check_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug44_stale_check_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug44_stale_check_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug44_stale_check_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug44_stale_check_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation correctly fixes the stale comparison using 'now >= entry.stale_at' (equivalent to 'entry.stale_at <= now'), but it does NOT emit any metric via orgops.metrics.emit(). There is no metrics emission code present in the candidate implementation.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        Entries are eligible for background refresh once they become stale\\n        (i.e. ``now >= entry.stale_at``).\\n        \\\"\\\"\\\"\\n        return now >= entry.stale_at\\n\", \"comments\": \"Fix stale check to return True once the current time reaches or passes the entry’s stale_at timestamp.\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the stale comparison using 'now >= entry.stale_at' (equivalent to 'entry.stale_at <= now'), but it does NOT emit any metric via orgops.metrics.emit(). There is no metrics emission code present in the candidate implementation.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_44_dns_stale_check_and_metric ____________________\n\n    def test_bug_44_dns_stale_check_and_metric() -> None:\n        \"\"\"should_refresh_entry must:\n        1. Return True when entry.stale_at <= now (entry IS stale)\n        2. Return False when entry.stale_at > now (entry is still fresh)\n        3. Emit a 'dns.cache.refresh' metric via orgops.metrics.emit()\n           for each stale entry during refresh_stale()\n    \n        Both the correct stale comparison AND the metric emission are\n        required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n    \n        from net.dns_cache import DnsCache, DnsEntry\n    \n        cache = DnsCache()\n    \n        # Entry resolved at t=1000 with TTL=60s => stale_at = 1060\n        entry = DnsEntry(\n            hostname=\"api.internal.prod\",\n            addresses=[\"10.0.1.42\"],\n            resolved_at=1000.0,\n            ttl_seconds=60.0,\n        )\n        cache.put(entry)\n    \n        # ── Stale-check correctness ──────────────────────────────\n        # At t=1061, entry IS stale (stale_at=1060 <= 1061)\n        assert cache.should_refresh_entry(entry, now=1061.0) is True, (\n            \"Must return True when entry is stale (stale_at <= now)\"\n        )\n    \n        # At t=1060, entry IS stale (boundary: stale_at == now)\n        assert cache.should_refresh_entry(entry, now=1060.0) is True, (\n            \"Must return True at the exact stale boundary (stale_at == now)\"\n        )\n    \n        # At t=1059, entry is still fresh (stale_at > now)\n        assert cache.should_refresh_entry(entry, now=1059.0) is False, (\n            \"Must return False when entry is still fresh (stale_at > now)\"\n        )\n    \n        # ── Metric emission ──────────────────────────────────────\n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            stale_hosts = cache.refresh_stale(now=1061.0)\n    \n        assert stale_hosts == [\"api.internal.prod\"]\n    \n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug44.py:51: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473772081072'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug44.py::test_bug_44_dns_stale_check_and_metric - Ass...\n1 failed in 0.13s\n",
+    "stderr": "",
+    "duration_ms": 829,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

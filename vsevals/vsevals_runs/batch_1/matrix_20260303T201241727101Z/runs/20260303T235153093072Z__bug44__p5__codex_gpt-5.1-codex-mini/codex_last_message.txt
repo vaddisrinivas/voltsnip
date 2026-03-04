@@ -1,0 +1,1 @@
+{"code":"        from orgops.metrics import emit\n\n        is_stale = entry.stale_at <= now\n        if is_stale:\n            emit(\"dns.cache.refresh\")\n        return is_stale","comments":"Reverse the stale comparison so refresh triggers only when now >= stale_at and emit the dns.cache.refresh metric for those entries."}

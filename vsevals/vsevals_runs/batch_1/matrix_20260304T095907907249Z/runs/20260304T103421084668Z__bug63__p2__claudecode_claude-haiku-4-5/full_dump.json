@@ -1,0 +1,274 @@
+{
+  "run_id": "20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG63",
+  "task_name": "dlq_capacity_off_by_one_and_alert",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 30,
+  "task_line_end": 45,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug63/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG63\nTask Name: dlq_capacity_off_by_one_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix DeadLetterQueue.enqueue off-by-one capacity check and add capacity-warning alert.\n\nTarget File: errors/dead_letter.py\n\nTarget Lines:\n30-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 30-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug63.py -k bug_63\n\nContext Code:\n```python\ndef enqueue(self, message: Dict[str, Any]) -> bool:\n    \"\"\"Attempt to add *message* to the dead-letter queue.\n\n    Returns ``True`` when the message is accepted, ``False`` when\n    the queue is already at capacity.\n\n    BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n    allowing one extra message beyond max_size before rejecting.\n    The function also never fires the capacity-warning alert\n    that ops requires when utilization reaches 80 %.\n    \"\"\"\n    # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n    if len(self.queue) > self.max_size:\n        return False\n\n    self.queue.append(message)\n    return True\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Dead-letter queue for messages that cannot be processed.\n\nProvides a bounded queue that collects failed messages for later\ninspection / replay.  When the queue nears capacity an operational\nalert must be sent so on-call engineers can investigate.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, List\n\n\n@dataclass\nclass DeadLetterQueue:\n    \"\"\"Bounded dead-letter queue with capacity alerting.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of messages the queue may hold.  Once full,\n        ``enqueue`` must reject new messages and return ``False``.\n    \"\"\"\n\n    max_size: int = 1000\n    queue: List[Dict[str, Any]] = field(default_factory=list)\n\n    # ---- public API ------------------------------------------------\n\n    def enqueue(self, message: Dict[str, Any]) -> bool:\n        \"\"\"Attempt to add *message* to the dead-letter queue.\n\n        Returns ``True`` when the message is accepted, ``False`` when\n        the queue is already at capacity.\n\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n        allowing one extra message beyond max_size before rejecting.\n        The function also never fires the capacity-warning alert\n        that ops requires when utilization reaches 80 %.\n        \"\"\"\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n        if len(self.queue) > self.max_size:\n            return False\n\n        self.queue.append(message)\n        return True\n\n    def peek(self) -> Dict[str, Any] | None:\n        \"\"\"Return the oldest message without removing it.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue[0]\n\n    def dequeue(self) -> Dict[str, Any] | None:\n        \"\"\"Remove and return the oldest message, or ``None`` if empty.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue.pop(0)\n\n    @property\n    def size(self) -> int:\n        \"\"\"Current number of messages in the queue.\"\"\"\n        return len(self.queue)\n\n    @property\n    def utilization_pct(self) -> float:\n        \"\"\"Current utilization as a percentage of max_size.\"\"\"\n        if self.max_size <= 0:\n            return 100.0\n        return (len(self.queue) / self.max_size) * 100.0\n```\n\nExpected Output:\nFix capacity check from > to >= AND notify dlq.capacity.warning via orgops.alerts.notify when utilization >= 80%.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug63/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG63\nTask Name: dlq_capacity_off_by_one_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix DeadLetterQueue.enqueue off-by-one capacity check and add capacity-warning alert.\n\nTarget File: errors/dead_letter.py\n\nTarget Lines:\n30-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 30-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug63.py -k bug_63\n\nContext Code:\n```python\ndef enqueue(self, message: Dict[str, Any]) -> bool:\n    \"\"\"Attempt to add *message* to the dead-letter queue.\n\n    Returns ``True`` when the message is accepted, ``False`` when\n    the queue is already at capacity.\n\n    BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n    allowing one extra message beyond max_size before rejecting.\n    The function also never fires the capacity-warning alert\n    that ops requires when utilization reaches 80 %.\n    \"\"\"\n    # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n    if len(self.queue) > self.max_size:\n        return False\n\n    self.queue.append(message)\n    return True\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Dead-letter queue for messages that cannot be processed.\n\nProvides a bounded queue that collects failed messages for later\ninspection / replay.  When the queue nears capacity an operational\nalert must be sent so on-call engineers can investigate.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, List\n\n\n@dataclass\nclass DeadLetterQueue:\n    \"\"\"Bounded dead-letter queue with capacity alerting.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of messages the queue may hold.  Once full,\n        ``enqueue`` must reject new messages and return ``False``.\n    \"\"\"\n\n    max_size: int = 1000\n    queue: List[Dict[str, Any]] = field(default_factory=list)\n\n    # ---- public API ------------------------------------------------\n\n    def enqueue(self, message: Dict[str, Any]) -> bool:\n        \"\"\"Attempt to add *message* to the dead-letter queue.\n\n        Returns ``True`` when the message is accepted, ``False`` when\n        the queue is already at capacity.\n\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n        allowing one extra message beyond max_size before rejecting.\n        The function also never fires the capacity-warning alert\n        that ops requires when utilization reaches 80 %.\n        \"\"\"\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n        if len(self.queue) > self.max_size:\n            return False\n\n        self.queue.append(message)\n        return True\n\n    def peek(self) -> Dict[str, Any] | None:\n        \"\"\"Return the oldest message without removing it.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue[0]\n\n    def dequeue(self) -> Dict[str, Any] | None:\n        \"\"\"Remove and return the oldest message, or ``None`` if empty.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue.pop(0)\n\n    @property\n    def size(self) -> int:\n        \"\"\"Current number of messages in the queue.\"\"\"\n        return len(self.queue)\n\n    @property\n    def utilization_pct(self) -> float:\n        \"\"\"Current utilization as a percentage of max_size.\"\"\"\n        if self.max_size <= 0:\n            return 100.0\n        return (len(self.queue) / self.max_size) * 100.0\n```\n\nExpected Output:\nFix capacity check from > to >= AND notify dlq.capacity.warning via orgops.alerts.notify when utilization >= 80%.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug63/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG63\nTask Name: dlq_capacity_off_by_one_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix DeadLetterQueue.enqueue off-by-one capacity check and add capacity-warning alert.\n\nTarget File: errors/dead_letter.py\n\nTarget Lines:\n30-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 30-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug63.py -k bug_63\n\nContext Code:\n```python\ndef enqueue(self, message: Dict[str, Any]) -> bool:\n    \"\"\"Attempt to add *message* to the dead-letter queue.\n\n    Returns ``True`` when the message is accepted, ``False`` when\n    the queue is already at capacity.\n\n    BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n    allowing one extra message beyond max_size before rejecting.\n    The function also never fires the capacity-warning alert\n    that ops requires when utilization reaches 80 %.\n    \"\"\"\n    # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n    if len(self.queue) > self.max_size:\n        return False\n\n    self.queue.append(message)\n    return True\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Dead-letter queue for messages that cannot be processed.\n\nProvides a bounded queue that collects failed messages for later\ninspection / replay.  When the queue nears capacity an operational\nalert must be sent so on-call engineers can investigate.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, List\n\n\n@dataclass\nclass DeadLetterQueue:\n    \"\"\"Bounded dead-letter queue with capacity alerting.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of messages the queue may hold.  Once full,\n        ``enqueue`` must reject new messages and return ``False``.\n    \"\"\"\n\n    max_size: int = 1000\n    queue: List[Dict[str, Any]] = field(default_factory=list)\n\n    # ---- public API ------------------------------------------------\n\n    def enqueue(self, message: Dict[str, Any]) -> bool:\n        \"\"\"Attempt to add *message* to the dead-letter queue.\n\n        Returns ``True`` when the message is accepted, ``False`` when\n        the queue is already at capacity.\n\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n        allowing one extra message beyond max_size before rejecting.\n        The function also never fires the capacity-warning alert\n        that ops requires when utilization reaches 80 %.\n        \"\"\"\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n        if len(self.queue) > self.max_size:\n            return False\n\n        self.queue.append(message)\n        return True\n\n    def peek(self) -> Dict[str, Any] | None:\n        \"\"\"Return the oldest message without removing it.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue[0]\n\n    def dequeue(self) -> Dict[str, Any] | None:\n        \"\"\"Remove and return the oldest message, or ``None`` if empty.\"\"\"\n        if not self.queue:\n            return None\n        return self.queue.pop(0)\n\n    @property\n    def size(self) -> int:\n        \"\"\"Current number of messages in the queue.\"\"\"\n        return len(self.queue)\n\n    @property\n    def utilization_pct(self) -> float:\n        \"\"\"Current utilization as a percentage of max_size.\"\"\"\n        if self.max_size <= 0:\n            return 100.0\n        return (len(self.queue) / self.max_size) * 100.0\n```\n\nExpected Output:\nFix capacity check from > to >= AND notify dlq.capacity.warning via orgops.alerts.notify when utilization >= 80%.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on the task description, I need to fix two issues:\n1. Change the capacity check from `>` to `>=` (off-by-one error)\n2. Add a capacity-warning alert when utilization reaches 80%\n\nHere's the corrected code for lines 30-45:\n\n```json\n{\"code\": \"        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n\\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\\n        allowing one extra message beyond max_size before rejecting.\\n        The function also never fires the capacity-warning alert\\n        that ops requires when utilization reaches 80 %.\\n        \\\"\\\"\\\"\\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n        \\n        # Alert ops when utilization reaches 80%\\n        if self.utilization_pct >= 80.0:\\n            import orgops.alerts\\n            orgops.alerts.notify(\\\"dlq.capacity.warning\\\")\\n        \\n        return True\", \"comments\": \"Fixed off-by-one capacity check (> to >=) and added dlq.capacity.warning alert when utilization reaches 80%.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "ReadMcpResourceTool",
+      "tool_call_id": "toolu_01PMTHjQGaQwvzAELH6bMcUP",
+      "tool_args": {
+        "server": "MCP",
+        "uri": "file:///private/var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_claudecode_wd_i8a8_1i2/tests/unit/test_bug63.py"
+      },
+      "tool_result": {
+        "raw": "Server \"MCP\" not found. Available servers: claude.ai Vercel, claude.ai n8n, claude.ai Gmail, claude.ai Notion, claude.ai monday.com, claude.ai Google Calendar, claude.ai Slack, claude.ai Atlassian, cl"
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:34:56.396224Z",
+      "finished_at": "2026-03-04T10:34:56.396264Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "ListMcpResourcesTool",
+      "tool_call_id": "toolu_011nWV1eHgQmF5r8YUQCf5J6",
+      "tool_args": {},
+      "tool_result": {
+        "retrieved": 1
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:34:56.396347Z",
+      "finished_at": "2026-03-04T10:34:56.396357Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "ReadMcpResourceTool",
+      "tool_call_id": "toolu_011xPxWVeXTHc1wG1hQiEJhf",
+      "tool_args": {
+        "server": "voltsnip",
+        "uri": "resource://snippets"
+      },
+      "tool_result": {
+        "raw": "{\"contents\":[{\"uri\":\"resource://snippets\",\"mimeType\":\"text/plain\",\"text\":\"[]\"}]}"
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:34:56.396371Z",
+      "finished_at": "2026-03-04T10:34:56.396377Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Based on the task description, I need to fix two issues:\n1. Change the capacity check from `>` to `>=` (off-by-one error)\n2. Add a capacity-warning alert when utilization reaches 80%\n\nHere's the corrected code for lines 30-45:\n\n```json\n{\"code\": \"        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n\\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\\n        allowing one extra message beyond max_size before rejecting.\\n        The function also never fires the capacity-warning alert\\n        that ops requires when utilization reaches 80 %.\\n        \\\"\\\"\\\"\\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n        \\n        # Alert ops when utilization reaches 80%\\n        if self.utilization_pct >= 80.0:\\n            import orgops.alerts\\n            orgops.alerts.notify(\\\"dlq.capacity.warning\\\")\\n        \\n        return True\", \"comments\": \"Fixed off-by-one capacity check (> to >=) and added dlq.capacity.warning alert when utilization reaches 80%.\"}\n```",
+  "parsed_output": {
+    "code": "        \"\"\"Attempt to add *message* to the dead-letter queue.\n\n        Returns ``True`` when the message is accepted, ``False`` when\n        the queue is already at capacity.\n\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\n        allowing one extra message beyond max_size before rejecting.\n        The function also never fires the capacity-warning alert\n        that ops requires when utilization reaches 80 %.\n        \"\"\"\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\n        if len(self.queue) >= self.max_size:\n            return False\n\n        self.queue.append(message)\n        \n        # Alert ops when utilization reaches 80%\n        if self.utilization_pct >= 80.0:\n            import orgops.alerts\n            orgops.alerts.notify(\"dlq.capacity.warning\")\n        \n        return True",
+    "comments": "Fixed off-by-one capacity check (> to >=) and added dlq.capacity.warning alert when utilization reaches 80%."
+  },
+  "token_usage": {
+    "prompt_tokens": 34,
+    "completion_tokens": 8,
+    "total_tokens": 42,
+    "cached_tokens": 24723,
+    "thinking_tokens": null,
+    "cost_usd": 0.00200984
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:34:21.084844Z",
+    "finished_at": "2026-03-04T10:34:56.397426Z",
+    "latency_ms": 35312
+  },
+  "summary_metrics": {
+    "latency_ms": 35312,
+    "prompt_chars": 5138,
+    "output_chars": 1248,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4005,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 3,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 3,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 35289,
+    "model_request_started_at": "2026-03-04T10:34:21.107302Z",
+    "model_request_finished_at": "2026-03-04T10:34:56.397166Z",
+    "model_request_id": "97f45f2e-ffb8-4040-88d9-6f8e5433c671",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1460,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 34,
+      "completion_tokens": 8,
+      "total_tokens": 42,
+      "cached_tokens": 24723,
+      "thinking_tokens": null,
+      "cost_usd": 0.00200984
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T103421084668Z__bug63__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug63_capacity_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug63_capacity_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The capacity guard uses \">=\" and prevents exceeding max_size, but the alert call is orgops.alerts.notify(\"dlq.capacity.warning\") without passing utilization_pct (or any utilization value). The judge_prompt requires notify(\"dlq.capacity.warning\", utilization_pct=...) when utilization reaches >=80%.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n\\n        BUG_63: the capacity guard uses ``>`` instead of ``>=``,\\n        allowing one extra message beyond max_size before rejecting.\\n        The function also never fires the capacity-warning alert\\n        that ops requires when utilization reaches 80 %.\\n        \\\"\\\"\\\"\\n        # BUG_63: off-by-one — should be >= so queue never exceeds max_size\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n        \\n        # Alert ops when utilization reaches 80%\\n        if self.utilization_pct >= 80.0:\\n            import orgops.alerts\\n            orgops.alerts.notify(\\\"dlq.capacity.warning\\\")\\n        \\n        return True\", \"comments\": \"Fixed off-by-one capacity check (> to >=) and added dlq.capacity.warning alert when utilization reaches 80%.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The capacity guard uses \\\">=\\\" and prevents exceeding max_size, but the alert call is orgops.alerts.notify(\\\"dlq.capacity.warning\\\") without passing utilization_pct (or any utilization value). The judge_prompt requires notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when utilization reaches >=80%.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_63_dlq_capacity_and_alert ______________________\n\n    def test_bug_63_dlq_capacity_and_alert() -> None:\n        \"\"\"DeadLetterQueue.enqueue must:\n        1. Reject messages when len(queue) >= max_size (not >), preventing\n           the queue from exceeding its declared capacity.\n        2. Call orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=...)\n           when the queue reaches 80%+ of max_size.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from errors.dead_letter import DeadLetterQueue\n    \n        dlq = DeadLetterQueue(max_size=10)\n    \n        # ---- Requirement 1: exact capacity limit (off-by-one fix) --------\n    \n        # Fill to exactly max_size\n        with patch(\"orgops.alerts.notify\"):\n            for i in range(10):\n                result = dlq.enqueue({\"id\": i})\n                assert result is True, f\"Message {i} should be accepted (queue has room)\"\n    \n        assert dlq.size == 10, (\n            f\"Queue should hold exactly max_size=10 messages, got {dlq.size}\"\n        )\n    \n        # The 11th message MUST be rejected (queue is at capacity)\n        with patch(\"orgops.alerts.notify\"):\n            rejected = dlq.enqueue({\"id\": \"overflow\"})\n        assert rejected is False, (\n            \"Message at position max_size (11th) must be rejected. \"\n            \"Bug: `>` allows one extra item; fix requires `>=`.\"\n        )\n        assert dlq.size == 10, (\n            f\"Queue must not exceed max_size=10 after rejection, got {dlq.size}\"\n        )\n    \n        # ---- Requirement 2: capacity alert at 80%+ utilization -----------\n    \n        dlq2 = DeadLetterQueue(max_size=10)\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # Fill to 7 items (70%) -- no alert expected yet\n            for i in range(7):\n                dlq2.enqueue({\"id\": i})\n            mock_notify.assert_not_called(), (\n                \"No alert expected below 80% utilization\"\n            )\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # 8th item brings utilization to 80% -- alert MUST fire\n            dlq2.enqueue({\"id\": 7})\n    \n            mock_notify.assert_called_once()\n            call_args = mock_notify.call_args\n            assert call_args[0][0] == \"dlq.capacity.warning\", (\n                \"Must notify 'dlq.capacity.warning' for operational monitoring\"\n            )\n>           assert \"utilization_pct\" in call_args[1], (\n                \"Must pass utilization_pct as keyword argument to notify()\"\n            )\nE           AssertionError: Must pass utilization_pct as keyword argument to notify()\nE           assert 'utilization_pct' in {}\n\ntests/unit/test_bug63.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug63.py::test_bug_63_dlq_capacity_and_alert - Asserti...\n1 failed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 2034,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Fix jitter subtraction bug by adding jitter to base_ttl instead of subtracting, and emit cache.ttl.jittered metric for operational monitoring.

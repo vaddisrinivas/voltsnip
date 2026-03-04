@@ -1,0 +1,1 @@
+Release the savepoint after rollback and emit a trace event for observability.

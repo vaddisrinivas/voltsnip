@@ -1,0 +1,1 @@
+Fixed BUG57: Convert interval_seconds to milliseconds (* 1000) when passing to _start_timer, and emit cache.flush.completed audit event via orgops.auditing.write_event.

@@ -1,0 +1,1 @@
+Use exact float arithmetic when computing the sliding window boundary so sub-second timestamps are counted accurately.

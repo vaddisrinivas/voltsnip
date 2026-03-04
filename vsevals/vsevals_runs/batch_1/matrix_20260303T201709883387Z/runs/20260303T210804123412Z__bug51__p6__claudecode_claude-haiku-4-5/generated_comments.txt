@@ -1,0 +1,1 @@
+Fixed unit comparison (both in ms, removed /1000) and added mandatory orgops.alerts.notify() call when lag exceeds threshold to trigger on-call alerting.

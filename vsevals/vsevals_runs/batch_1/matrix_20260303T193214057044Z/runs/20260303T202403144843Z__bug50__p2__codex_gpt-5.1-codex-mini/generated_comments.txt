@@ -1,0 +1,1 @@
+Apply selectivity once, emit the required metric, and keep the history entry intact.

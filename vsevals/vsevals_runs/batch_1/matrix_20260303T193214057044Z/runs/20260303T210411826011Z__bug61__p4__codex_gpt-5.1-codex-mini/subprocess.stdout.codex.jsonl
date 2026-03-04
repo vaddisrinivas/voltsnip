@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb583-fcf7-73a3-b683-b2179bc634da"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Updating function budget logic**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\", \"comments\": \"Replenish remaining token count on success, decrement on failure, and emit retry budget metric after every outcome.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":10331,"cached_input_tokens":7040,"output_tokens":317}}

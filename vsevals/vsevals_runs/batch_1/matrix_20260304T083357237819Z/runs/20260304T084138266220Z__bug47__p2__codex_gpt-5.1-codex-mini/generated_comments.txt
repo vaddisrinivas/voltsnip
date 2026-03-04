@@ -1,0 +1,1 @@
+Switch evictions to true LRU and emit the pool.connection.evicted metric when dropping a connection.

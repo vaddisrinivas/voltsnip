@@ -1,0 +1,1 @@
+Collects every ValidationError instead of short-circuiting on the first failure

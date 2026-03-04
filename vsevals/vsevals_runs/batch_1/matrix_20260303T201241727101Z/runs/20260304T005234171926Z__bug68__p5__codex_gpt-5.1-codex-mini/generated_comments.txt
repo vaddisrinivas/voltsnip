@@ -1,0 +1,1 @@
+Recursively redact nested dicts and emit the auditing event after counting scrubbed keys.

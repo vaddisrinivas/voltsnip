@@ -1,0 +1,27 @@
+        result: dict[str, Any] = {}
+        count = 0
+
+        def redact_structure(value: Any) -> Any:
+            nonlocal count
+            if isinstance(value, dict):
+                nested_result: dict[str, Any] = {}
+                for nested_key, nested_value in value.items():
+                    if self.is_sensitive(nested_key):
+                        nested_result[nested_key] = REDACTED_PLACEHOLDER
+                        count += 1
+                    else:
+                        nested_result[nested_key] = redact_structure(nested_value)
+                return nested_result
+            return value
+
+        for key, value in data.items():
+            if self.is_sensitive(key):
+                result[key] = REDACTED_PLACEHOLDER
+                count += 1
+            else:
+                result[key] = redact_structure(value)
+
+        from orgops import auditing
+
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

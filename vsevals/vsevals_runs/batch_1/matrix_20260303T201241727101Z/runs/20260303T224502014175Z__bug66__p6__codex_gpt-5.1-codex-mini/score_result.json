@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug66_correlation_id_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug66_correlation_id_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the implementation correctly copies both request_id and correlation_id from parent to child context, the trace annotation uses 'correlation_id' as the key (line: orgops.tracing.annotate_span('correlation_id', correlation_id)) instead of the required 'context.propagated' key specified in the constraint.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug66/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n\\n        correlation_id = parent_context.get(\\\"correlation_id\\\")\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": correlation_id,\\n        }\\n\\n        if correlation_id is not None:\\n            orgops.tracing.annotate_span(\\\"correlation_id\\\", correlation_id)\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": correlation_id,\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\\n\", \"comments\": \"Now copies both IDs into the child context and annotates the span with the correlation_id.\"}, \"constraints\": [{\"id\": \"bug66_correlation_id_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug66/scenario_context/v1\", \"check\": \"Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with \\\"context.propagated\\\" via orgops.tracing.annotate_span()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the implementation correctly copies both request_id and correlation_id from parent to child context, the trace annotation uses 'correlation_id' as the key (line: orgops.tracing.annotate_span('correlation_id', correlation_id)) instead of the required 'context.propagated' key specified in the constraint.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Pass context into each fallback and annotate the activated fallback span as required by BUG_62.

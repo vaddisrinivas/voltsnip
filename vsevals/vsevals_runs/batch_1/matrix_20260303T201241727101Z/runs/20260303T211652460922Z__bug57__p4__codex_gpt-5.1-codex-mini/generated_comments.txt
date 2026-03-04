@@ -1,0 +1,1 @@
+Convert the timer interval to milliseconds and wrap the flush callback to emit the required cache.flush.completed audit event.

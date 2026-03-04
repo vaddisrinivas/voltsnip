@@ -1,0 +1,8 @@
+        # BUG_65: compile a pattern that includes plus-addressed locals so sanitize_email still redacts them
+        plus_email_re = re.compile(r"[\w.+]+@[\w.]+")
+        result = plus_email_re.sub(_REDACTED_EMAIL, text)
+        count = len(plus_email_re.findall(text))
+        self._history.append(
+            SanitizationResult(text=result, emails_redacted=count)
+        )
+        return result

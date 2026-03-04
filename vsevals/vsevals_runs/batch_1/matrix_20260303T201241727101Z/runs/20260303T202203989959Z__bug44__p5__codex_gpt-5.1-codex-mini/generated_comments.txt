@@ -1,0 +1,1 @@
+Corrected stale detection and emit the refresh metric once an entry expires.

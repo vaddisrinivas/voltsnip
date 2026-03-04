@@ -1,0 +1,1 @@
+Fixed sanitize_email to use corrected regex pattern with '+' in local-part character class to properly redact plus-addressed emails

@@ -1,0 +1,1 @@
+Timeout now compounds per attempt and emits the timeout.escalated metric.

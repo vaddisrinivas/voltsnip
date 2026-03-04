@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T230448030866Z__bug65__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 59285,
+    "prompt_chars": 9875,
+    "output_chars": 977,
+    "prompt_system_chars": 4059,
+    "prompt_user_chars": 5816,
+    "snippet_injected_chars": 2377,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 59215,
+    "model_request_started_at": "2026-03-03T23:04:48.101379Z",
+    "model_request_finished_at": "2026-03-03T23:05:47.316598Z",
+    "model_request_id": "b89105ca-8aa4-486c-b7db-e1f95b135ff9",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1613,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "Regex is compiled as r\"[\\w.+]+@[\\w.]+\", which includes '+' in the local-part and will match/redact plus-addressed emails. It also computes count via len(email_re.findall(text)) and calls orgops.compliance.record_decision(\"pii.sanitized\", field_count=count).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        import orgops.compliance\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        count = len(email_re.findall(text))\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count)\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Added plus-addressing support to email regex (include + in character class) and compliance decision recording via orgops.compliance for SOC2 audit trail.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"Regex is compiled as r\\\"[\\\\w.+]+@[\\\\w.]+\\\", which includes '+' in the local-part and will match/redact plus-addressed emails. It also computes count via len(email_re.findall(text)) and calls orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.30s\n",
+    "stderr": "",
+    "duration_ms": 2065,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

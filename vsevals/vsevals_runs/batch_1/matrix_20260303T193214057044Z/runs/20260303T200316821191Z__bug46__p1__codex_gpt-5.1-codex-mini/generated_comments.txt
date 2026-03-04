@@ -1,0 +1,1 @@
+Switch the sliding window boundary to use the exact float difference so sub-second timestamps stay in the count.

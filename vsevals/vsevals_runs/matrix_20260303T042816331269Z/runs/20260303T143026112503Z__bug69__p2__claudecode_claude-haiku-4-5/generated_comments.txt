@@ -1,0 +1,1 @@
+Fixed to use UTC timestamp via datetime.now(timezone.utc) for cross-region consistency and record compliance decision

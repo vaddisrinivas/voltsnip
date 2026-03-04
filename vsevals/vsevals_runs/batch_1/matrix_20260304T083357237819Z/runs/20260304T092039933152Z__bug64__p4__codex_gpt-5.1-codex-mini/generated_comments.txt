@@ -1,0 +1,1 @@
+Compound the escalation per attempt and emit timeout.escalated via orgops.metrics.emit.

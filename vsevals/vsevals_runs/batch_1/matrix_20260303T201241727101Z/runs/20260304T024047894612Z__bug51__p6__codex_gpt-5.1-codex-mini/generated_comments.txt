@@ -1,0 +1,1 @@
+Compare lag directly in milliseconds, record the result, and notify via orgops.alerts when the threshold is exceeded.

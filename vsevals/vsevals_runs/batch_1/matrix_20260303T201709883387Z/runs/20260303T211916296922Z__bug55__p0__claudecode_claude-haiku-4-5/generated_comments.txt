@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < on line 53 so early refresh triggers when time remaining is low (close to expiry) instead of high (far from expiry).

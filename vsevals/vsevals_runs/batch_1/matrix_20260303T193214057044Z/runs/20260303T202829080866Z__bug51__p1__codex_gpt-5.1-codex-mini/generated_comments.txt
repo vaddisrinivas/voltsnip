@@ -1,0 +1,1 @@
+Compare measured lag and threshold both in milliseconds so alerts trigger when expected.

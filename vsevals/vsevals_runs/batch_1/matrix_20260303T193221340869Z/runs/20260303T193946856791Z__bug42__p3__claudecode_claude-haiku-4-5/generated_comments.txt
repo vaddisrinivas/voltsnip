@@ -1,0 +1,1 @@
+Fixed inverted probe comparison (< instead of >) and added orgops.health.report_degradation() call for circuit half-open state monitoring.

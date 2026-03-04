@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK and updated active_savepoints tracking to fix resource leak and trace the rollback event.

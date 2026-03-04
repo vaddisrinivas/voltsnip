@@ -1,0 +1,1 @@
+Apply selectivity only once and emit the planned cost metric before recording the history entry.

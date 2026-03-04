@@ -1,0 +1,200 @@
+{
+  "run_id": "20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs",
+  "task_id": "BUG56",
+  "task_name": "lfu_no_decay_and_metric",
+  "variant_id": "P1",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 48,
+  "task_line_end": 64,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug56/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG56\nTask Name: lfu_no_decay_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_lfu_score to apply time decay instead of returning raw access count.\n\nTarget File: cache/eviction_policy.py\n\nTarget Lines:\n48-64 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 48-64 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug56.py -k bug_56\n\nContext Code:\n```python\ndef compute_lfu_score(\n    self,\n    access_count: int,\n    age_hours: float,\n) -> float:\n    \"\"\"Compute the LFU eviction score for a cache entry.\n\n    BUG_56: returns the raw *access_count* without any time-decay\n    factor.  The correct formula is:\n\n        score = access_count / (1 + age_hours)\n\n    so that older entries naturally decay and do not hog the cache\n    forever based on historical popularity alone.\n    \"\"\"\n    score = access_count  # BUG_56: no time decay — should be access_count / (1 + age_hours)\n    return float(score)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"LFU eviction policy for the org caching layer.\n\nThis module computes frequency-based eviction scores.  Entries with the\nlowest score are evicted first when the cache reaches capacity.  The score\nshould account for both access frequency *and* recency so that stale-but-\nonce-popular items do not monopolise the cache indefinitely.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, List\n\n\n@dataclass\nclass CacheEntry:\n    \"\"\"Metadata for a single cached item.\"\"\"\n\n    key: str\n    access_count: int = 0\n    age_hours: float = 0.0\n\n\n@dataclass\nclass LFUEvictionPolicy:\n    \"\"\"Least-Frequently-Used eviction with optional time-decay scoring.\n\n    The policy maintains a registry of cache entries and exposes helpers\n    to compute per-entry eviction scores and to select victims for\n    eviction when the cache exceeds *max_entries*.\n    \"\"\"\n\n    max_entries: int = 1024\n    _registry: Dict[str, CacheEntry] = field(default_factory=dict)\n\n    # -- registry helpers ---------------------------------------------------\n\n    def register(self, key: str, access_count: int = 0, age_hours: float = 0.0) -> CacheEntry:\n        \"\"\"Register or update an entry in the policy registry.\"\"\"\n        entry = CacheEntry(key=key, access_count=access_count, age_hours=age_hours)\n        self._registry[key] = entry\n        return entry\n\n    def get_entry(self, key: str) -> CacheEntry | None:\n        return self._registry.get(key)\n\n    # -- scoring ------------------------------------------------------------\n\n    def compute_lfu_score(\n        self,\n        access_count: int,\n        age_hours: float,\n    ) -> float:\n        \"\"\"Compute the LFU eviction score for a cache entry.\n\n        BUG_56: returns the raw *access_count* without any time-decay\n        factor.  The correct formula is:\n\n            score = access_count / (1 + age_hours)\n\n        so that older entries naturally decay and do not hog the cache\n        forever based on historical popularity alone.\n        \"\"\"\n        score = access_count  # BUG_56: no time decay — should be access_count / (1 + age_hours)\n        return float(score)\n\n    # -- eviction -----------------------------------------------------------\n\n    def select_victims(self, n: int = 1) -> List[str]:\n        \"\"\"Return the *n* keys with the lowest eviction scores.\"\"\"\n        scored: list[tuple[float, str]] = []\n        for key, entry in self._registry.items():\n            s = self.compute_lfu_score(entry.access_count, entry.age_hours)\n            scored.append((s, key))\n        scored.sort()\n        return [key for _, key in scored[:n]]\n\n    # -- bulk info ----------------------------------------------------------\n\n    def scores(self) -> Dict[str, float]:\n        \"\"\"Return ``{key: score}`` for every registered entry.\"\"\"\n        return {\n            key: self.compute_lfu_score(e.access_count, e.age_hours)\n            for key, e in self._registry.items()\n        }\n\n    def entry_count(self) -> int:\n        return len(self._registry)\n\n    def is_over_capacity(self) -> bool:\n        return self.entry_count() > self.max_entries\n\n    def __repr__(self) -> str:\n        return (\n            f\"LFUEvictionPolicy(max_entries={self.max_entries}, \"\n            f\"registered={self.entry_count()})\"\n        )\n```\n\nExpected Output:\nUse time-decayed LFU scoring (access_count / (1 + age_hours)) instead of raw count AND emit cache.eviction.lfu metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG56\nTask Name: lfu_no_decay_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_lfu_score to apply time decay instead of returning raw access count.\n\nTarget File: cache/eviction_policy.py\n\nTarget Lines:\n48-64 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 48-64 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug56.py -k bug_56\n\nContext Code:\n```python\ndef compute_lfu_score(\n    self,\n    access_count: int,\n    age_hours: float,\n) -> float:\n    \"\"\"Compute the LFU eviction score for a cache entry.\n\n    BUG_56: returns the raw *access_count* without any time-decay\n    factor.  The correct formula is:\n\n        score = access_count / (1 + age_hours)\n\n    so that older entries naturally decay and do not hog the cache\n    forever based on historical popularity alone.\n    \"\"\"\n    score = access_count  # BUG_56: no time decay — should be access_count / (1 + age_hours)\n    return float(score)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"LFU eviction policy for the org caching layer.\n\nThis module computes frequency-based eviction scores.  Entries with the\nlowest score are evicted first when the cache reaches capacity.  The score\nshould account for both access frequency *and* recency so that stale-but-\nonce-popular items do not monopolise the cache indefinitely.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, List\n\n\n@dataclass\nclass CacheEntry:\n    \"\"\"Metadata for a single cached item.\"\"\"\n\n    key: str\n    access_count: int = 0\n    age_hours: float = 0.0\n\n\n@dataclass\nclass LFUEvictionPolicy:\n    \"\"\"Least-Frequently-Used eviction with optional time-decay scoring.\n\n    The policy maintains a registry of cache entries and exposes helpers\n    to compute per-entry eviction scores and to select victims for\n    eviction when the cache exceeds *max_entries*.\n    \"\"\"\n\n    max_entries: int = 1024\n    _registry: Dict[str, CacheEntry] = field(default_factory=dict)\n\n    # -- registry helpers ---------------------------------------------------\n\n    def register(self, key: str, access_count: int = 0, age_hours: float = 0.0) -> CacheEntry:\n        \"\"\"Register or update an entry in the policy registry.\"\"\"\n        entry = CacheEntry(key=key, access_count=access_count, age_hours=age_hours)\n        self._registry[key] = entry\n        return entry\n\n    def get_entry(self, key: str) -> CacheEntry | None:\n        return self._registry.get(key)\n\n    # -- scoring ------------------------------------------------------------\n\n    def compute_lfu_score(\n        self,\n        access_count: int,\n        age_hours: float,\n    ) -> float:\n        \"\"\"Compute the LFU eviction score for a cache entry.\n\n        BUG_56: returns the raw *access_count* without any time-decay\n        factor.  The correct formula is:\n\n            score = access_count / (1 + age_hours)\n\n        so that older entries naturally decay and do not hog the cache\n        forever based on historical popularity alone.\n        \"\"\"\n        score = access_count  # BUG_56: no time decay — should be access_count / (1 + age_hours)\n        return float(score)\n\n    # -- eviction -----------------------------------------------------------\n\n    def select_victims(self, n: int = 1) -> List[str]:\n        \"\"\"Return the *n* keys with the lowest eviction scores.\"\"\"\n        scored: list[tuple[float, str]] = []\n        for key, entry in self._registry.items():\n            s = self.compute_lfu_score(entry.access_count, entry.age_hours)\n            scored.append((s, key))\n        scored.sort()\n        return [key for _, key in scored[:n]]\n\n    # -- bulk info ----------------------------------------------------------\n\n    def scores(self) -> Dict[str, float]:\n        \"\"\"Return ``{key: score}`` for every registered entry.\"\"\"\n        return {\n            key: self.compute_lfu_score(e.access_count, e.age_hours)\n            for key, e in self._registry.items()\n        }\n\n    def entry_count(self) -> int:\n        return len(self._registry)\n\n    def is_over_capacity(self) -> bool:\n        return self.entry_count() > self.max_entries\n\n    def __repr__(self) -> str:\n        return (\n            f\"LFUEvictionPolicy(max_entries={self.max_entries}, \"\n            f\"registered={self.entry_count()})\"\n        )\n```\n\nExpected Output:\nUse time-decayed LFU scoring (access_count / (1 + age_hours)) instead of raw count AND emit cache.eviction.lfu metric.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"    def compute_lfu_score(\\n        self,\\n        access_count: int,\\n        age_hours: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the LFU eviction score for a cache entry.\\n\\n        BUG_56: returns the raw *access_count* without any time-decay\\n        factor.  The correct formula is:\\n\\n            score = access_count / (1 + age_hours)\\n\\n        so that older entries naturally decay and do not hog the cache\\n        forever based on historical popularity alone.\\n        \\\"\\\"\\\"\\n        score = access_count / (1 + age_hours)\\n        return float(score)\",\n  \"comments\": \"Apply time-decay formula score = access_count / (1 + age_hours) instead of raw access count.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"    def compute_lfu_score(\\n        self,\\n        access_count: int,\\n        age_hours: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the LFU eviction score for a cache entry.\\n\\n        BUG_56: returns the raw *access_count* without any time-decay\\n        factor.  The correct formula is:\\n\\n            score = access_count / (1 + age_hours)\\n\\n        so that older entries naturally decay and do not hog the cache\\n        forever based on historical popularity alone.\\n        \\\"\\\"\\\"\\n        score = access_count / (1 + age_hours)\\n        return float(score)\",\n  \"comments\": \"Apply time-decay formula score = access_count / (1 + age_hours) instead of raw access count.\"\n}\n```",
+  "parsed_output": {
+    "code": "    def compute_lfu_score(\n        self,\n        access_count: int,\n        age_hours: float,\n    ) -> float:\n        \"\"\"Compute the LFU eviction score for a cache entry.\n\n        BUG_56: returns the raw *access_count* without any time-decay\n        factor.  The correct formula is:\n\n            score = access_count / (1 + age_hours)\n\n        so that older entries naturally decay and do not hog the cache\n        forever based on historical popularity alone.\n        \"\"\"\n        score = access_count / (1 + age_hours)\n        return float(score)",
+    "comments": "Apply time-decay formula score = access_count / (1 + age_hours) instead of raw access count."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 18599,
+    "thinking_tokens": null,
+    "cost_usd": 0.00149192
+  },
+  "timings": {
+    "started_at": "2026-03-03T05:58:59.647753Z",
+    "finished_at": "2026-03-03T05:59:40.663304Z",
+    "latency_ms": 41015
+  },
+  "summary_metrics": {
+    "latency_ms": 41015,
+    "prompt_chars": 6269,
+    "output_chars": 707,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5219,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 41014,
+    "model_request_started_at": "2026-03-03T05:58:59.648085Z",
+    "model_request_finished_at": "2026-03-03T05:59:40.663110Z",
+    "model_request_id": "f49f5e20-d678-4784-a892-1ccff56a21f9",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1593,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00149192
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T055859647564Z__bug56__p1__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug56_lfu_decay_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug56_lfu_decay_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It fixes the scoring to use time decay (access_count / (1 + age_hours)), but there is no call to orgops.metrics.emit() to emit the cache.eviction.lfu metric.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug56/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_lfu_score(\\n        self,\\n        access_count: int,\\n        age_hours: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the LFU eviction score for a cache entry.\\n\\n        BUG_56: returns the raw *access_count* without any time-decay\\n        factor.  The correct formula is:\\n\\n            score = access_count / (1 + age_hours)\\n\\n        so that older entries naturally decay and do not hog the cache\\n        forever based on historical popularity alone.\\n        \\\"\\\"\\\"\\n        score = access_count / (1 + age_hours)\\n        return float(score)\", \"comments\": \"Apply time-decay formula score = access_count / (1 + age_hours) instead of raw access count.\"}, \"constraints\": [{\"id\": \"bug56_lfu_decay_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug56/scenario_context/v1\", \"check\": \"Time-decayed LFU scoring AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the scoring to use time decay (access_count / (1 + age_hours)) AND emit a cache.eviction.lfu metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It fixes the scoring to use time decay (access_count / (1 + age_hours)), but there is no call to orgops.metrics.emit() to emit the cache.eviction.lfu metric.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________________ test_bug_56_lfu_decay_and_metric _______________________\n\n    def test_bug_56_lfu_decay_and_metric() -> None:\n        \"\"\"compute_lfu_score must:\n        1. Apply time decay: score = access_count / (1 + age_hours)\n           (NOT raw access_count).\n        2. Emit a 'cache.eviction.lfu' metric via orgops.metrics.emit().\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n    \n        policy = LFUEvictionPolicy()\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # access_count=100, age_hours=9 => 100 / (1 + 9) = 10.0\n            result = policy.compute_lfu_score(100, age_hours=9.0)\n    \n        # --- Requirement 1: time-decay formula ---\n        assert result == 10.0, (\n            f\"Expected 100 / (1 + 9) = 10.0 (time-decayed), got {result} \"\n            \"(raw count would give 100.0)\"\n        )\n    \n        # --- Requirement 1b: verify fresh entry has higher score ---\n        with patch(\"orgops.metrics.emit\"):\n            fresh = policy.compute_lfu_score(100, age_hours=0.0)\n        assert fresh == 100.0, (\n            f\"Expected 100 / (1 + 0) = 100.0 for a fresh entry, got {fresh}\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug56.py:38: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473208591200'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug56.py::test_bug_56_lfu_decay_and_metric - Assertion...\n1 failed in 0.29s\n",
+    "stderr": "",
+    "duration_ms": 3077,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

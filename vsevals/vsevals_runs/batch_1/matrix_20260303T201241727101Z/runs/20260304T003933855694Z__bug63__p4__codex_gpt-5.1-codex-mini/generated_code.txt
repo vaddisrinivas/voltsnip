@@ -1,0 +1,13 @@
+    # BUG_63: off-by-one — reject once max_size is reached (>= ensures we never exceed it)
+    if len(self.queue) >= self.max_size:
+        return False
+
+    self.queue.append(message)
+
+    # fire the capacity-warning alert when utilization reaches 80 %
+    if self.utilization_pct >= 80.0:
+        from orgops.alerts import notify
+
+        notify("dlq.capacity.warning")
+
+    return True

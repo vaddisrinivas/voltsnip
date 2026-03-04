@@ -1,0 +1,16 @@
+        """Attempt to add *message* to the dead-letter queue.
+
+        Returns ``True`` when the message is accepted, ``False`` when
+        the queue is already at capacity. When the queue reaches 80%
+        capacity, a capacity-warning alert is sent for operational
+        monitoring.
+        """
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+        
+        if self.utilization_pct >= 80.0:
+            orgops.alerts.notify("dlq.capacity.warning")
+        
+        return True

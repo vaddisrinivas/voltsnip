@@ -1,0 +1,1 @@
+Apply selectivity only once and invoke any emit_metric hook so the query plan cost metric is recorded.

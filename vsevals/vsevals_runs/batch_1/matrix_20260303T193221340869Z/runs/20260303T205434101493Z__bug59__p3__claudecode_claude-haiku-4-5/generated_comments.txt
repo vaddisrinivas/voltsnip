@@ -1,0 +1,1 @@
+Split 4xx and 5xx status codes into client_error and server_error respectively, then emit error.mapped metric for classification tracking

@@ -1,0 +1,1 @@
+Collect and return every validation error instead of short-circuiting on the first one.

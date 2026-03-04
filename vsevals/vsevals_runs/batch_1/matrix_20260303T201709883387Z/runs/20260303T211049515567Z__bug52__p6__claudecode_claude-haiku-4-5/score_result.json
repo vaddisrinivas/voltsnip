@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug52_case_insensitive_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug52_case_insensitive_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug52_case_insensitive_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug52_case_insensitive_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug52_case_insensitive_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug52_case_insensitive_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The function now compares types case-insensitively using .upper(), but it does not call orgops.compliance.record_decision() to record a schema.validation.passed compliance decision.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    return expected_type.upper() == actual_type.upper()\", \"comments\": \"Changed comparison from case-sensitive (==) to case-insensitive (.upper()) to handle varying database engine type case conventions (PostgreSQL lowercase vs MySQL uppercase).\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The function now compares types case-insensitively using .upper(), but it does not call orgops.compliance.record_decision() to record a schema.validation.passed compliance decision.\"}]}",
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Use >= for capacity and emit a dlq.capacity.warning alert whenever utilization hits 80%.

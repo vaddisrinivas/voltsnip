@@ -1,0 +1,1 @@
+Multiply the scheduled interval to milliseconds and wrap the flush callback with orgops.auditing.write_event so a cache.flush.completed audit event emits after each flush.

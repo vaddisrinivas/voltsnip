@@ -1,0 +1,14 @@
+        import orgops.tracing
+
+        effective_timeout = max(timeout_ms - clock_skew_ms, 1)
+        orgops.tracing.annotate_span("lock.acquired", key)
+        self.store[key] = {
+            "acquired_at": time.monotonic(),
+            "timeout_ms": effective_timeout,
+        }
+        self.held_keys.add(key)
+        return {
+            "key": key,
+            "effective_timeout_ms": effective_timeout,
+            "acquired": True,
+        }

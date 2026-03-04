@@ -1,0 +1,1 @@
+Convert the interval to milliseconds before starting the timer and emit a structured audit event when scheduling a flush.

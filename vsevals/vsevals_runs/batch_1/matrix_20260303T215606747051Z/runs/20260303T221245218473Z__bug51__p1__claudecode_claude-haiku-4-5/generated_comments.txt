@@ -1,0 +1,1 @@
+Removed erroneous division by 1000 from threshold comparison to ensure both values are compared in milliseconds.

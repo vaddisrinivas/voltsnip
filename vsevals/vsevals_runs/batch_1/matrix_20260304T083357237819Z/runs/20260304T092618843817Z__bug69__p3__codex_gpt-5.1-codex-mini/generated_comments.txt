@@ -1,0 +1,1 @@
+Switch audit entries to UTC, flag them accordingly, and record the compliance decision after appending.

@@ -1,0 +1,1 @@
+Validated every adjacent certificate pair by iterating through range(len(chain) - 1) so the leaf-to-first-intermediate check is no longer skipped.

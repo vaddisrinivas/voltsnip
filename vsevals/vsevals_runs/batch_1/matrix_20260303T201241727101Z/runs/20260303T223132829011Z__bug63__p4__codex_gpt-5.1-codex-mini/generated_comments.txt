@@ -1,0 +1,1 @@
+Fixed the capacity guard to reject once length reaches max_size and added an 80% utilization alert call.

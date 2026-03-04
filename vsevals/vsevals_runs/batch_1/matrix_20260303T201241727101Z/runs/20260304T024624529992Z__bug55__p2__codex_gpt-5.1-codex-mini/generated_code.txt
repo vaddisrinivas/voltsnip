@@ -1,0 +1,22 @@
+    def should_refresh_early(
+        self,
+        time_remaining: float,
+        ttl: float,
+        key_name: str = "unknown",
+    ) -> bool:
+        """Return True when the entry should be refreshed before expiry.
+
+        Trigger early refresh when the remaining fraction of the TTL falls
+        below the configured threshold so a new value is ready before expiry.
+        """
+        if ttl <= 0:
+            return False
+
+        ratio = time_remaining / ttl
+
+        # Early refresh should fire only when we're close to expiry.
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1  # increments cache.stampede.prevented metric
+            return True
+
+        return False

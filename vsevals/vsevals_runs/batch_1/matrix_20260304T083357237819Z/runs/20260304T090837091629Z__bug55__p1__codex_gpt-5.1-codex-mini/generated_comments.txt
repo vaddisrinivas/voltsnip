@@ -1,0 +1,1 @@
+Fixes the comparison so early refreshes trigger when the remaining TTL fraction drops below the threshold.

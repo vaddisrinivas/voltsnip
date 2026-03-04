@@ -1,0 +1,1 @@
+Remove duplicate selectivity multiplication so it is applied exactly once, not twice.

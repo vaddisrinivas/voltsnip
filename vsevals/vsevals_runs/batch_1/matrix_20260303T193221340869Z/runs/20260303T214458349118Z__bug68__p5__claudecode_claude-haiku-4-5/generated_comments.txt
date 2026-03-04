@@ -1,0 +1,1 @@
+Adds recursive dict traversal via _redact helper and emits orgops.auditing.write_event after collecting total redaction count across all nesting levels.

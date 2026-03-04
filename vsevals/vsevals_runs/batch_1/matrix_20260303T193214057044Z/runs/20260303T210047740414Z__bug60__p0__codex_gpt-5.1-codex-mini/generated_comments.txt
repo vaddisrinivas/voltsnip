@@ -1,0 +1,1 @@
+Collect all validation errors by appending rather than returning on the first failure.

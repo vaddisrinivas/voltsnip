@@ -1,0 +1,1 @@
+Added additive jitter and emitted the cache.ttl.jittered metric per BUG_54.

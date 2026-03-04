@@ -1,0 +1,1 @@
+Introduce the time-decayed LFU formula and emit the cache.eviction.lfu metric as required by BUG_56.

@@ -1,0 +1,12 @@
+        import orgops.metrics
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        lru_idx = min(range(len(self.connections)),
+                       key=lambda i: self.connections[i].last_used_at)
+        evicted = self.connections.pop(lru_idx)
+        idle_seconds = now - evicted.last_used_at
+        orgops.metrics.emit("pool.connection.evicted", idle_seconds)
+        return evicted

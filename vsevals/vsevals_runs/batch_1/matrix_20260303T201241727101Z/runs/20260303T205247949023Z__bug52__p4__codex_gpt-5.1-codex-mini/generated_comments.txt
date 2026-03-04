@@ -1,0 +1,1 @@
+Normalize both types with casefold() so validation no longer depends on casing.

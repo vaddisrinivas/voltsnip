@@ -1,0 +1,296 @@
+{
+  "run_id": "20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs",
+  "task_id": "BUG44",
+  "task_name": "dns_ttl_stale_check_and_metric",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 60,
+  "task_line_end": 67,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug44/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG44\nTask Name: dns_ttl_stale_check_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_entry so stale DNS entries are correctly identified for refresh.\n\nTarget File: net/dns_cache.py\n\nTarget Lines:\n60-67 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 60-67 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug44.py -k bug_44\n\nContext Code:\n```python\ndef should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n    \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n    BUG_44: the comparison is inverted -- it returns ``True`` when\n    the entry is still fresh and ``False`` when it is actually stale.\n    \"\"\"\n    # BUG_44: inverted stale check -- returns True when NOT stale\n    return entry.stale_at > now\n```\n\nTarget File Content (full file):\n```python\n\"\"\"DNS cache with TTL-aware entry refresh logic.\n\nProvides a lightweight local DNS cache to reduce resolver load. Entries\ncarry a stale-at timestamp and a method to compute remaining TTL.  The\ncache periodically checks whether entries should be proactively refreshed\nbefore they expire.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, Optional\n\n\n@dataclass\nclass DnsEntry:\n    \"\"\"A single cached DNS resolution result.\"\"\"\n\n    hostname: str\n    addresses: list[str]\n    resolved_at: float\n    ttl_seconds: float\n    stale_at: float = field(init=False)\n\n    def __post_init__(self) -> None:\n        self.stale_at = self.resolved_at + self.ttl_seconds\n\n    def ttl_remaining(self, now: float) -> float:\n        \"\"\"Seconds of TTL remaining at the given wall-clock time.\"\"\"\n        return max(0.0, self.stale_at - now)\n\n\nclass DnsCache:\n    \"\"\"In-process DNS resolution cache with proactive refresh.\n\n    Entries are eligible for background refresh once they become stale\n    (i.e. ``now >= entry.stale_at``).  The cache never serves truly\n    expired entries -- callers must re-resolve on miss.\n    \"\"\"\n\n    def __init__(self, max_entries: int = 4096) -> None:\n        self._store: Dict[str, DnsEntry] = {}\n        self._max_entries = max_entries\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def put(self, entry: DnsEntry) -> None:\n        \"\"\"Insert or update a cache entry.\"\"\"\n        if len(self._store) >= self._max_entries and entry.hostname not in self._store:\n            self._evict_oldest()\n        self._store[entry.hostname] = entry\n\n    def lookup(self, hostname: str) -> Optional[DnsEntry]:\n        \"\"\"Return the cached entry if it exists, or ``None``.\"\"\"\n        return self._store.get(hostname)\n\n    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n        \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n        BUG_44: the comparison is inverted -- it returns ``True`` when\n        the entry is still fresh and ``False`` when it is actually stale.\n        \"\"\"\n        # BUG_44: inverted stale check -- returns True when NOT stale\n        return entry.stale_at > now\n\n    def refresh_stale(self, now: Optional[float] = None) -> list[str]:\n        \"\"\"Return hostnames whose entries need a background refresh.\n\n        Also emits a ``dns.cache.refresh`` metric for each stale entry\n        so the on-call dashboard tracks cache churn.\n        \"\"\"\n        now = now if now is not None else time.time()\n        stale_hosts: list[str] = []\n        for hostname, entry in self._store.items():\n            if self.should_refresh_entry(entry, now):\n                stale_hosts.append(hostname)\n        return stale_hosts\n\n    def remove(self, hostname: str) -> None:\n        \"\"\"Evict a single hostname from the cache.\"\"\"\n        self._store.pop(hostname, None)\n\n    @property\n    def size(self) -> int:\n        return len(self._store)\n\n    # ------------------------------------------------------------------\n    # Internal\n    # ------------------------------------------------------------------\n\n    def _evict_oldest(self) -> None:\n        \"\"\"Remove the entry with the earliest resolved_at timestamp.\"\"\"\n        if not self._store:\n            return\n        oldest_key = min(self._store, key=lambda k: self._store[k].resolved_at)\n        del self._store[oldest_key]\n```\n\nExpected Output:\nFix stale comparison to entry.stale_at <= now AND emit dns.cache.refresh metric via orgops.metrics.emit.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug44/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG44\nTask Name: dns_ttl_stale_check_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_entry so stale DNS entries are correctly identified for refresh.\n\nTarget File: net/dns_cache.py\n\nTarget Lines:\n60-67 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 60-67 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug44.py -k bug_44\n\nContext Code:\n```python\ndef should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n    \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n    BUG_44: the comparison is inverted -- it returns ``True`` when\n    the entry is still fresh and ``False`` when it is actually stale.\n    \"\"\"\n    # BUG_44: inverted stale check -- returns True when NOT stale\n    return entry.stale_at > now\n```\n\nTarget File Content (full file):\n```python\n\"\"\"DNS cache with TTL-aware entry refresh logic.\n\nProvides a lightweight local DNS cache to reduce resolver load. Entries\ncarry a stale-at timestamp and a method to compute remaining TTL.  The\ncache periodically checks whether entries should be proactively refreshed\nbefore they expire.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, Optional\n\n\n@dataclass\nclass DnsEntry:\n    \"\"\"A single cached DNS resolution result.\"\"\"\n\n    hostname: str\n    addresses: list[str]\n    resolved_at: float\n    ttl_seconds: float\n    stale_at: float = field(init=False)\n\n    def __post_init__(self) -> None:\n        self.stale_at = self.resolved_at + self.ttl_seconds\n\n    def ttl_remaining(self, now: float) -> float:\n        \"\"\"Seconds of TTL remaining at the given wall-clock time.\"\"\"\n        return max(0.0, self.stale_at - now)\n\n\nclass DnsCache:\n    \"\"\"In-process DNS resolution cache with proactive refresh.\n\n    Entries are eligible for background refresh once they become stale\n    (i.e. ``now >= entry.stale_at``).  The cache never serves truly\n    expired entries -- callers must re-resolve on miss.\n    \"\"\"\n\n    def __init__(self, max_entries: int = 4096) -> None:\n        self._store: Dict[str, DnsEntry] = {}\n        self._max_entries = max_entries\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def put(self, entry: DnsEntry) -> None:\n        \"\"\"Insert or update a cache entry.\"\"\"\n        if len(self._store) >= self._max_entries and entry.hostname not in self._store:\n            self._evict_oldest()\n        self._store[entry.hostname] = entry\n\n    def lookup(self, hostname: str) -> Optional[DnsEntry]:\n        \"\"\"Return the cached entry if it exists, or ``None``.\"\"\"\n        return self._store.get(hostname)\n\n    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n        \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n        BUG_44: the comparison is inverted -- it returns ``True`` when\n        the entry is still fresh and ``False`` when it is actually stale.\n        \"\"\"\n        # BUG_44: inverted stale check -- returns True when NOT stale\n        return entry.stale_at > now\n\n    def refresh_stale(self, now: Optional[float] = None) -> list[str]:\n        \"\"\"Return hostnames whose entries need a background refresh.\n\n        Also emits a ``dns.cache.refresh`` metric for each stale entry\n        so the on-call dashboard tracks cache churn.\n        \"\"\"\n        now = now if now is not None else time.time()\n        stale_hosts: list[str] = []\n        for hostname, entry in self._store.items():\n            if self.should_refresh_entry(entry, now):\n                stale_hosts.append(hostname)\n        return stale_hosts\n\n    def remove(self, hostname: str) -> None:\n        \"\"\"Evict a single hostname from the cache.\"\"\"\n        self._store.pop(hostname, None)\n\n    @property\n    def size(self) -> int:\n        return len(self._store)\n\n    # ------------------------------------------------------------------\n    # Internal\n    # ------------------------------------------------------------------\n\n    def _evict_oldest(self) -> None:\n        \"\"\"Remove the entry with the earliest resolved_at timestamp.\"\"\"\n        if not self._store:\n            return\n        oldest_key = min(self._store, key=lambda k: self._store[k].resolved_at)\n        del self._store[oldest_key]\n```\n\nExpected Output:\nFix stale comparison to entry.stale_at <= now AND emit dns.cache.refresh metric via orgops.metrics.emit.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug44/scenario_context/v1",
+      "voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2",
+      "voltsnip/bug22/category/http_resilience/oracle_playbook/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [
+    {
+      "id": "4e09c382-029d-4519-9c82-e8615c3da020",
+      "canonical_key": "voltsnip/script30/hard/bug44/scenario_context/v1",
+      "title": "DNS stale-entry refresh requires correct comparison AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The should_refresh_entry function must both fix the inverted stale comparison (use entry.stale_at <= now, not entry.stale_at > now) AND emit a 'dns.cache.refresh' metric via orgops.metrics.emit(). The ops dashboard depends on this metric to track cache churn and alert on resolver pressure.",
+      "code": "# DNS Cache Stale-Entry Refresh — Two Requirements\n\nThe `should_refresh_entry` function has TWO requirements:\n\n## 1. Correct Stale Comparison\nAn entry is stale when its stale_at timestamp has passed:\n```python\ndef should_refresh_entry(self, entry, now):\n    return entry.stale_at <= now  # True when stale, False when fresh\n```\nThe current code has `entry.stale_at > now` which is **inverted** —\nit returns True when the entry is still fresh.\n\n## 2. Metric Emission (REQUIRED)\nThe ops dashboard monitors the `dns.cache.refresh` metric.\nWhen a stale entry is found during `refresh_stale()`, the function\nMUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now))\n```\n\n## Complete Correct Pattern\n```python\ndef should_refresh_entry(self, entry, now):\n    return entry.stale_at <= now\n\ndef refresh_stale(self, now=None):\n    import orgops.metrics\n    now = now if now is not None else time.time()\n    stale_hosts = []\n    for hostname, entry in self._store.items():\n        if self.should_refresh_entry(entry, now):\n            orgops.metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now))\n            stale"
+    },
+    {
+      "id": "ff4abbd2-aefb-4c81-9f90-64ab8e15311e",
+      "canonical_key": "voltsnip/bug22/category/concurrency_cache/oracle_playbook/v2",
+      "title": "BUG22 concurrency_cache oracle playbook",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "concurrency_cache",
+        "oracle-playbook",
+        "cache"
+      ],
+      "description": "Generic oracle-aligned checklist for cache concurrency tasks: per-key synchronization, TTL correctness, and no deadlocks.",
+      "code": "# Concurrency cache oracle playbook\\n\\nRequired outcomes:\\n- Coalesce concurrent cache misses per key so builder runs once.\\n- Preserve TTL semantics: expired entries should rebuild, not return stale value.\\n- Ensure waiters always complete (no self-wait or unresolved event states).\\n- Keep synchronization scoped per key to avoid global bottlenecks.\\n\\nFailure modes to avoid:\\n- Multiple builder executions under concurrent misses.\\n- Deadlock from waiting on an event that current thread owns.\\n- Returning stale entries after expiry.\\n- Recursive retries with no progress condition.\\n"
+    },
+    {
+      "id": "be19d4cf-e81e-4609-bc53-315d1cca6aa4",
+      "canonical_key": "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "title": "Script30 HTTP Resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry policies, circuit breaking, connection pooling, DNS caching, TLS validation, and rate limiting.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n"
+    },
+    {
+      "id": "c799f8ee-2abd-43b8-bb2c-1e03875bad25",
+      "canonical_key": "voltsnip/bug22/category/http_resilience/oracle_playbook/v2",
+      "title": "BUG22 http_resilience oracle playbook",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "http_resilience",
+        "oracle-playbook",
+        "retry"
+      ],
+      "description": "Generic oracle-aligned checklist for HTTP resilience tasks: idempotent retries, bounded backoff, and timeout correctness.",
+      "code": "# HTTP resilience oracle playbook\\n\\nRequired outcomes:\\n- Retry only on safe/idempotent methods unless explicitly allowed.\\n- Use bounded exponential backoff with deterministic jitter behavior.\\n- Apply per-request timeout settings consistently.\\n- Respect retry budget and stop conditions.\\n\\nFailure modes to avoid:\\n- Retrying non-idempotent requests by default.\\n- Unbounded or exploding backoff delays.\\n- Ignoring explicit per-request timeout overrides.\\n- Returning success despite final transport failure.\\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG44\nTask Name: dns_ttl_stale_check_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_entry so stale DNS entries are correctly identified for refresh.\n\nTarget File: net/dns_cache.py\n\nTarget Lines:\n60-67 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 60-67 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug44.py -k bug_44\n\nContext Code:\n```python\ndef should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n    \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n    BUG_44: the comparison is inverted -- it returns ``True`` when\n    the entry is still fresh and ``False`` when it is actually stale.\n    \"\"\"\n    # BUG_44: inverted stale check -- returns True when NOT stale\n    return entry.stale_at > now\n```\n\nTarget File Content (full file):\n```python\n\"\"\"DNS cache with TTL-aware entry refresh logic.\n\nProvides a lightweight local DNS cache to reduce resolver load. Entries\ncarry a stale-at timestamp and a method to compute remaining TTL.  The\ncache periodically checks whether entries should be proactively refreshed\nbefore they expire.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Dict, Optional\n\n\n@dataclass\nclass DnsEntry:\n    \"\"\"A single cached DNS resolution result.\"\"\"\n\n    hostname: str\n    addresses: list[str]\n    resolved_at: float\n    ttl_seconds: float\n    stale_at: float = field(init=False)\n\n    def __post_init__(self) -> None:\n        self.stale_at = self.resolved_at + self.ttl_seconds\n\n    def ttl_remaining(self, now: float) -> float:\n        \"\"\"Seconds of TTL remaining at the given wall-clock time.\"\"\"\n        return max(0.0, self.stale_at - now)\n\n\nclass DnsCache:\n    \"\"\"In-process DNS resolution cache with proactive refresh.\n\n    Entries are eligible for background refresh once they become stale\n    (i.e. ``now >= entry.stale_at``).  The cache never serves truly\n    expired entries -- callers must re-resolve on miss.\n    \"\"\"\n\n    def __init__(self, max_entries: int = 4096) -> None:\n        self._store: Dict[str, DnsEntry] = {}\n        self._max_entries = max_entries\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def put(self, entry: DnsEntry) -> None:\n        \"\"\"Insert or update a cache entry.\"\"\"\n        if len(self._store) >= self._max_entries and entry.hostname not in self._store:\n            self._evict_oldest()\n        self._store[entry.hostname] = entry\n\n    def lookup(self, hostname: str) -> Optional[DnsEntry]:\n        \"\"\"Return the cached entry if it exists, or ``None``.\"\"\"\n        return self._store.get(hostname)\n\n    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n        \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n        BUG_44: the comparison is inverted -- it returns ``True`` when\n        the entry is still fresh and ``False`` when it is actually stale.\n        \"\"\"\n        # BUG_44: inverted stale check -- returns True when NOT stale\n        return entry.stale_at > now\n\n    def refresh_stale(self, now: Optional[float] = None) -> list[str]:\n        \"\"\"Return hostnames whose entries need a background refresh.\n\n        Also emits a ``dns.cache.refresh`` metric for each stale entry\n        so the on-call dashboard tracks cache churn.\n        \"\"\"\n        now = now if now is not None else time.time()\n        stale_hosts: list[str] = []\n        for hostname, entry in self._store.items():\n            if self.should_refresh_entry(entry, now):\n                stale_hosts.append(hostname)\n        return stale_hosts\n\n    def remove(self, hostname: str) -> None:\n        \"\"\"Evict a single hostname from the cache.\"\"\"\n        self._store.pop(hostname, None)\n\n    @property\n    def size(self) -> int:\n        return len(self._store)\n\n    # ------------------------------------------------------------------\n    # Internal\n    # ------------------------------------------------------------------\n\n    def _evict_oldest(self) -> None:\n        \"\"\"Remove the entry with the earliest resolved_at timestamp.\"\"\"\n        if not self._store:\n            return\n        oldest_key = min(self._store, key=lambda k: self._store[k].resolved_at)\n        del self._store[oldest_key]\n```\n\nExpected Output:\nFix stale comparison to entry.stale_at <= now AND emit dns.cache.refresh metric via orgops.metrics.emit.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! My memory has the exact context for BUG44. The fix requires two things:\n\n1. **Fix the inverted comparison**: change `entry.stale_at > now` to `entry.stale_at <= now`\n2. **Emit the metric**: call `orgops.metrics.emit(\"dns.cache.refresh\", ...)` when an entry is found to be stale\n\nHere's the corrected code for lines 60-67:\n\n```json\n{\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison is inverted -- it returns ``True`` when\\n        the entry is still fresh and ``False`` when it is actually stale.\\n        \\\"\\\"\\\"\\n        stale = entry.stale_at <= now\\n        if stale:\\n            from orgops import metrics\\n            metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now))\\n        return stale\", \"comments\": \"Fixed inverted stale comparison (>= to <=) and emit dns.cache.refresh metric when entry is stale.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_01EZAwaSYkWPFksEXpHKACyM",
+      "tool_args": {
+        "query": "dns_cache bug44 BUG44 stale check",
+        "k": 3
+      },
+      "tool_result": {
+        "retrieved": 3
+      },
+      "error": null,
+      "started_at": "2026-03-03T20:32:54.151171Z",
+      "finished_at": "2026-03-03T20:32:54.151282Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Perfect! My memory has the exact context for BUG44. The fix requires two things:\n\n1. **Fix the inverted comparison**: change `entry.stale_at > now` to `entry.stale_at <= now`\n2. **Emit the metric**: call `orgops.metrics.emit(\"dns.cache.refresh\", ...)` when an entry is found to be stale\n\nHere's the corrected code for lines 60-67:\n\n```json\n{\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison is inverted -- it returns ``True`` when\\n        the entry is still fresh and ``False`` when it is actually stale.\\n        \\\"\\\"\\\"\\n        stale = entry.stale_at <= now\\n        if stale:\\n            from orgops import metrics\\n            metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now))\\n        return stale\", \"comments\": \"Fixed inverted stale comparison (>= to <=) and emit dns.cache.refresh metric when entry is stale.\"}\n```",
+  "parsed_output": {
+    "code": "    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n        \"\"\"Decide whether *entry* is stale and should be refreshed.\n\n        BUG_44: the comparison is inverted -- it returns ``True`` when\n        the entry is still fresh and ``False`` when it is actually stale.\n        \"\"\"\n        stale = entry.stale_at <= now\n        if stale:\n            from orgops import metrics\n            metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now))\n        return stale",
+    "comments": "Fixed inverted stale comparison (>= to <=) and emit dns.cache.refresh metric when entry is stale."
+  },
+  "token_usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 4,
+    "total_tokens": 22,
+    "cached_tokens": 7534,
+    "thinking_tokens": null,
+    "cost_usd": 0.00061872
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:32:04.000485Z",
+    "finished_at": "2026-03-03T20:32:54.266399Z",
+    "latency_ms": 50265
+  },
+  "summary_metrics": {
+    "latency_ms": 50265,
+    "prompt_chars": 6097,
+    "output_chars": 973,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4964,
+    "snippet_injected_chars": 3395,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 50129,
+    "model_request_started_at": "2026-03-03T20:32:04.022624Z",
+    "model_request_finished_at": "2026-03-03T20:32:54.151982Z",
+    "model_request_id": "ba837c64-1711-4102-95b3-1eb1c326ae86",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1420,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 4,
+      "total_tokens": 22,
+      "cached_tokens": 7534,
+      "thinking_tokens": null,
+      "cost_usd": 0.00061872
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T203204000105Z__bug44__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug44_stale_check_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug44_stale_check_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code sets stale = entry.stale_at <= now (fixing the inverted comparison) and, when stale is true, imports orgops.metrics and calls metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now)).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison is inverted -- it returns ``True`` when\\n        the entry is still fresh and ``False`` when it is actually stale.\\n        \\\"\\\"\\\"\\n        stale = entry.stale_at <= now\\n        if stale:\\n            from orgops import metrics\\n            metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now))\\n        return stale\", \"comments\": \"Fixed inverted stale comparison (>= to <=) and emit dns.cache.refresh metric when entry is stale.\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code sets stale = entry.stale_at <= now (fixing the inverted comparison) and, when stale is true, imports orgops.metrics and calls metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now)).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.37s\n",
+    "stderr": "",
+    "duration_ms": 1800,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

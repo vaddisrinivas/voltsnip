@@ -1,0 +1,1 @@
+Treats DNS and connect as overlapping by using their max plus read timeout, and annotates the span for observability.

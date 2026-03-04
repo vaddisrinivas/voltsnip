@@ -1,0 +1,22 @@
+    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:
+        """Create a child context dict from *parent_context*.
+
+        The child context must carry forward both ``request_id`` and
+        ``correlation_id`` so that downstream services can correlate
+        log entries across the full request tree.
+        """
+        import orgops.tracing
+        
+        child = {
+            "request_id": parent_context["request_id"],
+            "correlation_id": parent_context["correlation_id"],
+        }
+        
+        orgops.tracing.annotate_span("context.propagated", parent_context.get("correlation_id"))
+        
+        self.propagation_log.append({
+            "parent_request_id": parent_context.get("request_id"),
+            "parent_correlation_id": parent_context.get("correlation_id"),
+            "child_keys": list(child.keys()),
+        })
+        return child

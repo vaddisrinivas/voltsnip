@@ -1,0 +1,1 @@
+Collect every validation error before returning so callers receive the full list.

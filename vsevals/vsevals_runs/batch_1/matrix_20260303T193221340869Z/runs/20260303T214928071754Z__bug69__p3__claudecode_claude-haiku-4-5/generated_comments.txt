@@ -1,0 +1,1 @@
+Fixed timestamp to use UTC-aware datetime.now(timezone.utc) and added orgops.compliance.record_decision() call for audit trail normalization

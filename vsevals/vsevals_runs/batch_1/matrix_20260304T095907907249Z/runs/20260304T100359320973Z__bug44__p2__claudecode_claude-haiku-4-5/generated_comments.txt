@@ -1,0 +1,1 @@
+Fixed inverted stale check: changed comparison from entry.stale_at > now to entry.stale_at <= now to correctly identify stale entries.

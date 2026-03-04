@@ -1,0 +1,12 @@
+        ratio = time_remaining / ttl
+
+        # BUG_55: inverted comparison -- refreshes when ratio is HIGH
+        # (far from expiry) instead of when ratio is LOW (close to expiry)
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            metrics = getattr(self, "metrics", None)
+            if metrics is not None:
+                metrics.increment("cache.stampede.prevented")
+            return True
+
+        return False

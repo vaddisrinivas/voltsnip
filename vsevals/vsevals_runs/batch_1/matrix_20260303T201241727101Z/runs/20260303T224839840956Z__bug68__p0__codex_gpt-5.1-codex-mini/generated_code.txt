@@ -1,0 +1,30 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a deep copy of *data* with sensitive values redacted and audit the event."""
+        def _redact(value: Any) -> tuple[Any, int]:
+            if isinstance(value, dict):
+                nested: dict[str, Any] = {}
+                total = 0
+                for nested_key, nested_value in value.items():
+                    if nested_key.lower() in self.sensitive_keys:
+                        nested[nested_key] = REDACTED_PLACEHOLDER
+                        total += 1
+                    else:
+                        redacted_child, child_count = _redact(nested_value)
+                        nested[nested_key] = redacted_child
+                        total += child_count
+                return nested, total
+            if isinstance(value, list):
+                items: list[Any] = []
+                total = 0
+                for item in value:
+                    redacted_item, item_count = _redact(item)
+                    items.append(redacted_item)
+                    total += item_count
+                return items, total
+            return value, 0
+
+        redacted_result, count = _redact(data)
+        from orgops import auditing  # local import to avoid modifying module-level imports
+
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return redacted_result

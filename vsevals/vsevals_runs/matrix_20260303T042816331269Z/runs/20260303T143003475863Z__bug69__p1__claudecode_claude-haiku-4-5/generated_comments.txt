@@ -1,0 +1,1 @@
+Use UTC timestamps and record compliance decision for cross-region audit consistency.

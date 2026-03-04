@@ -1,0 +1,1 @@
+Use the precise float window boundary instead of truncating to an int to prevent undercounting near sub-second edges.

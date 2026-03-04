@@ -1,0 +1,1 @@
+Collect all validation errors via append instead of short-circuiting return, then record compliance decision.

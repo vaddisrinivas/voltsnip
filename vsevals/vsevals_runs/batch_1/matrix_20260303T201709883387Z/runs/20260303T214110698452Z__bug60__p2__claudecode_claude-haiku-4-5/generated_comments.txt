@@ -1,0 +1,1 @@
+Collect all validation errors by appending instead of returning early, and record compliance decision for audit trail

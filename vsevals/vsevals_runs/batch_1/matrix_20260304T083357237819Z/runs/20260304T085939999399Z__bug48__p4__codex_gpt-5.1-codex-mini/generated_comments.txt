@@ -1,0 +1,1 @@
+Normalize version handling with ints, audit-log each pending (soon to be applied) migration, and keep the sorted list numeric.

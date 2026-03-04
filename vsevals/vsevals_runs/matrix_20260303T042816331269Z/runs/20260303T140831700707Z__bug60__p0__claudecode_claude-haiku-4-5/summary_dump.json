@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T140831700707Z__bug60__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG60",
+  "task_name": "validation_short_circuit_and_compliance",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 20578,
+    "prompt_chars": 5481,
+    "output_chars": 774,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4431,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 20575,
+    "model_request_started_at": "2026-03-03T14:08:31.703574Z",
+    "model_request_finished_at": "2026-03-03T14:08:52.278853Z",
+    "model_request_id": "8509699a-b37e-46fb-b7f0-49537c45b1be",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 3454,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00149192
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug60_all_errors_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug60_all_errors_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug60_all_errors_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug60_all_errors_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug60_all_errors_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug60_all_errors_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The function does collect all validation errors by appending to an errors list, but it does not call orgops.compliance.record_decision to record a \"validation.completed\" decision with error_count=len(errors).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_payload(\\n    payload: dict[str, Any],\\n    schema: Sequence[SchemaRule],\\n) -> list[ValidationError]:\\n    \\\"\\\"\\\"Validate *payload* against every rule in *schema*.\\n\\n    BUG_60: the function returns on the first error instead of collecting\\n    ALL errors across every field.  Callers expect the complete error list\\n    so they can present all problems to the user at once.\\n    \\\"\\\"\\\"\\n    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    return errors\", \"comments\": \"Replace short-circuit return on first error with append to collect all validation errors.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The function does collect all validation errors by appending to an errors list, but it does not call orgops.compliance.record_decision to record a \\\"validation.completed\\\" decision with error_count=len(errors).\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________ test_bug_60_validation_all_errors_and_compliance _______________\n\n    def test_bug_60_validation_all_errors_and_compliance() -> None:\n        \"\"\"validate_payload must:\n        1. Collect ALL validation errors across every field (not short-circuit\n           on the first error).\n        2. Record a compliance decision via orgops.compliance.record_decision\n           with decision_type=\"validation.completed\" and error_count=len(errors).\n        Both are required -- fixing only the short-circuit is insufficient.\n        \"\"\"\n    \n        schema = [\n            SchemaRule(field_name=\"name\", required=True, field_type=str),\n            SchemaRule(field_name=\"email\", required=True, field_type=str, min_length=5),\n            SchemaRule(field_name=\"age\", required=True, field_type=int),\n        ]\n    \n        # Payload violates all three rules: name missing, email too short, age wrong type\n        payload = {\"email\": \"ab\", \"age\": \"not-an-int\"}\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            errors = validate_payload(payload, schema)\n    \n        # --- Requirement 1: all errors collected ---\n        assert len(errors) == 3, (\n            f\"Expected 3 validation errors (name missing, email too short, \"\n            f\"age wrong type), got {len(errors)}. \"\n            \"The function must not short-circuit on the first error.\"\n        )\n    \n        error_fields = {e.field for e in errors}\n        assert \"name\" in error_fields, \"Missing error for required field 'name'\"\n        assert \"email\" in error_fields, \"Missing error for field 'email' (min_length)\"\n        assert \"age\" in error_fields, \"Missing error for field 'age' (wrong type)\"\n    \n        # --- Requirement 2: compliance decision recording ---\n>       mock_record.assert_called_once()\n\ntests/unit/test_bug60.py:44: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281473551440624'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug60.py::test_bug_60_validation_all_errors_and_compliance\n1 failed in 0.17s\n",
+    "stderr": "",
+    "duration_ms": 1227,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

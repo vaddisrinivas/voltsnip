@@ -1,0 +1,1 @@
+Fixed off-by-one capacity check (>= instead of >) and added 80% capacity warning alert.

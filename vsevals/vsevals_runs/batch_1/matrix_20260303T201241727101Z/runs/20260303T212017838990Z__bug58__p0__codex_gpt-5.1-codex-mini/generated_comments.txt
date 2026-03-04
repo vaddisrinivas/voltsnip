@@ -1,0 +1,1 @@
+Use modulus by n so partition IDs stay within the valid range and avoid the off-by-one bug.

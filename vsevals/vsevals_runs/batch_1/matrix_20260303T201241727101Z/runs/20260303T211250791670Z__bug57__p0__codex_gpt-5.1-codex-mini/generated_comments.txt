@@ -1,0 +1,1 @@
+Convert the timer interval to milliseconds and capture the flush schedule as an audit event before returning.

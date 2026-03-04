@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug45_chain_range_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug45_chain_range_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses range(len(chain) - 1) for the loop (line: 'for i in range(len(chain) - 1):'), fixing the bug mentioned in the docstring. Additionally, it records the compliance decision via orgops.compliance.record_decision('tls.chain.validated', is_valid) in all three code paths (empty chain, single cert, and multi-cert chain). The depth is tracked in the result dictionary as len(chain).",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n\\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\\n    the leaf-to-first-intermediate check.  Should be\\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\\n    \\\"\\\"\\\"\\n    from orgops.compliance import record_decision\\n\\n    if not chain:\\n        result = {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n        record_decision(\\\"tls.chain.validated\\\", False)\\n        return result\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        result = {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n        record_decision(\\\"tls.chain.validated\\\", is_valid)\\n        return result\\n\\n    errors: list[str] = []\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    result = {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n    record_decision(\\\"tls.chain.validated\\\", is_valid)\\n    return result\", \"comments\": \"Validate every adjacent cert pair and log the tls.chain.validated compliance decision.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses range(len(chain) - 1) for the loop (line: 'for i in range(len(chain) - 1):'), fixing the bug mentioned in the docstring. Additionally, it records the compliance decision via orgops.compliance.record_decision('tls.chain.validated', is_valid) in all three code paths (empty chain, single cert, and multi-cert chain). The depth is tracked in the result dictionary as len(chain).\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

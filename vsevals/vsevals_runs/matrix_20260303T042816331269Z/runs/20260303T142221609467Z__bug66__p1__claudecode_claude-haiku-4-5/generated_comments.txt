@@ -1,0 +1,1 @@
+Added correlation_id to child context dict and annotated trace span with both request_id and correlation_id to maintain distributed tracing continuity.

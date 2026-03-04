@@ -1,0 +1,21 @@
+        self,
+        buffer: list[dict[str, Any]],
+        interval_seconds: float,
+    ) -> dict[str, Any]:
+        """Schedule periodic flushing of *buffer* every *interval_seconds*.
+
+        BUG_57: passes interval_seconds directly to _start_timer which
+        expects milliseconds.  A 5-second interval is misinterpreted as
+        5 ms, causing the buffer to flush ~1000x too frequently.
+        """
+        import orgops.auditing
+        def _audit_flush() -> None:
+            items = self._do_flush(buffer)
+            orgops.auditing.write_event("cache.flush.completed", items_flushed=items)
+        self._timer_handle = _start_timer(interval_seconds * 1000, callback=_audit_flush)
+        return {
+            "scheduled": True,
+            "interval_seconds": interval_seconds,
+            "timer_interval_ms": self._timer_handle["interval_ms"],
+            "buffer_size": len(buffer),
+        }

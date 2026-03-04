@@ -1,0 +1,13 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection."""
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        # Find the connection with the oldest last_used_at (LRU)
+        evicted = min(self.connections, key=lambda c: c.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+        return evicted

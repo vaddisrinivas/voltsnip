@@ -1,0 +1,1 @@
+Fixed inverted comparison (> to <) so early refresh triggers near expiry, and added orgops.metrics.emit() call to track stampede prevention events for the operational dashboard.

@@ -1,0 +1,1 @@
+Use the exact float boundary instead of truncating with int() to preserve sub-second precision.

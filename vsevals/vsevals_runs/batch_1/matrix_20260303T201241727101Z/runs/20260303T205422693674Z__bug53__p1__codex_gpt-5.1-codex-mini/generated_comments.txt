@@ -1,0 +1,1 @@
+Clamp the effective timeout to zero so clock skew cannot make it negative.

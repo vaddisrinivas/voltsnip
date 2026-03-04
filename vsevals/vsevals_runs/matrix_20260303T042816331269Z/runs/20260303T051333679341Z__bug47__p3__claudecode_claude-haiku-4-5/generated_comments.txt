@@ -1,0 +1,1 @@
+Replaced FIFO pop(0) with LRU eviction using min(last_used_at), and added orgops.metrics.emit for alerting system telemetry.

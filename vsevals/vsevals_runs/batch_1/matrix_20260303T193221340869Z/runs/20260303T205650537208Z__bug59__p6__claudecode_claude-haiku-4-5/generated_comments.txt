@@ -1,0 +1,1 @@
+Split 4xx/5xx classification into separate client_error and server_error categories and emit error.mapped metric for operational monitoring.

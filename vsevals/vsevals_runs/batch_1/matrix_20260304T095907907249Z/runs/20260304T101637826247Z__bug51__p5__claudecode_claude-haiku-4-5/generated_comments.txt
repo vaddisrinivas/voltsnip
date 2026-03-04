@@ -1,0 +1,1 @@
+Fixed unit mismatch: compare measured_lag_ms against threshold_ms directly (both in ms, no conversion), and notify on threshold exceeded.

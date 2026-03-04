@@ -1,0 +1,1 @@
+Apply time-decay formula access_count / (1 + age_hours) to prevent older entries from monopolizing the cache based on historical frequency alone.

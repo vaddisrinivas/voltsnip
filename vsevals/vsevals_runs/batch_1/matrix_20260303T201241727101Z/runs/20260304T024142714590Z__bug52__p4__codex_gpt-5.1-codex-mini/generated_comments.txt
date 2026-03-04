@@ -1,0 +1,1 @@
+Compare types case-insensitively and record the schema.validation.passed decision via orgops.

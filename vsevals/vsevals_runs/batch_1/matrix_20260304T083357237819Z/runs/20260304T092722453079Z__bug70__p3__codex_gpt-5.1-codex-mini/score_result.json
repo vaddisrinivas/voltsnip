@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug70_base64_decode_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug70_base64_decode_and_alert",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation decodes base64 segments using _BASE64_RE.findall(text) and _try_decode_base64(segment), then re-scans decoded content with _scan_plaintext(decoded). It also imports orgops.alerts and calls notify(\"secret.detected\", pattern_type=finding[\"pattern_type\"]) for each finding in self.findings, satisfying both requirements.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        import orgops.alerts\\n        for segment in _BASE64_RE.findall(text):\\n            decoded = self._try_decode_base64(segment)\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        for finding in self.findings:\\n            orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=finding[\\\"pattern_type\\\"])\\n        return list(self.findings)\\n\", \"comments\": \"Decode/scan base64 segments and emit alerts for every finding\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation decodes base64 segments using _BASE64_RE.findall(text) and _try_decode_base64(segment), then re-scans decoded content with _scan_plaintext(decoded). It also imports orgops.alerts and calls notify(\\\"secret.detected\\\", pattern_type=finding[\\\"pattern_type\\\"]) for each finding in self.findings, satisfying both requirements.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

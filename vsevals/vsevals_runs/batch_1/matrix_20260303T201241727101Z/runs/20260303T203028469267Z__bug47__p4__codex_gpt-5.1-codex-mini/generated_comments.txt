@@ -1,0 +1,1 @@
+Use the idle-time minimum to evict and, when a metrics emitter is attached, report the pool.connection.evicted event.

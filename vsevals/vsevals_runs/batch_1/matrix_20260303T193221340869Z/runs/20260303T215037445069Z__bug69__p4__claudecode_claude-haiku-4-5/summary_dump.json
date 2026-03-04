@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T215037445069Z__bug69__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG69",
+  "task_name": "audit_timestamp_local_not_utc_and_compliance",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 68914,
+    "prompt_chars": 4737,
+    "output_chars": 1915,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3687,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 68891,
+    "model_request_started_at": "2026-03-03T21:50:37.467932Z",
+    "model_request_finished_at": "2026-03-03T21:51:46.359171Z",
+    "model_request_id": "628f9ac9-b9fb-47a8-adf6-552e30fb0067",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1871,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug69_utc_timestamp_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug69_utc_timestamp_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug69_utc_timestamp_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug69_utc_timestamp_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug69_utc_timestamp_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug69_utc_timestamp_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It uses datetime.now(timezone.utc) for the timestamp, but it does not call orgops.compliance.record_decision() or record a compliance decision including \"audit.timestamp.normalized\" with source_tz=\"UTC\".",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug69/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"from datetime import datetime, timezone\\nfrom dataclasses import dataclass, field\\nfrom typing import Any\\n\\n\\n@dataclass\\nclass AuditTrail:\\n    \\\"\\\"\\\"Append-only audit log for compliance-critical events.\\\"\\\"\\\"\\n\\n    entries: list[dict[str, Any]] = field(default_factory=list)\\n\\n    def create_audit_entry(\\n        self,\\n        event: str,\\n        user_id: str,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a new audit entry and append it to the trail.\\n\\n        BUG_69: uses ``datetime.now()`` which returns local time that\\n        varies across deployment regions.  Audit entries from us-east-1\\n        and eu-west-1 become incomparable.  Must use\\n        ``datetime.now(timezone.utc)`` so all entries share a single\\n        reference clock.\\n        \\\"\\\"\\\"\\n        # BUG_69: local time -- non-deterministic across regions\\n        ts = datetime.now(timezone.utc)\\n        entry: dict[str, Any] = {\\n            \\\"event\\\": event,\\n            \\\"user_id\\\": user_id,\\n            \\\"timestamp\\\": ts.isoformat(),\\n            \\\"utc\\\": True,\\n        }\\n        self.entries.append(entry)\\n        return entry\", \"comments\": \"Added timezone import and changed datetime.now() to datetime.now(timezone.utc); updated utc flag from False to True for cross-region UTC consistency.\"}, \"constraints\": [{\"id\": \"bug69_utc_timestamp_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug69/scenario_context/v1\", \"check\": \"UTC timestamp via datetime.now(timezone.utc) AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both use datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) for the audit timestamp AND record a compliance decision with \\\"audit.timestamp.normalized\\\" and source_tz=\\\"UTC\\\" via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It uses datetime.now(timezone.utc) for the timestamp, but it does not call orgops.compliance.record_decision() or record a compliance decision including \\\"audit.timestamp.normalized\\\" with source_tz=\\\"UTC\\\".\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_69_audit_utc_and_compliance _____________________\n\n    def test_bug_69_audit_utc_and_compliance() -> None:\n        \"\"\"create_audit_entry must:\n        1. Use datetime.now(timezone.utc) so the timestamp is UTC,\n           not local time from datetime.now().\n        2. Record a compliance decision via orgops.compliance.record_decision()\n           with decision_type=\"audit.timestamp.normalized\" and source_tz=\"UTC\".\n        Both are required -- fixing only the timestamp is insufficient.\n        \"\"\"\n        from logops.audit_trail import AuditTrail\n    \n        trail = AuditTrail()\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            entry = trail.create_audit_entry(\n                event=\"user.login\",\n                user_id=\"usr_42\",\n            )\n    \n        # --- Requirement 1: timestamp must be UTC ---\n        assert entry[\"utc\"] is True, (\n            \"Expected utc=True indicating datetime.now(timezone.utc) was used, \"\n            \"got utc=False (local time via datetime.now())\"\n        )\n        # The isoformat of a UTC-aware datetime ends with +00:00\n        assert \"+00:00\" in entry[\"timestamp\"], (\n            f\"Expected UTC offset '+00:00' in timestamp, got '{entry['timestamp']}'. \"\n            \"datetime.now(timezone.utc).isoformat() includes the UTC offset.\"\n        )\n    \n        # --- Requirement 1b: entry fields are correct ---\n        assert entry[\"event\"] == \"user.login\"\n        assert entry[\"user_id\"] == \"usr_42\"\n    \n        # --- Requirement 2: compliance decision recording ---\n>       mock_record.assert_called_once()\n\ntests/unit/test_bug69.py:42: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281473558590432'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance - Asser...\n1 failed in 0.32s\n",
+    "stderr": "",
+    "duration_ms": 2260,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

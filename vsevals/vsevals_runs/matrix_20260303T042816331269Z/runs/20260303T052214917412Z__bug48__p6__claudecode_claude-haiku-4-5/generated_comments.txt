@@ -1,0 +1,1 @@
+Fix version comparison using int() for numeric ordering; audit logging call needed in apply_pending method.

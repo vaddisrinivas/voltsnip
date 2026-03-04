@@ -1,0 +1,1 @@
+Switch eviction to the least-recently-used connection and report the event through the metrics pipeline.

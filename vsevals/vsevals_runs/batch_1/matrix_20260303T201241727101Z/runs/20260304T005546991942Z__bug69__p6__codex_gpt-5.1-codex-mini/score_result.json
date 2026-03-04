@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug69_utc_timestamp_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug69_utc_timestamp_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug69_utc_timestamp_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug69_utc_timestamp_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug69_utc_timestamp_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug69_utc_timestamp_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly uses datetime.now(timezone.utc) for the timestamp, but the compliance recording does not match requirements. It calls record_decision with key 'audit_timestamp_local_not_utc' instead of 'audit.timestamp.normalized', and passes a dict {'timestamp': ..., 'utc': True} rather than including source_tz='UTC' as a parameter. Both parts must be satisfied for the constraint to pass.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug69/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def create_audit_entry(\\n        self,\\n        event: str,\\n        user_id: str,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a new audit entry and append it to the trail.\\n\\n        BUG_69: uses ``datetime.now()`` which returns local time that\\n        varies across deployment regions.  Audit entries from us-east-1\\n        and eu-west-1 become incomparable.  Must use\\n        ``datetime.now(timezone.utc)`` so all entries share a single\\n        reference clock.\\n        \\\"\\\"\\\"\\n        from datetime import timezone as _timezone\\n        from orgops import compliance as _compliance\\n\\n        ts = datetime.now(_timezone.utc)\\n        entry: dict[str, Any] = {\\n            \\\"event\\\": event,\\n            \\\"user_id\\\": user_id,\\n            \\\"timestamp\\\": ts.isoformat(),\\n            \\\"utc\\\": True,\\n        }\\n        self.entries.append(entry)\\n        _compliance.record_decision(\\n            \\\"audit_timestamp_local_not_utc\\\",\\n            {\\\"timestamp\\\": entry[\\\"timestamp\\\"], \\\"utc\\\": True},\\n        )\\n        return entry\\n\", \"comments\": \"Switches the audit entry timestamp to UTC and logs the compliance decision in orgops.\"}, \"constraints\": [{\"id\": \"bug69_utc_timestamp_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug69/scenario_context/v1\", \"check\": \"UTC timestamp via datetime.now(timezone.utc) AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both use datetime.now(timezone.utc) (not datetime.now() or datetime.utcnow()) for the audit timestamp AND record a compliance decision with \\\"audit.timestamp.normalized\\\" and source_tz=\\\"UTC\\\" via orgops.compliance.record_decision()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly uses datetime.now(timezone.utc) for the timestamp, but the compliance recording does not match requirements. It calls record_decision with key 'audit_timestamp_local_not_utc' instead of 'audit.timestamp.normalized', and passes a dict {'timestamp': ..., 'utc': True} rather than including source_tz='UTC' as a parameter. Both parts must be satisfied for the constraint to pass.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

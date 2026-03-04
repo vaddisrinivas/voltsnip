@@ -1,0 +1,59 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_64_timeout_compound_and_metric ____________________
+
+    def test_bug_64_timeout_compound_and_metric() -> None:
+        """escalate_timeout must:
+        1. Compound the timeout: original_ms * (multiplier ** attempt), not original_ms * multiplier.
+        2. Emit a 'timeout.escalated' metric via orgops.metrics.emit() with the new timeout value.
+        Both are required -- fixing only the math is insufficient.
+        """
+        from errors.timeout_escalation import TimeoutEscalator
+    
+        esc = TimeoutEscalator()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+>           result = esc.escalate_timeout(
+                original_ms=100.0,
+                attempt=3,
+                multiplier=1.5,
+            )
+
+tests/unit/test_bug64.py:19: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TimeoutEscalator(ceiling_ms=30000.0, history={'default': [{'attempt': 3, 'original_ms': 100.0, 'new_timeout_ms': 337.5}]})
+original_ms = 100.0, attempt = 3, multiplier = 1.5
+
+    def escalate_timeout(
+        self,
+        original_ms: float,
+        attempt: int,
+        multiplier: float = 1.5,
+    ) -> dict[str, Any]:
+        """Compute the escalated timeout for *attempt*.
+    
+        BUG_64: the calculation uses ``original_ms * multiplier`` on every
+        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).
+        This means every retry gets the same timeout regardless of the
+        attempt number, eliminating the exponential back-pressure that
+        protects recovering services.
+        """
+        new_timeout_ms = original_ms * (multiplier ** attempt)
+        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)
+    
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+    
+>       orgops.metrics.emit("timeout.escalated", new_timeout_ms)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+errors/timeout_escalation.py:50: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug64.py::test_bug_64_timeout_compound_and_metric - Na...
+1 failed in 0.21s

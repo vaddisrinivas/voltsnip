@@ -1,0 +1,1 @@
+Distinguish 4xx from 5xx classifications and emit the required error.mapped metric before returning the category.

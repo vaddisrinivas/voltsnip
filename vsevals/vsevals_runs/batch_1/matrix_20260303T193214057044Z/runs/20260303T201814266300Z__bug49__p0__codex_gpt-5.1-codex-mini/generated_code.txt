@@ -1,0 +1,8 @@
+        self.session.execute(f"ROLLBACK TO SAVEPOINT {savepoint_id}")
+        self.release_savepoint(savepoint_id)
+        trace_event = getattr(self.session, "trace_event", None)
+        if callable(trace_event):
+            trace_event(
+                "rollback_to_savepoint",
+                savepoint_id=savepoint_id,
+            )

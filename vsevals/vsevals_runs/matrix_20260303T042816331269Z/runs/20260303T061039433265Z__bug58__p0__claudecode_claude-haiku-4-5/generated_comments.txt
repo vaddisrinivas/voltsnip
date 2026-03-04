@@ -1,0 +1,1 @@
+Fixed off-by-one error in modulus operation from % (n + 1) to % n to ensure partition IDs remain in valid range [0, num_partitions).

@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds  # preserve sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx","comments":"Boundary now uses exact float arithmetic to avoid truncating sub-second timestamps."}

@@ -1,0 +1,1 @@
+Ensure base64 segments get decoded and re-scanned for secrets.

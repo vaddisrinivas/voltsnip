@@ -1,0 +1,1 @@
+Changed hash(key) % (n + 1) to hash(key) % n to fix off-by-one error that could return out-of-range partition ID.

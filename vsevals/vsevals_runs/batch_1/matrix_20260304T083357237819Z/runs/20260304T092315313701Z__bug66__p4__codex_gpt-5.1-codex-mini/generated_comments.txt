@@ -1,0 +1,1 @@
+Carry the parent correlation_id into the child context and annotate the span for continued tracing.

@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T053849212221Z__bug52__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG52",
+  "task_name": "schema_type_case_sensitive_and_compliance",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 43174,
+    "prompt_chars": 5761,
+    "output_chars": 680,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4711,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 43173,
+    "model_request_started_at": "2026-03-03T05:38:49.213639Z",
+    "model_request_finished_at": "2026-03-03T05:39:32.387208Z",
+    "model_request_id": "5f850692-cab8-40a3-85ad-b0174bad0c0b",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1287,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00150392
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug52_case_insensitive_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug52_case_insensitive_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code makes the comparison case-insensitive by using .upper(), but it does not call orgops.compliance.record_decision() (or record any compliance decision) as required.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    # BUG_52: case-sensitive comparison causes false mismatches\\n    return expected_type.upper() == actual_type.upper()\", \"comments\": \"Changed comparison to case-insensitive using .upper() for cross-engine database type compatibility\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code makes the comparison case-insensitive by using .upper(), but it does not call orgops.compliance.record_decision() (or record any compliance decision) as required.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_52_schema_type_and_compliance ____________________\n\n    def test_bug_52_schema_type_and_compliance() -> None:\n        \"\"\"validate_column_type must:\n        1. Compare expected_type and actual_type case-insensitively\n           (e.g. \"VARCHAR\" should match \"varchar\").\n        2. Record a compliance decision via orgops.compliance.record_decision()\n           with decision_type=\"schema.validation.passed\" and column_type=actual_type.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            # Case mismatch: PostgreSQL returns lowercase, schema expects uppercase\n            result = validate_column_type(\"VARCHAR\", \"varchar\")\n    \n        # --- Requirement 1: case-insensitive comparison ---\n        assert result is True, (\n            \"Expected True for 'VARCHAR' vs 'varchar' (case-insensitive), \"\n            \"got False (case-sensitive comparison)\"\n        )\n    \n        # --- Requirement 2: compliance decision recording ---\n>       mock_record.assert_called_once()\n\ntests/unit/test_bug52.py:30: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281473184016064'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug52.py::test_bug_52_schema_type_and_compliance - Ass...\n1 failed in 0.43s\n",
+    "stderr": "",
+    "duration_ms": 2599,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Replace FIFO pop(0) with LRU eviction: find connection with minimum last_used_at timestamp and remove it from pool.

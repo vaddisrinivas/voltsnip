@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug42_probe_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug42_probe_and_health",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses the '<' comparison operator (self.probe_count < self.max_probes) instead of '>', AND it properly reports circuit.half_open degradation by calling orgops.health.report_degradation('circuit.half_open') when probes are exhausted. Both requirements of the constraint are satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n\\n        import orgops\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\", \"comments\": \"Corrected the probe limit check and report a circuit.half_open degradation when probes are exhausted.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "Looking at this candidate code, I need to evaluate whether it satisfies the constraint requirements.\n\n**Analyzing the constraint:**\nThe constraint requires TWO things:\n1. Fix the probe comparison (using `<` instead of `>`)\n2. Report \"circuit.half_open\" degradation via `orgops.health.report_degradation()`\n\n**Analyzing the candidate code:**\n\n```python\nif self.probe_count < self.max_probes:\n    self.probe_count += 1\n    return True\n\nimport orgops\norgops.health.report_degradation(\"circuit.half_open\")\nreturn False\n```\n\n**Evaluation:**\n\n1. ✅ **Probe comparison fix**: The code uses `self.probe_count < self.max_probes`, which is the correct comparison operator (`<` instead of `>`). This allows probes to continue while the count is below the maximum.\n\n2. ✅ **Health degradation report**: When probes are exhausted (the else case), the code:\n   - Imports `orgops`\n   - Calls `orgops.health.report_degradation(\"circuit.half_open\")`\n   - This matches exactly what the constraint requires\n\nBoth requirements are met in the implementation.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses the '<' comparison operator (self.probe_count < self.max_probes) instead of '>', AND it properly reports circuit.half_open degradation by calling orgops.health.report_degradation('circuit.half_open') when probes are exhausted. Both requirements of the constraint are satisfied.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

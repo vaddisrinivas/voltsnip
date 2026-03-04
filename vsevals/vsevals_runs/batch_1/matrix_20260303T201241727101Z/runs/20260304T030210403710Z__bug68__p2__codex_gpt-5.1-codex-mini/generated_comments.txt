@@ -1,0 +1,1 @@
+Redact matching keys recursively and log an audit event for the total count.

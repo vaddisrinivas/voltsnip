@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_61_retry_budget_reset_and_metric ___________________
+
+    def test_bug_61_retry_budget_reset_and_metric() -> None:
+        """RetryBudget.record_outcome must:
+        1. Replenish remaining on success: min(remaining + 1, max_budget).
+        2. Emit 'retry.budget.consumed' metric via orgops.metrics.emit() on every call.
+        Both are required -- fixing only the decrement logic is insufficient.
+        """
+    
+        budget = RetryBudget(max_budget=5)
+    
+        # --- Consume two tokens via failures ---
+        with patch("orgops.metrics.emit") as mock_emit:
+>           budget.record_outcome(success=False)
+            ^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'RetryBudget' object has no attribute 'record_outcome'
+
+tests/unit/test_bug61.py:21: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug61.py::test_bug_61_retry_budget_reset_and_metric - ...
+1 failed in 0.39s

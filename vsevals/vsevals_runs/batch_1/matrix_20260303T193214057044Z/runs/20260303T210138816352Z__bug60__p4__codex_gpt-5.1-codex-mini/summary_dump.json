@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T210138816352Z__bug60__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG60",
+  "task_name": "validation_short_circuit_and_compliance",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 37401,
+    "prompt_chars": 5322,
+    "output_chars": 893,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4272,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 37382,
+    "model_request_started_at": "2026-03-03T21:01:38.835655Z",
+    "model_request_finished_at": "2026-03-03T21:02:16.217933Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7404,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 115399,
+      "completion_tokens": 2717,
+      "total_tokens": 118116,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0505068
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug60_all_errors_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug60_all_errors_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation collects ALL validation errors by iterating through every rule in the schema, appending each error to the list without early returns. After collecting all errors, it calls compliance.record_decision('validation.completed', error_count=len(errors)) before returning the complete error list. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_payload(\\n    payload: dict[str, Any],\\n    schema: Sequence[SchemaRule],\\n) -> list[ValidationError]:\\n    \\\"\\\"\\\"Validate *payload* against every rule in *schema*.\\n\\n    BUG_60: the function returns on the first error instead of collecting\\n    ALL errors across every field.  Callers expect the complete error list\\n    so they can present all problems to the user at once.\\n    \\\"\\\"\\\"\\n    from orgops import compliance\\n\\n    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\\n\", \"comments\": \"Collect every validation error, then call the compliance recorder with the total count before returning.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation collects ALL validation errors by iterating through every rule in the schema, appending each error to the list without early returns. After collecting all errors, it calls compliance.record_decision('validation.completed', error_count=len(errors)) before returning the complete error list. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 2553,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

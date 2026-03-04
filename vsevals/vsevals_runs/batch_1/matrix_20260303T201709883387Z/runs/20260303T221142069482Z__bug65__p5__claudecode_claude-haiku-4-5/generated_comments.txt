@@ -1,0 +1,1 @@
+Fixed plus-addressed email regex pattern from [\w.]+ to [\w.+]+ and added compliance audit trail recording via orgops.compliance.record_decision for SOC2 compliance.

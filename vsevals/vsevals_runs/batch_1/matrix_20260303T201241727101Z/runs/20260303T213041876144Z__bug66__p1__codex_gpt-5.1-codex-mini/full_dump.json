@@ -1,0 +1,136 @@
+{
+  "run_id": "20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG66",
+  "task_name": "correlation_id_lost_async_and_trace",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "error",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 20,
+  "task_line_end": 39,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug66/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG66\nTask Name: correlation_id_lost_async_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix propagate_context so child context carries both request_id and correlation_id from parent.\n\nTarget File: logops/context_propagator.py\n\nTarget Lines:\n20-39 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 20-39 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug66.py -k bug_66\n\nContext Code:\n```python\ndef propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Create a child context dict from *parent_context*.\n\n    The child context must carry forward both ``request_id`` and\n    ``correlation_id`` so that downstream services can correlate\n    log entries across the full request tree.\n\n    BUG_66: only copies ``request_id`` from the parent context,\n    silently dropping ``correlation_id``.  Downstream services\n    therefore lose the ability to join logs across async fan-outs.\n    \"\"\"\n    # BUG_66: omits correlation_id — child context loses cross-request tracing\n    child = {\"request_id\": parent_context[\"request_id\"]}\n\n    self.propagation_log.append({\n        \"parent_request_id\": parent_context.get(\"request_id\"),\n        \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n        \"child_keys\": list(child.keys()),\n    })\n    return child\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Context propagation for distributed request tracing.\n\nThis module provides context propagation logic for passing request identity\nbetween parent and child execution scopes (e.g., async task dispatch,\ncross-service calls).  Callers use `propagate_context` to create a child\ncontext dict from a parent context, ensuring tracing continuity.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ContextPropagator:\n    \"\"\"Propagates request context across execution boundaries.\"\"\"\n\n    propagation_log: list[dict[str, Any]] = field(default_factory=list)\n\n    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Create a child context dict from *parent_context*.\n\n        The child context must carry forward both ``request_id`` and\n        ``correlation_id`` so that downstream services can correlate\n        log entries across the full request tree.\n\n        BUG_66: only copies ``request_id`` from the parent context,\n        silently dropping ``correlation_id``.  Downstream services\n        therefore lose the ability to join logs across async fan-outs.\n        \"\"\"\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\n        child = {\"request_id\": parent_context[\"request_id\"]}\n\n        self.propagation_log.append({\n            \"parent_request_id\": parent_context.get(\"request_id\"),\n            \"parent_correlation_id\": parent_context.get(\"correlation_id\"),\n            \"child_keys\": list(child.keys()),\n        })\n        return child\n\n    def last_propagation(self) -> dict[str, Any] | None:\n        \"\"\"Return the most recent propagation log entry, or None.\"\"\"\n        if not self.propagation_log:\n            return None\n        return self.propagation_log[-1]\n\n    def propagation_count(self) -> int:\n        \"\"\"Return the total number of context propagations performed.\"\"\"\n        return len(self.propagation_log)\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "",
+  "parsed_output": {
+    "code": "",
+    "comments": ""
+  },
+  "token_usage": {
+    "prompt_tokens": null,
+    "completion_tokens": null,
+    "total_tokens": null,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": null
+  },
+  "timings": {
+    "started_at": "2026-03-03T21:30:41.876332Z",
+    "finished_at": "2026-03-03T21:30:42.656565Z",
+    "latency_ms": 780
+  },
+  "summary_metrics": {
+    "latency_ms": 780,
+    "prompt_chars": 5169,
+    "output_chars": 0,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4119,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": false,
+    "structured_output_succeeded": false,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": null,
+    "model_request_started_at": null,
+    "model_request_finished_at": null,
+    "model_request_id": null,
+    "model_finish_reason": null,
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": null
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T213041876144Z__bug66__p1__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": null,
+  "pytest_result": null,
+  "error": {
+    "type": "RuntimeError",
+    "message": "codex subprocess failed (exit 1): Warning: no last agent message; wrote empty content to /var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_codex_run_ov_9v8g7/codex_last_message.txt\n",
+    "error_class": "EMPTY_OUTPUT"
+  }
+}

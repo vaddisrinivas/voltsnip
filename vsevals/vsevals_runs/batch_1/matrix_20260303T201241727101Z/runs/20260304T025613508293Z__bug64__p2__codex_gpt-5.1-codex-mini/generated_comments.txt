@@ -1,0 +1,1 @@
+Use compounded escalation, capture whether it hit the ceiling, and emit a timeout esacalated metric.

@@ -1,0 +1,1 @@
+Now the child context preserves both identifiers and annotates the trace span before logging propagation details.

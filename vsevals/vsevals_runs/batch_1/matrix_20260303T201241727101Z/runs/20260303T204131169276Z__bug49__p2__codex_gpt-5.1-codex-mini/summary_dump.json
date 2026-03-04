@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T204131169276Z__bug49__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG49",
+  "task_name": "savepoint_release_leak_and_trace",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 33201,
+    "prompt_chars": 4636,
+    "output_chars": 784,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 3503,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 6,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 6,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 33179,
+    "model_request_started_at": "2026-03-03T20:41:31.190502Z",
+    "model_request_finished_at": "2026-03-03T20:42:04.370100Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5413,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 73627,
+      "completion_tokens": 3490,
+      "total_tokens": 77117,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0350348
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug49_release_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug49_release_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation does call release_savepoint after ROLLBACK, but the trace annotation uses the key 'db.rollback.savepoint' instead of the required 'txn.savepoint.rolled_back'.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        import orgops.tracing\\n\\n        orgops.tracing.annotate_span(\\n            \\\"db.rollback.savepoint\\\",\\n            {\\\"savepoint_id\\\": savepoint_id},\\n        )\\n        self.release_savepoint(savepoint_id)\\n\", \"comments\": \"Roll back, trace, and release the savepoint to satisfy BUG_49\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation does call release_savepoint after ROLLBACK, but the trace annotation uses the key 'db.rollback.savepoint' instead of the required 'txn.savepoint.rolled_back'.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

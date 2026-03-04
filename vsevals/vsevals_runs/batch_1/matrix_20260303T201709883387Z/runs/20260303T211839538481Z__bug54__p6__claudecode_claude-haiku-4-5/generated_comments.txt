@@ -1,0 +1,1 @@
+Fix jitter addition (was subtracting) and emit cache.ttl.jittered metric for operational monitoring.

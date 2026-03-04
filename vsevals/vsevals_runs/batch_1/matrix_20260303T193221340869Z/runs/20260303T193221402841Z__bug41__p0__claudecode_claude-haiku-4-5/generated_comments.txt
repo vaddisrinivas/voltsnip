@@ -1,0 +1,1 @@
+Fixed to use exponential backoff (2**attempt) instead of linear, added max_delay cap, and included metrics emission.

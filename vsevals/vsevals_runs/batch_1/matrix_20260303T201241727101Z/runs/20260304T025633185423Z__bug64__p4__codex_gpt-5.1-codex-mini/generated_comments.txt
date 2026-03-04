@@ -1,0 +1,1 @@
+Compound the timeout per attempt, respect the ceiling, and emit a timeout.escalated metric with the computed values.

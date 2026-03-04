@@ -1,0 +1,1 @@
+Fixed loop range from range(1, len(chain)) to range(len(chain) - 1) to validate all adjacent pairs; added orgops.compliance.record_decision call to record validation compliance; refactored to single return point for reliable compliance recording.

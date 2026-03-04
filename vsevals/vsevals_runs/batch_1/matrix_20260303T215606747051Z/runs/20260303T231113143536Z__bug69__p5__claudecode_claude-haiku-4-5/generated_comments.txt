@@ -1,0 +1,1 @@
+Fixed timestamp to UTC with timezone.utc, set utc flag to True, and added required compliance.record_decision() call for SOC2 audit trail verification.

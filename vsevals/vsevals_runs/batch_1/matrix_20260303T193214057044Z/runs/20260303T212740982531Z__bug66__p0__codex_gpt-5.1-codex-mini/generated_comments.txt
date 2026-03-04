@@ -1,0 +1,1 @@
+Include correlation_id when building the child context so propagation_log retains both identifiers.

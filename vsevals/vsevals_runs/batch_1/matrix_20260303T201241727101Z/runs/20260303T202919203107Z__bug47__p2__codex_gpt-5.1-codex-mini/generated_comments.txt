@@ -1,0 +1,1 @@
+Select the idle connection by oldest last_used_at and report the eviction metric if a metrics client is attached.

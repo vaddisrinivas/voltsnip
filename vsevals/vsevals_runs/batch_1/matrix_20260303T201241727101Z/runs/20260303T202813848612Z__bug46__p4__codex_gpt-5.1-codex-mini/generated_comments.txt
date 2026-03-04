@@ -1,0 +1,1 @@
+Keep boundary as a float instead of truncating to preserve sub-second precision in sliding_window_count.

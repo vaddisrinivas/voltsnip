@@ -1,0 +1,1 @@
+Corrected the probe limit check and report a circuit.half_open degradation when probes are exhausted.

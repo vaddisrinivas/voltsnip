@@ -1,0 +1,1 @@
+Compound the timeout per attempt, cap it, emit the required metric, and then build the history record as before.

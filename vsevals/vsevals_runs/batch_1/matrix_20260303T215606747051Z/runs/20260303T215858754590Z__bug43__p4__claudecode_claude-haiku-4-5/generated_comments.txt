@@ -1,0 +1,1 @@
+Fix parallel timeout calculation (max of DNS/connect + read) and add required trace annotation for observability.

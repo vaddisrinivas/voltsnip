@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug43_timeout_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug43_timeout_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug43_timeout_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug43_timeout_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug43_timeout_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug43_timeout_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes the timeout calculation using max(ct, dt) + rt, but it does NOT include any call to orgops.tracing.annotate_span. The constraint requires BOTH the correct timeout logic AND the trace annotation, so this fails.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def calculate_effective_timeout(\\n    self,\\n    connect_timeout: Optional[float] = None,\\n    dns_timeout: Optional[float] = None,\\n    read_timeout: Optional[float] = None,\\n) -> float:\\n    \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n    BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n    the first phase is max(connect, dns) — not the sum.  The current\\n    implementation adds all three timeouts sequentially, over-estimating\\n    the real deadline and delaying failure detection.\\n    \\\"\\\"\\\"\\n    ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n    dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n    rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n    first_phase_timeout = max(ct, dt)\\n    return first_phase_timeout + rt\\n\", \"comments\": \"Treats DNS+connect as overlapping by using their max before adding the read timeout.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the timeout calculation using max(ct, dt) + rt, but it does NOT include any call to orgops.tracing.annotate_span. The constraint requires BOTH the correct timeout logic AND the trace annotation, so this fails.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

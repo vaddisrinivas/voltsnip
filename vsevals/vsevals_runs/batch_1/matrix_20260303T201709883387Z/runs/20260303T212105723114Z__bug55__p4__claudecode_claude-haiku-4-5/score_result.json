@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug55_threshold_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug55_threshold_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code computes ratio = time_remaining/ttl and uses `if ratio < self.threshold:` with a comment indicating it was changed from > to <, satisfying the fixed comparison. Inside that branch it imports orgops.metrics and calls `orgops.metrics.emit(\"cache.stampede.prevented\", key_name)`, emitting the required metric with key_name.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # Fixed: changed from > to <\\n            import orgops.metrics\\n            self.refreshes_triggered += 1\\n            orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name)\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted comparison (> to <) so early refresh triggers near expiry, and added orgops.metrics.emit() call to track stampede prevention events for the operational dashboard.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes ratio = time_remaining/ttl and uses `if ratio < self.threshold:` with a comment indicating it was changed from > to <, satisfying the fixed comparison. Inside that branch it imports orgops.metrics and calls `orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name)`, emitting the required metric with key_name.\"}]}",
+  "passed": true
+}

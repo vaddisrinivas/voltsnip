@@ -1,0 +1,8 @@
+        # BUG_65: _EMAIL_RE misses plus-addressed emails
+        email_re = re.compile(r"[\w.+]+@[\w.]+")
+        result = email_re.sub(_REDACTED_EMAIL, text)
+        count = len(email_re.findall(text))
+        self._history.append(
+            SanitizationResult(text=result, emails_redacted=count)
+        )
+        return result

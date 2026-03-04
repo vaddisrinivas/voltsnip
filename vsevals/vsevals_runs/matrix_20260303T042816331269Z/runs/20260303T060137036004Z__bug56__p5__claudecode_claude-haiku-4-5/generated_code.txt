@@ -1,0 +1,15 @@
+    def compute_lfu_score(
+        self,
+        access_count: int,
+        age_hours: float,
+    ) -> float:
+        """Compute the LFU eviction score for a cache entry.
+
+        Applies time-decay to frequency: older, stale entries decay naturally
+        and do not hog the cache forever based on historical popularity alone.
+        Emits operational metrics for eviction scoring.
+        """
+        import orgops.metrics
+        score = access_count / (1 + age_hours)
+        orgops.metrics.emit("cache.eviction.lfu", score)
+        return float(score)

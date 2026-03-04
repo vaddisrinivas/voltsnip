@@ -1,0 +1,1 @@
+Fix loop range to validate every adjacent pair (range(len(chain) - 1) not range(1, len(chain))) and record tls.chain.validated compliance decision per SOC2 audit requirements.

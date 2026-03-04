@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK to prevent resource leak, added trace annotation for observability, and synchronized internal state tracking to match release_savepoint pattern.

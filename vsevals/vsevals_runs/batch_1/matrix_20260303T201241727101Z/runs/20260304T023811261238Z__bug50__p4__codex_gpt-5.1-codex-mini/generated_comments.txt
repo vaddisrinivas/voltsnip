@@ -1,0 +1,1 @@
+Apply selectivity a single time and publish the query.plan.estimated_cost metric before recording history.

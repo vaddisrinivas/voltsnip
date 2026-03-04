@@ -1,0 +1,1 @@
+Invert the ratio comparison so refreshes trigger when TTL is nearly gone and, when available, emit the cache.stampede.prevented metric via the injected metrics client.

@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T202008776138Z__bug41__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG41",
+  "task_name": "retry_backoff_linear_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 104315,
+    "prompt_chars": 7566,
+    "output_chars": 491,
+    "prompt_system_chars": 3010,
+    "prompt_user_chars": 4556,
+    "snippet_injected_chars": 1348,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 62,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 104231,
+    "model_request_started_at": "2026-03-03T20:20:08.860328Z",
+    "model_request_finished_at": "2026-03-03T20:21:53.092296Z",
+    "model_request_id": "1ee7b7f2-564a-488c-80cd-e58acb0db7e7",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1576,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 7,
+      "total_tokens": 17,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 3.6e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug41_backoff_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug41_backoff_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug41_backoff_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code uses exponential growth and caps at max_delay, but it does not emit any metric and does not call orgops.metrics.emit('retry.backoff.applied', ...).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug41/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"\\ndef compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\", \"comments\": \"Apply exponential backoff with 2**attempt instead of linear, and cap delay at max_delay.\"}, \"constraints\": [{\"id\": \"bug41_backoff_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug41/scenario_context/v1\", \"check\": \"Exponential backoff AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the backoff to exponential (base_delay * 2**attempt, capped at max_delay) AND emit a retry.backoff.applied metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code uses exponential growth and caps at max_delay, but it does not emit any metric and does not call orgops.metrics.emit('retry.backoff.applied', ...).\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________ test_bug_41_retry_backoff_exponential_and_metric _______________\n\n    def test_bug_41_retry_backoff_exponential_and_metric() -> None:\n        \"\"\"compute_backoff_delay must:\n        1. Use exponential backoff (base_delay * 2**attempt) instead of linear.\n        2. Cap the result at max_delay.\n        3. Emit a 'retry.backoff.applied' metric via orgops.metrics.emit().\n        All three are required -- fixing only the math is insufficient.\n        \"\"\"\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # attempt=3, base_delay=1.0 => 1.0 * 2**3 = 8.0\n>           result = compute_backoff_delay(3, base_delay=1.0, max_delay=60.0)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug41.py:20: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nattempt = 3, base_delay = 1.0, max_delay = 60.0\n\n    def compute_backoff_delay(\n        attempt: int,\n        base_delay: float = 1.0,\n        max_delay: float = 60.0,\n    ) -> float:\n        \"\"\"Compute the delay before the next retry attempt.\n    \n        Uses exponential growth (base_delay * 2**attempt) and caps the delay at\n        *max_delay*.\n        \"\"\"\n        delay = base_delay * (2**attempt)\n        delay = min(delay, max_delay)\n>       orgops.metrics.emit(\"retry.backoff.applied\", delay)\n        ^^^^^^\nE       NameError: name 'orgops' is not defined\n\nnet/retry_handler.py:62: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug41.py::test_bug_41_retry_backoff_exponential_and_metric\n1 failed in 0.15s\n",
+    "stderr": "",
+    "duration_ms": 1265,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

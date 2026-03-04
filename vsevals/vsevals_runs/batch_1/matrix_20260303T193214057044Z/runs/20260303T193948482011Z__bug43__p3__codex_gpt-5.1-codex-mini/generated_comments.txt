@@ -1,0 +1,1 @@
+calculate_effective_timeout now uses max(dns, connect) before adding read and annotates the span as required.

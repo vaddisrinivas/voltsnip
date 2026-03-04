@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T234905299028Z__bug43__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG43",
+  "task_name": "pool_timeout_overlap_and_trace",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 28645,
+    "prompt_chars": 6844,
+    "output_chars": 1433,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5794,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 28622,
+    "model_request_started_at": "2026-03-03T23:49:05.321180Z",
+    "model_request_finished_at": "2026-03-03T23:49:33.943313Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9574,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 83926,
+      "completion_tokens": 2777,
+      "total_tokens": 86703,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0380136
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug43_timeout_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug43_timeout_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The timeout calculation is correct (max(ct, dt) + rt), but the span annotation does not match the requirement. The constraint specifies annotate_span('pool.timeout.adjusted', total_timeout), but the code uses annotate_span('request_pool.calculate_effective_timeout', {...dict...}). The span name is different and it passes a dictionary instead of just total_timeout.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def calculate_effective_timeout(\\n        self,\\n        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n        first_phase_timeout = max(ct, dt)\\n        import orgops\\n        orgops.tracing.annotate_span(\\n            \\\"request_pool.calculate_effective_timeout\\\",\\n            {\\n                \\\"connect_timeout\\\": ct,\\n                \\\"dns_timeout\\\": dt,\\n                \\\"first_phase_timeout\\\": first_phase_timeout,\\n                \\\"read_timeout\\\": rt,\\n            },\\n        )\\n        total_timeout = first_phase_timeout + rt\\n        return total_timeout\\n\", \"comments\": \"Treats DNS and connect as overlapping by using their max plus read timeout, and annotates the span for observability.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The timeout calculation is correct (max(ct, dt) + rt), but the span annotation does not match the requirement. The constraint specifies annotate_span('pool.timeout.adjusted', total_timeout), but the code uses annotate_span('request_pool.calculate_effective_timeout', {...dict...}). The span name is different and it passes a dictionary instead of just total_timeout.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

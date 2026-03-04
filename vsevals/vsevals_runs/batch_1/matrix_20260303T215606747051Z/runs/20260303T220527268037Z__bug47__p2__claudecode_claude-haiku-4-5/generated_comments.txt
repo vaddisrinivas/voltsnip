@@ -1,0 +1,1 @@
+Fix FIFO→LRU eviction by finding min(last_used_at) and emit operational metric via orgops.metrics.

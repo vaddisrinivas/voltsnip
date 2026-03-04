@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T222715014429Z__bug61__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG61",
+  "task_name": "retry_budget_no_reset_and_metric",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 67512,
+    "prompt_chars": 5245,
+    "output_chars": 1019,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4195,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 67487,
+    "model_request_started_at": "2026-03-03T22:27:15.039391Z",
+    "model_request_finished_at": "2026-03-03T22:28:22.526895Z",
+    "model_request_id": "8b1e52ce-7014-4326-bbf4-7d52793e0d5b",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1325,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug61_replenish_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug61_replenish_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "On success it sets self.remaining = min(self.remaining + 1, self.max_budget), and it unconditionally calls metrics.emit(\"retry.budget.consumed\", self.remaining) after adjusting remaining for both success and failure.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        from orgops import metrics\\n        if not success:\\n            self.remaining = max(self.remaining - 1, 0)\\n        else:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\", \"comments\": \"Added else branch to replenish budget on success via min(remaining + 1, max_budget), and emit retry.budget.consumed metric after every outcome.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"On success it sets self.remaining = min(self.remaining + 1, self.max_budget), and it unconditionally calls metrics.emit(\\\"retry.budget.consumed\\\", self.remaining) after adjusting remaining for both success and failure.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.20s\n",
+    "stderr": "",
+    "duration_ms": 1884,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Remove the / 1000 conversion so both measured_lag_ms and threshold_ms are compared in the same units (milliseconds).

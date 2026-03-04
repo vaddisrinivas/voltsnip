@@ -1,0 +1,1 @@
+Fixed interval conversion from seconds to milliseconds (* 1000) and added cache.flush.completed audit event emission for compliance tracking.

@@ -1,0 +1,1 @@
+adopted LRU eviction by removing the connection with the oldest last_used_at timestamp instead of popping from the front.

@@ -1,0 +1,1 @@
+Fixed probe limit comparison from > to <, and added health degradation report to signal circuit half-open state to the platform health dashboard.

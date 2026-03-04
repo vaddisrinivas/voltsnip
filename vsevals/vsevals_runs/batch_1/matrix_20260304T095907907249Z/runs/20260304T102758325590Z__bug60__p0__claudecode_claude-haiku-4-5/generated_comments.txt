@@ -1,0 +1,1 @@
+Changed to append errors instead of returning on first error, enabling collection of all validation errors.

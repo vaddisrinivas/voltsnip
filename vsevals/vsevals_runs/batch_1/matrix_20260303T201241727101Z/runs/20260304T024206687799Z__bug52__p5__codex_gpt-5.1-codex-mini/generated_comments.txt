@@ -1,0 +1,1 @@
+Normalize the comparison and log the decision so schema validation is case insensitive and tracked.

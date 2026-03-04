@@ -1,0 +1,4 @@
+        # BUG_43: DNS resolution and connect happen in parallel—take the max.
+        overlapping_timeout = max(ct, dt)
+        total_timeout = overlapping_timeout + rt
+        return total_timeout

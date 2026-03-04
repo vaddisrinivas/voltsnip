@@ -1,0 +1,1 @@
+Changed probe_count comparison from > to < to correctly allow probes when under the limit.

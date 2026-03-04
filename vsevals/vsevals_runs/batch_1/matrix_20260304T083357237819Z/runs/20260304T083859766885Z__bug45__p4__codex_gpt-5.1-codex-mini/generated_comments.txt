@@ -1,0 +1,1 @@
+Validate every adjacent certificate pair and log the tls.chain.validated decision via orgops.compliance.record_decision before returning.

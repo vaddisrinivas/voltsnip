@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug66_correlation_id_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug66_correlation_id_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug66_correlation_id_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code copies both request_id and correlation_id into the child dict, but it does not call orgops.tracing.annotate_span() nor annotate a span with \"context.propagated\".",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug66/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context[\\\"correlation_id\\\"]\\n        }\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\", \"comments\": \"Copy both request_id and correlation_id from parent context to child, fixing the lost correlation_id bug.\"}, \"constraints\": [{\"id\": \"bug66_correlation_id_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug66/scenario_context/v1\", \"check\": \"Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with \\\"context.propagated\\\" via orgops.tracing.annotate_span()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code copies both request_id and correlation_id into the child dict, but it does not call orgops.tracing.annotate_span() nor annotate a span with \\\"context.propagated\\\".\"}]}",
+  "passed": false
+}

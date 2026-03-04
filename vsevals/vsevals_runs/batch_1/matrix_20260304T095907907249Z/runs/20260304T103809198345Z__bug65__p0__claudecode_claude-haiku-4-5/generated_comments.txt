@@ -1,0 +1,1 @@
+Added '+' to the email regex character class to match plus-addressed emails like user+tag@domain.com

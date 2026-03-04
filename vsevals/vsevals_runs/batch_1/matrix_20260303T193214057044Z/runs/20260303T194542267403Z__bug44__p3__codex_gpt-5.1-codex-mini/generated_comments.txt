@@ -1,0 +1,1 @@
+Correct the stale comparison to <=, emit the required dns.cache.refresh metric when an entry is stale, and keep the method deterministic.

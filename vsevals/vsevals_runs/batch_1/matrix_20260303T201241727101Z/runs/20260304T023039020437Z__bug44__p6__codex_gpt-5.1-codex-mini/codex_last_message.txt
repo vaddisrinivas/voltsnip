@@ -1,0 +1,1 @@
+{"code":"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n        \"\"\"Decide whether *entry* is stale and should be refreshed.\"\"\"\n        return now >= entry.stale_at\n", "comments":"Update the stale check so we only refresh when the current time is at or past the entry\u0002s stale_at timestamp."}

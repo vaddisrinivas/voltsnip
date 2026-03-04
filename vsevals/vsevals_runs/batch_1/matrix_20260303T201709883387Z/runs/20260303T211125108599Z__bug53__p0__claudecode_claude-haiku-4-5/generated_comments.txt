@@ -1,0 +1,1 @@
+Clamp effective_timeout to non-negative using max(0, ...) to prevent negative timeouts when clock_skew_ms exceeds timeout_ms.

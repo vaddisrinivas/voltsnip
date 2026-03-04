@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T030108819686Z__bug67__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG67",
+  "task_name": "sampling_rate_truncation_and_metric",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 17171,
+    "prompt_chars": 5075,
+    "output_chars": 1185,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 3942,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 17147,
+    "model_request_started_at": "2026-03-04T03:01:08.844181Z",
+    "model_request_finished_at": "2026-03-04T03:01:25.991508Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 4853,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9205,
+      "completion_tokens": 2315,
+      "total_tokens": 11520,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.007386
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug67_sampling_round_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug67_sampling_round_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly fixes the rate computation using round(target_events / total_events * 100, 2) instead of int() truncation, and emits the 'log.sampling.rate' metric via orgops.metrics.emit() with the computed rate value.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug67/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        from orgops.metrics import emit\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        emit(\\\"log.sampling.rate\\\", rate)\\n        return float(rate)\\n\", \"comments\": \"Use round(..., 2) when calculating the rate, emit the metric, and keep the tracked history entry updated.\"}, \"constraints\": [{\"id\": \"bug67_sampling_round_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug67/scenario_context/v1\", \"check\": \"Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a \\\"log.sampling.rate\\\" metric via orgops.metrics.emit() with the computed rate value?\"}]}"
+    },
+    "judge_raw_response": "Looking at this constraint, I need to verify two things:\n\n1. **Proper rounding**: The code uses `round(target_events / total_events * 100, 2)` instead of `int()` truncation\n2. **Metric emission**: The code emits a \"log.sampling.rate\" metric via `orgops.metrics.emit()` with the computed rate value\n\nLet me examine the candidate code:\n\n```python\nrate = round(target_events / total_events * 100, 2)\n```\n✓ This correctly uses `round(..., 2)` for two-decimal precision instead of `int()` truncation.\n\n```python\nfrom orgops.metrics import emit\n...\nemit(\"log.sampling.rate\", rate)\n```\n✓ This correctly imports `emit` from `orgops.metrics` and emits the \"log.sampling.rate\" metric with the computed `rate` value.\n\nBoth requirements are satisfied in the implementation.\n\n```json\n{\"results\":[{\"verdict\":true,\"reason\":\"The implementation correctly fixes the rate computation using round(target_events / total_events * 100, 2) instead of int() truncation, and emits the 'log.sampling.rate' metric via orgops.metrics.emit() with the computed rate value.\"}]}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.51s\n",
+    "stderr": "",
+    "duration_ms": 3026,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

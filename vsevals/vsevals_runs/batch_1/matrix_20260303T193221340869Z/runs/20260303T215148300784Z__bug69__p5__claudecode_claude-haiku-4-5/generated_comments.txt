@@ -1,0 +1,1 @@
+Fixed timestamp to use UTC timezone via datetime.now(timezone.utc), set utc flag to True, and record compliance decision for audit trail normalization.

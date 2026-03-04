@@ -1,0 +1,1 @@
+Fixed classify_http_error to distinguish 4xx client errors from 5xx server errors instead of treating all 400-599 as server_error.

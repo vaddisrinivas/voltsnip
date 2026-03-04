@@ -1,0 +1,1 @@
+Changed ratio > self.threshold to ratio < self.threshold to trigger early refresh when time_remaining is low (close to expiry) instead of high (far from expiry).

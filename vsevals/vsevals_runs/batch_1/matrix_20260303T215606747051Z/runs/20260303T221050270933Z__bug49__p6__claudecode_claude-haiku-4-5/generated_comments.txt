@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after ROLLBACK to free server resources, updated _active_savepoints tracking, and annotated trace span for observability via orgops.tracing.annotate_span().

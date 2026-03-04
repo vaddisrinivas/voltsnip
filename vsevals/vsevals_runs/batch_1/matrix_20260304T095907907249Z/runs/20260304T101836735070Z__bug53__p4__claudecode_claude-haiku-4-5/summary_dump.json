@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T101836735070Z__bug53__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG53",
+  "task_name": "lock_timeout_negative_and_trace",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 25479,
+    "prompt_chars": 4840,
+    "output_chars": 1124,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3790,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 25382,
+    "model_request_started_at": "2026-03-04T10:18:36.756029Z",
+    "model_request_finished_at": "2026-03-04T10:19:02.138949Z",
+    "model_request_id": "053dbbc1-a58c-4b86-8f15-8fd84e339f22",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1491,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 4,
+      "total_tokens": 22,
+      "cached_tokens": 8625,
+      "thinking_tokens": null,
+      "cost_usd": 0.000706
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug53_timeout_clamp_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug53_timeout_clamp_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug53_timeout_clamp_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "Effective timeout is clamped with max(1, timeout_ms - clock_skew_ms) and orgops.tracing.annotate_span is called, but it annotates timeout_ms=effective_timeout rather than annotating the trace span with \"lock.acquired\" as required.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug53/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def acquire_lock(\\n        self,\\n        key: str,\\n        timeout_ms: int,\\n        clock_skew_ms: int = 0,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Acquire a distributed lock on *key* with adjusted timeout.\\n\\n        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\\n        without clamping.  When clock_skew_ms > timeout_ms the effective\\n        timeout goes negative, causing immediate expiry or backend errors.\\n        \\\"\\\"\\\"\\n        effective_timeout = max(1, timeout_ms - clock_skew_ms)\\n        self.store[key] = {\\n            \\\"acquired_at\\\": time.monotonic(),\\n            \\\"timeout_ms\\\": effective_timeout,\\n        }\\n        self.held_keys.add(key)\\n        orgops.tracing.annotate_span(timeout_ms=effective_timeout)\\n        return {\\n            \\\"key\\\": key,\\n            \\\"effective_timeout_ms\\\": effective_timeout,\\n            \\\"acquired\\\": True,\\n        }\", \"comments\": \"Clamp effective_timeout to minimum 1 ms using max() to prevent negative values when clock_skew_ms exceeds timeout_ms, and annotate trace span with the clamped timeout.\"}, \"constraints\": [{\"id\": \"bug53_timeout_clamp_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug53/scenario_context/v1\", \"check\": \"Effective timeout clamped to >= 1 AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both clamp the effective timeout to a minimum of 1 ms (using max(timeout_ms - clock_skew_ms, 1)) AND annotate the trace span with \\\"lock.acquired\\\" via orgops.tracing.annotate_span() on successful lock acquisition?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"Effective timeout is clamped with max(1, timeout_ms - clock_skew_ms) and orgops.tracing.annotate_span is called, but it annotates timeout_ms=effective_timeout rather than annotating the trace span with \\\"lock.acquired\\\" as required.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________\n\n    def test_bug_53_lock_timeout_clamp_and_trace() -> None:\n        \"\"\"acquire_lock must:\n        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"lock.acquired\", key) on successful acquisition.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from cache.distributed_lock import DistributedLock\n    \n        lock = DistributedLock()\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n>           result = lock.acquire_lock(\n                key=\"resource:42\",\n                timeout_ms=100,\n                clock_skew_ms=200,\n            )\n\ntests/unit/test_bug53.py:20: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = DistributedLock(store={'resource:42': {'acquired_at': 368382.878626415, 'timeout_ms': 1}}, held_keys={'resource:42'})\nkey = 'resource:42', timeout_ms = 100, clock_skew_ms = 200\n\n    def acquire_lock(\n        self,\n        key: str,\n        timeout_ms: int,\n        clock_skew_ms: int = 0,\n    ) -> dict[str, Any]:\n        \"\"\"Acquire a distributed lock on *key* with adjusted timeout.\n    \n        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms\n        without clamping.  When clock_skew_ms > timeout_ms the effective\n        timeout goes negative, causing immediate expiry or backend errors.\n        \"\"\"\n        effective_timeout = max(1, timeout_ms - clock_skew_ms)\n        self.store[key] = {\n            \"acquired_at\": time.monotonic(),\n            \"timeout_ms\": effective_timeout,\n        }\n        self.held_keys.add(key)\n>       orgops.tracing.annotate_span(timeout_ms=effective_timeout)\n        ^^^^^^\nE       NameError: name 'orgops' is not defined\n\ncache/distributed_lock.py:39: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace - N...\n1 failed in 0.22s\n",
+    "stderr": "",
+    "duration_ms": 1747,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug53_timeout_clamp_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug53_timeout_clamp_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug53_timeout_clamp_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug53_timeout_clamp_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug53_timeout_clamp_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug53_timeout_clamp_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation clamps the effective timeout to 0 (max(0, timeout_ms - clock_skew_ms)) rather than the required minimum of 1 ms (max(timeout_ms - clock_skew_ms, 1)). Additionally, there is no call to orgops.tracing.annotate_span() to annotate the trace span with 'lock.acquired' on successful lock acquisition. Both requirements of the constraint are missing.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug53/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        effective_timeout = max(0, timeout_ms - clock_skew_ms)  # clamp so skew cannot drive timeout negative\\n        self.store[key] = {\\n            \\\"acquired_at\\\": time.monotonic(),\\n            \\\"timeout_ms\\\": effective_timeout,\\n        }\\n        self.held_keys.add(key)\\n        return {\\n            \\\"key\\\": key,\\n            \\\"effective_timeout_ms\\\": effective_timeout,\\n            \\\"acquired\\\": True,\\n        }\", \"comments\": \"Clamp the adjusted timeout to zero so clock skew never makes it negative prior to storing/returning it.\"}, \"constraints\": [{\"id\": \"bug53_timeout_clamp_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug53/scenario_context/v1\", \"check\": \"Effective timeout clamped to >= 1 AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both clamp the effective timeout to a minimum of 1 ms (using max(timeout_ms - clock_skew_ms, 1)) AND annotate the trace span with \\\"lock.acquired\\\" via orgops.tracing.annotate_span() on successful lock acquisition?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation clamps the effective timeout to 0 (max(0, timeout_ms - clock_skew_ms)) rather than the required minimum of 1 ms (max(timeout_ms - clock_skew_ms, 1)). Additionally, there is no call to orgops.tracing.annotate_span() to annotate the trace span with 'lock.acquired' on successful lock acquisition. Both requirements of the constraint are missing.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

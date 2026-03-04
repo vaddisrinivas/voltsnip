@@ -1,0 +1,1 @@
+Fix probe comparison from > to < AND add orgops.health.report_degradation to report circuit.half_open degradation for operational monitoring.

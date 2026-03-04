@@ -1,0 +1,1 @@
+Rollback now traces the event and releases the savepoint to avoid leaks.

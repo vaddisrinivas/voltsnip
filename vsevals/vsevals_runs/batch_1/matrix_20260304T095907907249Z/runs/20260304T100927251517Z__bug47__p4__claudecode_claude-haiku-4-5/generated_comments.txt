@@ -1,0 +1,1 @@
+Changed from FIFO (pop(0)) to LRU (min by last_used_at), and added metrics.increment for pool.connection.evicted event.

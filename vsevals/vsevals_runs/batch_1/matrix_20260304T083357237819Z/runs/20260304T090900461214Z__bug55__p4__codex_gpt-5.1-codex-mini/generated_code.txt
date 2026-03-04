@@ -1,0 +1,45 @@
+    def should_refresh_early(
+        self,
+        time_remaining: float,
+        ttl: float,
+        key_name: str = "unknown",
+    ) -> bool:
+        """Return True when the entry should be refreshed before expiry.
+
+        BUG_55: the ratio comparison is inverted, causing early refreshes
+        when the entry is FAR from expiry (most of the TTL left) rather
+        than CLOSE to expiry (little TTL left).
+        """
+        if ttl <= 0:
+            return False
+
+        ratio = time_remaining / ttl
+
+        if ratio < self.threshold:  # BUG_55: now refresh when CLOSE to expiry
+            metric_name = "cache.stampede.prevented"
+            emitter = (
+                getattr(self, "metrics", None)
+                or getattr(self, "metric_emitter", None)
+                or getattr(self, "metric_sink", None)
+            )
+            if emitter is not None:
+                if callable(emitter):
+                    emitter(metric_name)
+                else:
+                    for method in ("emit", "increment", "record"):
+                        fn = getattr(emitter, method, None)
+                        if callable(fn):
+                            fn(metric_name)
+                            break
+            else:
+                try:
+                    from cache.metrics import emit_metric
+                except ImportError:  # pragma: no cover
+                    emit_metric = None
+                if emit_metric is not None:
+                    emit_metric(metric_name)
+
+            self.refreshes_triggered += 1
+            return True
+
+        return False

@@ -1,0 +1,1 @@
+Added base64 segment detection, decoding, and re-scanning to catch encoded secrets.

@@ -1,0 +1,1 @@
+Normalize both values with casefold so type comparison is case-insensitive per BUG_52.

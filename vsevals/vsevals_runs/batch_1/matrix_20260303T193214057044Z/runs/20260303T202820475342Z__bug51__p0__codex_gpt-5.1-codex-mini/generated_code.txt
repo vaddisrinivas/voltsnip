@@ -1,0 +1,1 @@
+    exceeded = measured_lag_ms > threshold_ms  # BUG_51: compare milliseconds with milliseconds

@@ -1,0 +1,315 @@
+{
+  "run_id": "20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG47",
+  "task_name": "pool_eviction_fifo_not_lru_and_metric",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 66,
+  "task_line_end": 84,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug47/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG47\nTask Name: pool_eviction_fifo_not_lru_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix evict_idle to use LRU eviction instead of FIFO order.\n\nTarget File: data/connection_pool.py\n\nTarget Lines:\n66-84 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-84 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug47.py -k bug_47\n\nContext Code:\n```python\ndef evict_idle(self) -> Connection | None:\n    \"\"\"Remove the least-recently-used idle connection.\n\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\n    *first-inserted* connection (FIFO order) rather than the one\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\n    connections are touched out of insertion order, the wrong\n    connection is evicted.\n    \"\"\"\n    if not self.connections:\n        return None\n\n    now = time.time()\n\n    # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n    evicted = self.connections.pop(0)\n\n    idle_seconds = now - evicted.last_used_at\n    return evicted\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with idle-connection eviction.\n\nThe pool maintains a bounded set of reusable database connections.\nWhen the pool is full, ``evict_idle`` removes the *least recently used*\nconnection (the one with the oldest ``last_used_at`` timestamp) so that\na new connection can be admitted.\n\nThe eviction event must be reported to the org metrics pipeline so that\nthe alerting system can detect connection churn anomalies.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass Connection:\n    \"\"\"A thin wrapper around a raw DB connection handle.\"\"\"\n\n    handle: Any\n    created_at: float = field(default_factory=time.time)\n    last_used_at: float = field(default_factory=time.time)\n\n    def touch(self) -> None:\n        \"\"\"Update *last_used_at* to the current time.\"\"\"\n        self.last_used_at = time.time()\n\n\nclass ConnectionPool:\n    \"\"\"Fixed-size pool of database connections.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of connections the pool may hold.\n    \"\"\"\n\n    def __init__(self, max_size: int = 10) -> None:\n        self.max_size = max_size\n        self.connections: list[Connection] = []\n\n    # ── public interface ────────────────────────────────────\n\n    def add(self, conn: Connection) -> None:\n        \"\"\"Add *conn* to the pool, evicting an idle connection if full.\"\"\"\n        if len(self.connections) >= self.max_size:\n            self.evict_idle()\n        self.connections.append(conn)\n\n    def get(self) -> Connection | None:\n        \"\"\"Return the most-recently-used connection, or *None* if empty.\"\"\"\n        if not self.connections:\n            return None\n        conn = self.connections[-1]\n        conn.touch()\n        return conn\n\n    @property\n    def size(self) -> int:\n        return len(self.connections)\n\n    # ── eviction ────────────────────────────────────────────\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n        evicted = self.connections.pop(0)\n\n        idle_seconds = now - evicted.last_used_at\n        return evicted\n```\n\nExpected Output:\nUse LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug47/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG47\nTask Name: pool_eviction_fifo_not_lru_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix evict_idle to use LRU eviction instead of FIFO order.\n\nTarget File: data/connection_pool.py\n\nTarget Lines:\n66-84 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-84 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug47.py -k bug_47\n\nContext Code:\n```python\ndef evict_idle(self) -> Connection | None:\n    \"\"\"Remove the least-recently-used idle connection.\n\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\n    *first-inserted* connection (FIFO order) rather than the one\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\n    connections are touched out of insertion order, the wrong\n    connection is evicted.\n    \"\"\"\n    if not self.connections:\n        return None\n\n    now = time.time()\n\n    # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n    evicted = self.connections.pop(0)\n\n    idle_seconds = now - evicted.last_used_at\n    return evicted\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with idle-connection eviction.\n\nThe pool maintains a bounded set of reusable database connections.\nWhen the pool is full, ``evict_idle`` removes the *least recently used*\nconnection (the one with the oldest ``last_used_at`` timestamp) so that\na new connection can be admitted.\n\nThe eviction event must be reported to the org metrics pipeline so that\nthe alerting system can detect connection churn anomalies.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass Connection:\n    \"\"\"A thin wrapper around a raw DB connection handle.\"\"\"\n\n    handle: Any\n    created_at: float = field(default_factory=time.time)\n    last_used_at: float = field(default_factory=time.time)\n\n    def touch(self) -> None:\n        \"\"\"Update *last_used_at* to the current time.\"\"\"\n        self.last_used_at = time.time()\n\n\nclass ConnectionPool:\n    \"\"\"Fixed-size pool of database connections.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of connections the pool may hold.\n    \"\"\"\n\n    def __init__(self, max_size: int = 10) -> None:\n        self.max_size = max_size\n        self.connections: list[Connection] = []\n\n    # ── public interface ────────────────────────────────────\n\n    def add(self, conn: Connection) -> None:\n        \"\"\"Add *conn* to the pool, evicting an idle connection if full.\"\"\"\n        if len(self.connections) >= self.max_size:\n            self.evict_idle()\n        self.connections.append(conn)\n\n    def get(self) -> Connection | None:\n        \"\"\"Return the most-recently-used connection, or *None* if empty.\"\"\"\n        if not self.connections:\n            return None\n        conn = self.connections[-1]\n        conn.touch()\n        return conn\n\n    @property\n    def size(self) -> int:\n        return len(self.connections)\n\n    # ── eviction ────────────────────────────────────────────\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n        evicted = self.connections.pop(0)\n\n        idle_seconds = now - evicted.last_used_at\n        return evicted\n```\n\nExpected Output:\nUse LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug47/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG47\nTask Name: pool_eviction_fifo_not_lru_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix evict_idle to use LRU eviction instead of FIFO order.\n\nTarget File: data/connection_pool.py\n\nTarget Lines:\n66-84 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-84 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug47.py -k bug_47\n\nContext Code:\n```python\ndef evict_idle(self) -> Connection | None:\n    \"\"\"Remove the least-recently-used idle connection.\n\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\n    *first-inserted* connection (FIFO order) rather than the one\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\n    connections are touched out of insertion order, the wrong\n    connection is evicted.\n    \"\"\"\n    if not self.connections:\n        return None\n\n    now = time.time()\n\n    # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n    evicted = self.connections.pop(0)\n\n    idle_seconds = now - evicted.last_used_at\n    return evicted\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with idle-connection eviction.\n\nThe pool maintains a bounded set of reusable database connections.\nWhen the pool is full, ``evict_idle`` removes the *least recently used*\nconnection (the one with the oldest ``last_used_at`` timestamp) so that\na new connection can be admitted.\n\nThe eviction event must be reported to the org metrics pipeline so that\nthe alerting system can detect connection churn anomalies.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass Connection:\n    \"\"\"A thin wrapper around a raw DB connection handle.\"\"\"\n\n    handle: Any\n    created_at: float = field(default_factory=time.time)\n    last_used_at: float = field(default_factory=time.time)\n\n    def touch(self) -> None:\n        \"\"\"Update *last_used_at* to the current time.\"\"\"\n        self.last_used_at = time.time()\n\n\nclass ConnectionPool:\n    \"\"\"Fixed-size pool of database connections.\n\n    Parameters\n    ----------\n    max_size:\n        Maximum number of connections the pool may hold.\n    \"\"\"\n\n    def __init__(self, max_size: int = 10) -> None:\n        self.max_size = max_size\n        self.connections: list[Connection] = []\n\n    # ── public interface ────────────────────────────────────\n\n    def add(self, conn: Connection) -> None:\n        \"\"\"Add *conn* to the pool, evicting an idle connection if full.\"\"\"\n        if len(self.connections) >= self.max_size:\n            self.evict_idle()\n        self.connections.append(conn)\n\n    def get(self) -> Connection | None:\n        \"\"\"Return the most-recently-used connection, or *None* if empty.\"\"\"\n        if not self.connections:\n            return None\n        conn = self.connections[-1]\n        conn.touch()\n        return conn\n\n    @property\n    def size(self) -> int:\n        return len(self.connections)\n\n    # ── eviction ────────────────────────────────────────────\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)\n        evicted = self.connections.pop(0)\n\n        idle_seconds = now - evicted.last_used_at\n        return evicted\n```\n\nExpected Output:\nUse LRU eviction (min last_used_at) instead of FIFO AND emit pool.connection.evicted metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on the task requirements, I need to fix `evict_idle()` to implement LRU eviction (selecting the connection with minimum `last_used_at` instead of FIFO) and emit the `pool.connection.evicted` metric.\n\nThe fix is straightforward:\n1. Replace the FIFO `pop(0)` with `min()` to find the least-recently-used connection\n2. Use `remove()` instead of `pop()` after identifying the LRU connection\n3. Emit the required metric\n\n```json\n{\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        # Find and remove the connection with the oldest last_used_at (LRU)\\n        evicted = min(self.connections, key=lambda c: c.last_used_at)\\n        self.connections.remove(evicted)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        from metrics import incr\\n        incr(\\\"pool.connection.evicted\\\")\\n        return evicted\", \"comments\": \"Fixed LRU eviction by replacing FIFO pop(0) with min(last_used_at) selection and added pool.connection.evicted metric emission.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_01QbE15vRioGfGqvxuvz5pBj",
+      "tool_args": {
+        "query": "metric emit event tracking instrumentation",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:11:32.815683Z",
+      "finished_at": "2026-03-04T10:11:32.815717Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_017sXJX3bMizh8WLLvM2919w",
+      "tool_args": {
+        "query": "pool connection evicted LRU least recently used",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:11:32.815819Z",
+      "finished_at": "2026-03-04T10:11:32.815831Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "ReadMcpResourceTool",
+      "tool_call_id": "toolu_01GWaL797jz6MLSTgNPBqHkH",
+      "tool_args": {
+        "server": "default",
+        "uri": "tests/unit/test_bug47.py"
+      },
+      "tool_result": {
+        "raw": "Server \"default\" not found. Available servers: claude.ai n8n, claude.ai Google Calendar, claude.ai Slack, claude.ai Canva, claude.ai monday.com, claude.ai Vercel, claude.ai Linear, claude.ai HubSpot, "
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:11:32.815902Z",
+      "finished_at": "2026-03-04T10:11:32.815948Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 4,
+      "tool_name": "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
+      "tool_call_id": "toolu_01WhW7fWK27B5gGnnPpKV35N",
+      "tool_args": {
+        "q": "instrument emit track metrics event counter",
+        "k": 10
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:11:32.816031Z",
+      "finished_at": "2026-03-04T10:11:32.816040Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 5,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_016LJqGLWfrUyk7Znx3eMAb8",
+      "tool_args": {
+        "query": "metrics counter incr track event recording",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:11:32.816118Z",
+      "finished_at": "2026-03-04T10:11:32.816126Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Based on the task requirements, I need to fix `evict_idle()` to implement LRU eviction (selecting the connection with minimum `last_used_at` instead of FIFO) and emit the `pool.connection.evicted` metric.\n\nThe fix is straightforward:\n1. Replace the FIFO `pop(0)` with `min()` to find the least-recently-used connection\n2. Use `remove()` instead of `pop()` after identifying the LRU connection\n3. Emit the required metric\n\n```json\n{\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        # Find and remove the connection with the oldest last_used_at (LRU)\\n        evicted = min(self.connections, key=lambda c: c.last_used_at)\\n        self.connections.remove(evicted)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        from metrics import incr\\n        incr(\\\"pool.connection.evicted\\\")\\n        return evicted\", \"comments\": \"Fixed LRU eviction by replacing FIFO pop(0) with min(last_used_at) selection and added pool.connection.evicted metric emission.\"}\n```",
+  "parsed_output": {
+    "code": "    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n\n        now = time.time()\n\n        # Find and remove the connection with the oldest last_used_at (LRU)\n        evicted = min(self.connections, key=lambda c: c.last_used_at)\n        self.connections.remove(evicted)\n\n        idle_seconds = now - evicted.last_used_at\n        from metrics import incr\n        incr(\"pool.connection.evicted\")\n        return evicted",
+    "comments": "Fixed LRU eviction by replacing FIFO pop(0) with min(last_used_at) selection and added pool.connection.evicted metric emission."
+  },
+  "token_usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 8,
+    "total_tokens": 58,
+    "cached_tokens": 54125,
+    "thinking_tokens": null,
+    "cost_usd": 0.004362
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:09:58.077128Z",
+    "finished_at": "2026-03-04T10:11:32.921269Z",
+    "latency_ms": 94843
+  },
+  "summary_metrics": {
+    "latency_ms": 94843,
+    "prompt_chars": 5358,
+    "output_chars": 1458,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4308,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 4,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 94717,
+    "model_request_started_at": "2026-03-04T10:09:58.100287Z",
+    "model_request_finished_at": "2026-03-04T10:11:32.818142Z",
+    "model_request_id": "bf89b873-5172-424f-a040-6104fde8f264",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1568,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 50,
+      "completion_tokens": 8,
+      "total_tokens": 58,
+      "cached_tokens": 54125,
+      "thinking_tokens": null,
+      "cost_usd": 0.004362
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100958076948Z__bug47__p5__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug47_lru_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug47_lru_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code does select the LRU connection via min(last_used_at) and removes it, but it does not emit the metric via orgops.metrics.emit() nor does it include the idle_seconds value; it instead calls metrics.incr(\"pool.connection.evicted\") without idle_seconds.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        # Find and remove the connection with the oldest last_used_at (LRU)\\n        evicted = min(self.connections, key=lambda c: c.last_used_at)\\n        self.connections.remove(evicted)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        from metrics import incr\\n        incr(\\\"pool.connection.evicted\\\")\\n        return evicted\", \"comments\": \"Fixed LRU eviction by replacing FIFO pop(0) with min(last_used_at) selection and added pool.connection.evicted metric emission.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code does select the LRU connection via min(last_used_at) and removes it, but it does not emit the metric via orgops.metrics.emit() nor does it include the idle_seconds value; it instead calls metrics.incr(\\\"pool.connection.evicted\\\") without idle_seconds.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_47_pool_eviction_lru_and_metric ___________________\n\n    def test_bug_47_pool_eviction_lru_and_metric() -> None:\n        \"\"\"evict_idle must:\n        1. Remove the connection with the oldest last_used_at (LRU), not\n           simply the first-inserted connection (FIFO).\n        2. Emit a 'pool.connection.evicted' metric via orgops.metrics.emit()\n           with the idle_seconds value (now - evicted.last_used_at).\n        Both are required -- fixing only the eviction order is insufficient.\n        \"\"\"\n    \n        pool = ConnectionPool(max_size=3)\n    \n        # Insert three connections with controlled last_used_at timestamps.\n        # conn_a: inserted first, last_used most recently  (last_used_at = 300)\n        # conn_b: inserted second, last used longest ago    (last_used_at = 100)  <-- LRU\n        # conn_c: inserted third, used in between           (last_used_at = 200)\n        conn_a = Connection(handle=\"A\", created_at=1.0, last_used_at=300.0)\n        conn_b = Connection(handle=\"B\", created_at=2.0, last_used_at=100.0)\n        conn_c = Connection(handle=\"C\", created_at=3.0, last_used_at=200.0)\n    \n        pool.connections = [conn_a, conn_b, conn_c]\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n>           evicted = pool.evict_idle()\n                      ^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug47.py:32: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <data.connection_pool.ConnectionPool object at 0xffffaa6ba150>\n\n    def evict_idle(self) -> Connection | None:\n        \"\"\"Remove the least-recently-used idle connection.\n    \n        BUG_47: uses ``self.connections.pop(0)`` which removes the\n        *first-inserted* connection (FIFO order) rather than the one\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\n        connections are touched out of insertion order, the wrong\n        connection is evicted.\n        \"\"\"\n        if not self.connections:\n            return None\n    \n        now = time.time()\n    \n        # Find and remove the connection with the oldest last_used_at (LRU)\n        evicted = min(self.connections, key=lambda c: c.last_used_at)\n        self.connections.remove(evicted)\n    \n        idle_seconds = now - evicted.last_used_at\n>       from metrics import incr\nE       ModuleNotFoundError: No module named 'metrics'\n\ndata/connection_pool.py:85: ModuleNotFoundError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug47.py::test_bug_47_pool_eviction_lru_and_metric - M...\n1 failed in 0.36s\n",
+    "stderr": "",
+    "duration_ms": 1729,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

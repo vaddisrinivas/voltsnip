@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-03-04T03:06:44.795288+00:00",
+  "suite": "suites/script30.yaml",
+  "models": "codex:gpt-5.1-codex-mini",
+  "variants": "all",
+  "tasks": "all",
+  "judge_model": "anthropic:claude-sonnet-4-5",
+  "total_cells": 210,
+  "ok_cells": 210,
+  "passed_cells": 97,
+  "pytest_passed_cells": 15,
+  "avg_score": 0.481,
+  "matrix_dir": "vsevals_runs/batch_1/matrix_20260303T201241727101Z",
+  "csv_path": "vsevals_runs/batch_1/matrix_20260303T201241727101Z/matrix_results.csv",
+  "report_path": "vsevals_runs/batch_1/matrix_20260303T201241727101Z/matrix_report.md"
+}

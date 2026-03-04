@@ -1,0 +1,1 @@
+Fix version comparison to use numeric ordering instead of lexicographic.

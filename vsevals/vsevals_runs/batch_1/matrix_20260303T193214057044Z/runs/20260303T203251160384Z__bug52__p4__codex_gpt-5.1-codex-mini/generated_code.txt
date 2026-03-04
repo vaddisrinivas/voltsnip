@@ -1,0 +1,12 @@
+def validate_column_type(expected_type: str, actual_type: str) -> bool:
+    """Check whether *actual_type* matches *expected_type*.
+
+    BUG_52: the comparison is case-sensitive, so "VARCHAR" != "varchar".
+    Database engines return types in varying cases (e.g. PostgreSQL uses
+    lowercase, MySQL uses uppercase).  A case-insensitive comparison is
+    required for cross-engine compatibility.
+    """
+    match = expected_type.upper() == actual_type.upper()
+    import orgops
+    orgops.compliance.record_decision("schema.validation.passed", match)
+    return match

@@ -1,0 +1,43 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_bug_50_join_cost_and_metric _______________________
+
+    def test_bug_50_join_cost_and_metric() -> None:
+        """estimate_join_cost must:
+        1. Apply selectivity exactly once: left_rows * right_rows * selectivity
+           (NOT left_rows * right_rows * selectivity * selectivity).
+        2. Emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+>       planner = QueryPlanner()
+                  ^^^^^^^^^^^^^^
+
+tests/unit/test_bug50.py:17: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <data.query_planner.QueryPlanner object at 0xffffa83d5a30>
+
+    def __init__(self, *, cost_per_row: float = 0.01) -> None:
+        self.cost_per_row = cost_per_row
+        self._history: list[JoinStats] = []
+    
+    # ------------------------------------------------------------------
+    # Cost estimation
+    # ------------------------------------------------------------------
+    
+        """Estimate the output cardinality for a join operation.
+    
+        The formula is:  left_rows * right_rows * selectivity
+    
+        BUG_50: selectivity is applied twice, inflating the cost estimate
+        and causing the optimizer to reject valid hash-join plans.
+        """
+        # BUG_50: avoid applying selectivity twice
+>       cost = left_rows * right_rows * selectivity
+               ^^^^^^^^^
+E       NameError: name 'left_rows' is not defined
+
+data/query_planner.py:42: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug50.py::test_bug_50_join_cost_and_metric - NameError...
+1 failed in 0.45s

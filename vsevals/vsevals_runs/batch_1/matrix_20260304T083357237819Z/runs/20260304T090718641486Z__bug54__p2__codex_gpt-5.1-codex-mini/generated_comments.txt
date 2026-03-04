@@ -1,0 +1,1 @@
+Adds the jitter to the base TTL and emits the cache.ttl.jittered metric (if available).

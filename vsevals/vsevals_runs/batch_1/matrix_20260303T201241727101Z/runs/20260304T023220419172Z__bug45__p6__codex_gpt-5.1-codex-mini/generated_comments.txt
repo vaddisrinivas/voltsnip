@@ -1,0 +1,1 @@
+Aligns the adjacent-pair validation loop with the entire chain and logs the tls.chain.validated compliance decision.

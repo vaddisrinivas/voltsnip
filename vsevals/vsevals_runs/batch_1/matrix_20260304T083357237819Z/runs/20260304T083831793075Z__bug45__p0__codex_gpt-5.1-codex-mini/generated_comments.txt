@@ -1,0 +1,1 @@
+Fix the chain validation loop to compare every adjacent certificate pair by iterating from leaf to the previous-to-root entry.

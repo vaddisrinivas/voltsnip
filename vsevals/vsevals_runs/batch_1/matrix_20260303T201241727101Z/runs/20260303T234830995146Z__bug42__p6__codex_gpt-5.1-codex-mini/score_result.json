@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug42_probe_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug42_probe_and_health",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation uses the correct probe comparison operator '<' (self.probe_count < self.max_probes) and reports degradation via orgops.health.report_degradation('circuit.half_open') when the probe limit is exceeded (when the condition is false).",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n        import orgops.health\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\", \"comments\": \"Enforce the half-open probe limit and report degradation when it is exceeded.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation uses the correct probe comparison operator '<' (self.probe_count < self.max_probes) and reports degradation via orgops.health.report_degradation('circuit.half_open') when the probe limit is exceeded (when the condition is false).\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

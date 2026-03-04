@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds\n    # BUG_46: retain fractional-second precision for the window boundary\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n", "comments":"Preserve the floating-point boundary so sub-second timestamps are counted correctly."}

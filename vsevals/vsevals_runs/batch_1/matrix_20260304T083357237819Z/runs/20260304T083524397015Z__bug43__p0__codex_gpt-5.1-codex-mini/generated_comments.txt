@@ -1,0 +1,1 @@
+Fix BUG_43 by treating DNS resolution and connect as overlapping, using the max of the two before adding the read timeout.

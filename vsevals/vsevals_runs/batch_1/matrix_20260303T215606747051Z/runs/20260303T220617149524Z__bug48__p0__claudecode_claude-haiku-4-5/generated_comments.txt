@@ -1,0 +1,1 @@
+Convert version strings to integers for numeric comparison instead of lexicographic string sorting.

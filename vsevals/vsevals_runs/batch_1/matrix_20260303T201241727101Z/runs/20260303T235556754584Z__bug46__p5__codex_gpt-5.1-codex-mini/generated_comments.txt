@@ -1,0 +1,1 @@
+Boundary now uses exact float arithmetic to avoid truncating sub-second timestamps.

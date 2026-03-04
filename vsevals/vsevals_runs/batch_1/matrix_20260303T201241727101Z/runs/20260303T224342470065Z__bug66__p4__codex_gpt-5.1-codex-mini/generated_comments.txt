@@ -1,0 +1,1 @@
+Propagate correlation_id alongside request_id and annotate the span so tracing follows child contexts.

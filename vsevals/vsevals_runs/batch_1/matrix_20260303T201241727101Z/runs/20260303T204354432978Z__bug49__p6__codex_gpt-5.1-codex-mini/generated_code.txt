@@ -1,0 +1,9 @@
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )
+        self.release_savepoint(savepoint_id)
+        import orgops.tracing
+        orgops.tracing.annotate_span(
+            "transaction.rollback_to_savepoint",
+            {"savepoint_id": savepoint_id},
+        )

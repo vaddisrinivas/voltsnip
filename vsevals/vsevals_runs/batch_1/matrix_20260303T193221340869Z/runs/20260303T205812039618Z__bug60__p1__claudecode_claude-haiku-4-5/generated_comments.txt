@@ -1,0 +1,1 @@
+Appends error to list instead of returning early to collect all validation errors

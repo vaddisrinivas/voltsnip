@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < so early refresh triggers when time_remaining ratio is LOW (close to expiry), not HIGH (far from expiry).

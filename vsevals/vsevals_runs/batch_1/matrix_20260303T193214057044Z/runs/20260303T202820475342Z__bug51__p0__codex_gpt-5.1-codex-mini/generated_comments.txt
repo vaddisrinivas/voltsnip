@@ -1,0 +1,1 @@
+fixed replication health check to compare lag and threshold in the same units (milliseconds).

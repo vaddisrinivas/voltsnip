@@ -1,0 +1,1 @@
+Pass context into each fallback call and annotate each activation via the tracing helper.

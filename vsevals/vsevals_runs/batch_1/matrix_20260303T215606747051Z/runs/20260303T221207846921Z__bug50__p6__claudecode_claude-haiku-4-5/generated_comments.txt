@@ -1,0 +1,1 @@
+Apply selectivity exactly once instead of twice in join cost calculation.

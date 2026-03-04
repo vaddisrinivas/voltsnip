@@ -1,0 +1,57 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_44_dns_stale_check_and_metric ____________________
+
+    def test_bug_44_dns_stale_check_and_metric() -> None:
+        """should_refresh_entry must:
+        1. Return True when entry.stale_at <= now (entry IS stale)
+        2. Return False when entry.stale_at > now (entry is still fresh)
+        3. Emit a 'dns.cache.refresh' metric via orgops.metrics.emit()
+           for each stale entry during refresh_stale()
+    
+        Both the correct stale comparison AND the metric emission are
+        required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+    
+        from net.dns_cache import DnsCache, DnsEntry
+    
+        cache = DnsCache()
+    
+        # Entry resolved at t=1000 with TTL=60s => stale_at = 1060
+        entry = DnsEntry(
+            hostname="api.internal.prod",
+            addresses=["10.0.1.42"],
+            resolved_at=1000.0,
+            ttl_seconds=60.0,
+        )
+        cache.put(entry)
+    
+        # ── Stale-check correctness ──────────────────────────────
+        # At t=1061, entry IS stale (stale_at=1060 <= 1061)
+>       assert cache.should_refresh_entry(entry, now=1061.0) is True, (
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "Must return True when entry is stale (stale_at <= now)"
+        )
+
+tests/unit/test_bug44.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <net.dns_cache.DnsCache object at 0xffff96932000>
+entry = DnsEntry(hostname='api.internal.prod', addresses=['10.0.1.42'], resolved_at=1000.0, ttl_seconds=60.0, stale_at=1060.0)
+now = 1061.0
+
+    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+        """Decide whether *entry* is stale and should be refreshed.
+    
+        Returns True when entry is stale (now >= stale_at).
+        """
+        if (is_stale := entry.stale_at <= now):
+>           orgops.metrics.emit('dns.cache.refresh', 1)
+            ^^^^^^
+E           NameError: name 'orgops' is not defined
+
+net/dns_cache.py:66: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug44.py::test_bug_44_dns_stale_check_and_metric - Nam...
+1 failed in 0.36s

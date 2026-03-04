@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs",
+  "task_id": "BUG43",
+  "task_name": "pool_timeout_overlap_and_trace",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 66,
+  "task_line_end": 85,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug43/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug43/scenario_context/v1\nTitle: Pool timeout requires parallel overlap calculation AND trace annotation\nCode:\n```\n# Pool Effective Timeout — Two Requirements\n\nThe `calculate_effective_timeout` method has TWO requirements:\n\n## 1. Parallel Overlap Calculation\nDNS resolution and TCP connect happen in parallel, so the first\nphase is the maximum of the two, not their sum:\n```python\ntotal_timeout = max(connect_timeout, dns_timeout) + read_timeout\n```\nThe buggy version adds all three sequentially (`ct + dt + rt`),\nwhich over-estimates the deadline and delays failure detection.\n\n## 2. Trace Span Annotation (REQUIRED)\nThe org observability platform uses span annotations to correlate\ntimeout-adjusted requests with downstream latency spikes.  After\ncomputing the effective timeout, the function MUST annotate the\ncurrent span via `orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout)\n```\n\n## Complete Correct Pattern\n```python\ndef calculate_effective_timeout(self, connect_timeout, dns_timeout, read_timeout):\n    import orgops.tracing\n    ct = connect_timeout or self.connect_timeout\n    dt = dns_timeout or self.dns_timeout\n    rt = read_timeout or self.read_timeout\n    total_timeout = max(ct, dt) + rt\n    orgops.tracing.annotate_\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug43/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG43\nTask Name: pool_timeout_overlap_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix calculate_effective_timeout so DNS and connect are treated as parallel, not sequential.\n\nTarget File: net/request_pool.py\n\nTarget Lines:\n66-85 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-85 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug43.py -k bug_43\n\nContext Code:\n```python\ndef calculate_effective_timeout(\n    self,\n    connect_timeout: Optional[float] = None,\n    dns_timeout: Optional[float] = None,\n    read_timeout: Optional[float] = None,\n) -> float:\n    \"\"\"Return the effective timeout for a single request.\n\n    BUG_43: DNS resolution and the TCP connect happen in parallel, so\n    the first phase is max(connect, dns) — not the sum.  The current\n    implementation adds all three timeouts sequentially, over-estimating\n    the real deadline and delaying failure detection.\n    \"\"\"\n    ct = connect_timeout if connect_timeout is not None else self.connect_timeout\n    dt = dns_timeout if dns_timeout is not None else self.dns_timeout\n    rt = read_timeout if read_timeout is not None else self.read_timeout\n\n    # BUG_43: treats DNS + connect as sequential — should be parallel (max)\n    total_timeout = ct + dt + rt\n    return total_timeout\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with configurable timeout strategy.\n\nManages a pool of HTTP connections with DNS resolution, connect, and\nread timeouts.  The effective timeout must account for DNS and connect\nhappening in parallel (overlapping), not sequentially.\n\"\"\"\nfrom __future__ import annotations\n\nimport threading\nfrom typing import Any, Dict, Optional\n\n\nclass RequestPool:\n    \"\"\"Thread-safe HTTP connection pool with timeout management.\"\"\"\n\n    _MAX_CONNECTIONS = 64\n\n    def __init__(\n        self,\n        max_connections: int = _MAX_CONNECTIONS,\n        connect_timeout: float = 5.0,\n        dns_timeout: float = 2.0,\n        read_timeout: float = 30.0,\n    ) -> None:\n        self._lock = threading.Lock()\n        self._connections: Dict[str, list] = {}\n        self.max_connections = min(max_connections, self._MAX_CONNECTIONS)\n        self.connect_timeout = connect_timeout\n        self.dns_timeout = dns_timeout\n        self.read_timeout = read_timeout\n        self._active_count = 0\n\n    # ------------------------------------------------------------------\n    # Connection lifecycle\n    # ------------------------------------------------------------------\n\n    def acquire(self, host: str) -> Optional[Any]:\n        \"\"\"Acquire a pooled connection for *host*, or None if exhausted.\"\"\"\n        with self._lock:\n            bucket = self._connections.get(host, [])\n            if bucket:\n                conn = bucket.pop()\n                return conn\n            if self._active_count >= self.max_connections:\n                return None\n            self._active_count += 1\n        return self._create_connection(host)\n\n    def release(self, host: str, conn: Any) -> None:\n        \"\"\"Return *conn* to the pool for reuse.\"\"\"\n        with self._lock:\n            self._connections.setdefault(host, []).append(conn)\n\n    def drain(self) -> int:\n        \"\"\"Close every idle connection and return the count drained.\"\"\"\n        with self._lock:\n            total = sum(len(v) for v in self._connections.values())\n            self._connections.clear()\n            self._active_count = max(self._active_count - total, 0)\n        return total\n\n    # ------------------------------------------------------------------\n    # Timeout calculation\n    # ------------------------------------------------------------------\n\n    def calculate_effective_timeout(\n        self,\n        connect_timeout: Optional[float] = None,\n        dns_timeout: Optional[float] = None,\n        read_timeout: Optional[float] = None,\n    ) -> float:\n        \"\"\"Return the effective timeout for a single request.\n\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\n        the first phase is max(connect, dns) — not the sum.  The current\n        implementation adds all three timeouts sequentially, over-estimating\n        the real deadline and delaying failure detection.\n        \"\"\"\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\n        rt = read_timeout if read_timeout is not None else self.read_timeout\n\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\n        total_timeout = ct + dt + rt\n        return total_timeout\n\n    # ------------------------------------------------------------------\n    # Internals\n    # ------------------------------------------------------------------\n\n    def _create_connection(self, host: str) -> dict:\n        \"\"\"Placeholder connection factory (replaced by real transport).\"\"\"\n        return {\"host\": host, \"alive\": True}\n\n    @property\n    def active_connections(self) -> int:\n        return self._active_count\n\n    @property\n    def idle_connections(self) -> int:\n        with self._lock:\n            return sum(len(v) for v in self._connections.values())\n```\n\nExpected Output:\nUse max(connect, dns) + read for parallel overlap AND annotate span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug43/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "be19d4cf-e81e-4609-bc53-315d1cca6aa4",
+      "canonical_key": "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "title": "Script30 HTTP Resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry policies, circuit breaking, connection pooling, DNS caching, TLS validation, and rate limiting.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n"
+    },
+    {
+      "id": "8e7355ac-9ef3-4f59-87fd-713affa1810e",
+      "canonical_key": "voltsnip/script30/hard/bug43/scenario_context/v1",
+      "title": "Pool timeout requires parallel overlap calculation AND trace annotation",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "tracing"
+      ],
+      "description": "The calculate_effective_timeout method must both fix the timeout to use max(connect, dns) + read (since DNS and connect overlap) AND annotate the trace span via orgops.tracing.annotate_span(). The observability platform depends on this annotation for timeout-related incident investigation.",
+      "code": "# Pool Effective Timeout — Two Requirements\n\nThe `calculate_effective_timeout` method has TWO requirements:\n\n## 1. Parallel Overlap Calculation\nDNS resolution and TCP connect happen in parallel, so the first\nphase is the maximum of the two, not their sum:\n```python\ntotal_timeout = max(connect_timeout, dns_timeout) + read_timeout\n```\nThe buggy version adds all three sequentially (`ct + dt + rt`),\nwhich over-estimates the deadline and delays failure detection.\n\n## 2. Trace Span Annotation (REQUIRED)\nThe org observability platform uses span annotations to correlate\ntimeout-adjusted requests with downstream latency spikes.  After\ncomputing the effective timeout, the function MUST annotate the\ncurrent span via `orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout)\n```\n\n## Complete Correct Pattern\n```python\ndef calculate_effective_timeout(self, connect_timeout, dns_timeout, read_timeout):\n    import orgops.tracing\n    ct = connect_timeout or self.connect_timeout\n    dt = dns_timeout or self.dns_timeout\n    rt = read_timeout or self.read_timeout\n    total_timeout = max(ct, dt) + rt\n    orgops.tracing.annotate_"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug43/scenario_context/v1\nTitle: Pool timeout requires parallel overlap calculation AND trace annotation\nCode:\n```\n# Pool Effective Timeout — Two Requirements\n\nThe `calculate_effective_timeout` method has TWO requirements:\n\n## 1. Parallel Overlap Calculation\nDNS resolution and TCP connect happen in parallel, so the first\nphase is the maximum of the two, not their sum:\n```python\ntotal_timeout = max(connect_timeout, dns_timeout) + read_timeout\n```\nThe buggy version adds all three sequentially (`ct + dt + rt`),\nwhich over-estimates the deadline and delays failure detection.\n\n## 2. Trace Span Annotation (REQUIRED)\nThe org observability platform uses span annotations to correlate\ntimeout-adjusted requests with downstream latency spikes.  After\ncomputing the effective timeout, the function MUST annotate the\ncurrent span via `orgops.tracing.annotate_span()`:\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout)\n```\n\n## Complete Correct Pattern\n```python\ndef calculate_effective_timeout(self, connect_timeout, dns_timeout, read_timeout):\n    import orgops.tracing\n    ct = connect_timeout or self.connect_timeout\n    dt = dns_timeout or self.dns_timeout\n    rt = read_timeout or self.read_timeout\n    total_timeout = max(ct, dt) + rt\n    orgops.tracing.annotate_\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug43/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG43\nTask Name: pool_timeout_overlap_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix calculate_effective_timeout so DNS and connect are treated as parallel, not sequential.\n\nTarget File: net/request_pool.py\n\nTarget Lines:\n66-85 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-85 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug43.py -k bug_43\n\nContext Code:\n```python\ndef calculate_effective_timeout(\n    self,\n    connect_timeout: Optional[float] = None,\n    dns_timeout: Optional[float] = None,\n    read_timeout: Optional[float] = None,\n) -> float:\n    \"\"\"Return the effective timeout for a single request.\n\n    BUG_43: DNS resolution and the TCP connect happen in parallel, so\n    the first phase is max(connect, dns) — not the sum.  The current\n    implementation adds all three timeouts sequentially, over-estimating\n    the real deadline and delaying failure detection.\n    \"\"\"\n    ct = connect_timeout if connect_timeout is not None else self.connect_timeout\n    dt = dns_timeout if dns_timeout is not None else self.dns_timeout\n    rt = read_timeout if read_timeout is not None else self.read_timeout\n\n    # BUG_43: treats DNS + connect as sequential — should be parallel (max)\n    total_timeout = ct + dt + rt\n    return total_timeout\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Connection pool with configurable timeout strategy.\n\nManages a pool of HTTP connections with DNS resolution, connect, and\nread timeouts.  The effective timeout must account for DNS and connect\nhappening in parallel (overlapping), not sequentially.\n\"\"\"\nfrom __future__ import annotations\n\nimport threading\nfrom typing import Any, Dict, Optional\n\n\nclass RequestPool:\n    \"\"\"Thread-safe HTTP connection pool with timeout management.\"\"\"\n\n    _MAX_CONNECTIONS = 64\n\n    def __init__(\n        self,\n        max_connections: int = _MAX_CONNECTIONS,\n        connect_timeout: float = 5.0,\n        dns_timeout: float = 2.0,\n        read_timeout: float = 30.0,\n    ) -> None:\n        self._lock = threading.Lock()\n        self._connections: Dict[str, list] = {}\n        self.max_connections = min(max_connections, self._MAX_CONNECTIONS)\n        self.connect_timeout = connect_timeout\n        self.dns_timeout = dns_timeout\n        self.read_timeout = read_timeout\n        self._active_count = 0\n\n    # ------------------------------------------------------------------\n    # Connection lifecycle\n    # ------------------------------------------------------------------\n\n    def acquire(self, host: str) -> Optional[Any]:\n        \"\"\"Acquire a pooled connection for *host*, or None if exhausted.\"\"\"\n        with self._lock:\n            bucket = self._connections.get(host, [])\n            if bucket:\n                conn = bucket.pop()\n                return conn\n            if self._active_count >= self.max_connections:\n                return None\n            self._active_count += 1\n        return self._create_connection(host)\n\n    def release(self, host: str, conn: Any) -> None:\n        \"\"\"Return *conn* to the pool for reuse.\"\"\"\n        with self._lock:\n            self._connections.setdefault(host, []).append(conn)\n\n    def drain(self) -> int:\n        \"\"\"Close every idle connection and return the count drained.\"\"\"\n        with self._lock:\n            total = sum(len(v) for v in self._connections.values())\n            self._connections.clear()\n            self._active_count = max(self._active_count - total, 0)\n        return total\n\n    # ------------------------------------------------------------------\n    # Timeout calculation\n    # ------------------------------------------------------------------\n\n    def calculate_effective_timeout(\n        self,\n        connect_timeout: Optional[float] = None,\n        dns_timeout: Optional[float] = None,\n        read_timeout: Optional[float] = None,\n    ) -> float:\n        \"\"\"Return the effective timeout for a single request.\n\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\n        the first phase is max(connect, dns) — not the sum.  The current\n        implementation adds all three timeouts sequentially, over-estimating\n        the real deadline and delaying failure detection.\n        \"\"\"\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\n        rt = read_timeout if read_timeout is not None else self.read_timeout\n\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\n        total_timeout = ct + dt + rt\n        return total_timeout\n\n    # ------------------------------------------------------------------\n    # Internals\n    # ------------------------------------------------------------------\n\n    def _create_connection(self, host: str) -> dict:\n        \"\"\"Placeholder connection factory (replaced by real transport).\"\"\"\n        return {\"host\": host, \"alive\": True}\n\n    @property\n    def active_connections(self) -> int:\n        return self._active_count\n\n    @property\n    def idle_connections(self) -> int:\n        with self._lock:\n            return sum(len(v) for v in self._connections.values())\n```\n\nExpected Output:\nUse max(connect, dns) + read for parallel overlap AND annotate span via orgops.tracing.annotate_span.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\\n        import orgops.tracing\\n        total_timeout = max(ct, dt) + rt\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\\n\\n    # ------------------------------------------------------------------\", \"comments\": \"Changed DNS and connect from sequential sum to parallel max, added orgops.tracing annotation for observability correlation.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\\n        import orgops.tracing\\n        total_timeout = max(ct, dt) + rt\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\\n\\n    # ------------------------------------------------------------------\", \"comments\": \"Changed DNS and connect from sequential sum to parallel max, added orgops.tracing annotation for observability correlation.\"}\n```",
+  "parsed_output": {
+    "code": "        connect_timeout: Optional[float] = None,\n        dns_timeout: Optional[float] = None,\n        read_timeout: Optional[float] = None,\n    ) -> float:\n        \"\"\"Return the effective timeout for a single request.\n\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\n        the first phase is max(connect, dns) — not the sum.  The current\n        implementation adds all three timeouts sequentially, over-estimating\n        the real deadline and delaying failure detection.\n        \"\"\"\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\n        rt = read_timeout if read_timeout is not None else self.read_timeout\n\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\n        import orgops.tracing\n        total_timeout = max(ct, dt) + rt\n        orgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout)\n        return total_timeout\n\n    # ------------------------------------------------------------------",
+    "comments": "Changed DNS and connect from sequential sum to parallel max, added orgops.tracing annotation for observability correlation."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.4e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:28:57.280809Z",
+    "finished_at": "2026-03-03T20:29:22.830973Z",
+    "latency_ms": 25550
+  },
+  "summary_metrics": {
+    "latency_ms": 25550,
+    "prompt_chars": 9818,
+    "output_chars": 1273,
+    "prompt_system_chars": 3964,
+    "prompt_user_chars": 5854,
+    "snippet_injected_chars": 2290,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 51,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 25476,
+    "model_request_started_at": "2026-03-03T20:28:57.354397Z",
+    "model_request_finished_at": "2026-03-03T20:29:22.830914Z",
+    "model_request_id": "726fd802-3bfe-43c6-a64a-0893335009b4",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1457,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T202857280192Z__bug43__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug43_timeout_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug43_timeout_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "Code computes total_timeout = max(ct, dt) + rt (parallel DNS/connect) and calls orgops.tracing.annotate_span(\"pool.timeout.adjusted\", total_timeout).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: treats DNS + connect as sequential — should be parallel (max)\\n        import orgops.tracing\\n        total_timeout = max(ct, dt) + rt\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\\n\\n    # ------------------------------------------------------------------\", \"comments\": \"Changed DNS and connect from sequential sum to parallel max, added orgops.tracing annotation for observability correlation.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"Code computes total_timeout = max(ct, dt) + rt (parallel DNS/connect) and calls orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_43_pool_timeout_and_trace ______________________\n\n    def test_bug_43_pool_timeout_and_trace() -> None:\n        \"\"\"calculate_effective_timeout must:\n        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read\n           (NOT connect + dns + read).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"pool.timeout.adjusted\", total_timeout).\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n>       from net.request_pool import RequestPool\nE         File \"/workspace/net/request_pool.py\", line 69\nE           ) -> float:\nE           ^\nE       SyntaxError: unmatched ')'\n\ntests/unit/test_bug43.py:16: SyntaxError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace -   File ...\n1 failed in 0.30s\n",
+    "stderr": "",
+    "duration_ms": 2307,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

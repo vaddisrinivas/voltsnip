@@ -1,0 +1,1 @@
+Compound the timeout by raising the multiplier to the current attempt before capping the value.

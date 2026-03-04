@@ -1,0 +1,1 @@
+Treats DNS resolution and connect timeout as overlapping (parallel) before adding the read timeout, and annotates the span with the computed deadline.

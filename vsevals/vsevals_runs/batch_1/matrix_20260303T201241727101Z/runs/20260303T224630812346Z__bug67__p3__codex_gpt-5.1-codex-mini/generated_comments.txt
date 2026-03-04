@@ -1,0 +1,1 @@
+Use round(..., 2) and emit the sampling rate metric before recording history.

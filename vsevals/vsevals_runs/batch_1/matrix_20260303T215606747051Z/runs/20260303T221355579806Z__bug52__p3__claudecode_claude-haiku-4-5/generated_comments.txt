@@ -1,0 +1,1 @@
+Apply case-insensitive comparison and record schema validation compliance decision.

@@ -1,0 +1,1 @@
+Recursively redact nested dicts/lists and log the total keys scrubbed before returning the deep-copied dictionary.

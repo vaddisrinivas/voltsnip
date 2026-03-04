@@ -1,0 +1,1 @@
+Apply time-decay factor to LFU score: changed from raw access_count to access_count / (1 + age_hours)

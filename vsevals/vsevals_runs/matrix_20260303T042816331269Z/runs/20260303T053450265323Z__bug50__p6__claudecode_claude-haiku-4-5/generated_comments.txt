@@ -1,0 +1,1 @@
+Fixed double selectivity application (selectivity * selectivity → selectivity) and added metric emission via orgops.metrics.emit for optimizer dashboard monitoring.

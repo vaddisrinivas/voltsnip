@@ -1,0 +1,1 @@
+Fixes the half-open probe guard so it only allows and counts probes while the count stays below the configured maximum.

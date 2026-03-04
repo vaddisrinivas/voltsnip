@@ -1,0 +1,1 @@
+Fixed off-by-one capacity check (changed > to >=) and added utilization alert when queue reaches 80% capacity.

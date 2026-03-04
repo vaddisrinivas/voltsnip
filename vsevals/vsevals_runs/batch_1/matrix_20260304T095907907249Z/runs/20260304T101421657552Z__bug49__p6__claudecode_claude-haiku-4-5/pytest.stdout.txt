@@ -1,0 +1,51 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_49_savepoint_release_and_trace ____________________
+
+    def test_bug_49_savepoint_release_and_trace() -> None:
+        """rollback_to_savepoint must:
+        1. Execute ROLLBACK TO SAVEPOINT <id>.
+        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.
+        3. Annotate the trace span via orgops.tracing.annotate_span(
+               "txn.savepoint.rolled_back", savepoint_id).
+        All three are required -- rolling back without releasing leaks the
+        savepoint, and omitting the trace annotation breaks observability.
+        """
+        from data.txn_manager import TransactionManager
+    
+        session = MagicMock()
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+            mgr = TransactionManager(session)
+>           mgr.rollback_to_savepoint("sp_order_42")
+
+tests/unit/test_bug49.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <data.txn_manager.TransactionManager object at 0xffff8a79c950>
+savepoint_id = 'sp_order_42'
+
+    def rollback_to_savepoint(self, savepoint_id: str) -> None:
+        """Rollback to a named savepoint.
+    
+        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on
+        the server but is never released, leaking the resource.  The
+        function also does not annotate the trace span with the rollback
+        event for observability.
+        """
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )
+        self.session.execute(
+            f"RELEASE SAVEPOINT {savepoint_id}"
+        )
+        if savepoint_id in self._active_savepoints:
+            self._active_savepoints.remove(savepoint_id)
+>       orgops.tracing.annotate_span(event="rollback", savepoint_id=savepoint_id)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+data/txn_manager.py:48: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace - Na...
+1 failed in 0.32s

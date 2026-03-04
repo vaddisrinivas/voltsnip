@@ -1,0 +1,1 @@
+Changed early return on first error to errors.append(), allowing the function to collect all validation errors across all schema rules before returning.

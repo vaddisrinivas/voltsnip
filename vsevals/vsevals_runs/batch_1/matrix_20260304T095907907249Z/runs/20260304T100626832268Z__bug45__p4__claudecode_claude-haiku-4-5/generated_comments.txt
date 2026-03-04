@@ -1,0 +1,1 @@
+Fixed loop range from range(1, len(chain)) to range(len(chain) - 1) to validate all adjacent pairs including leaf-to-first-intermediate; simplified boundary check logic; added compliance recording for tls.chain.validated decision.

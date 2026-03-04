@@ -1,0 +1,1 @@
+Switch the ratio test so the guard refreshes when the entry is near expiry and emit cache.stampede.prevented when that early refresh fires.

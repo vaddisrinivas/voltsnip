@@ -43,8 +43,7 @@ local_storage/
 *.synctex.gz
 *.out
 
-# Eval run artifacts (large; batch_1 is committed on vsevals-lock)
-vsevals_runs/
-vsevals_runs_clean/
-vsevals/vsevals_runs/
+# Eval run artifacts at repo root (vsevals/vsevals_runs/ is tracked on arxiv-v1)
+/vsevals_runs/
+/vsevals_runs_clean/
 

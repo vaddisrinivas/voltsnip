@@ -1,0 +1,12 @@
+    def should_allow_probe(self) -> bool:
+        """Allow a probe request in the half-open state if under the limit.
+
+        BUG_42: the comparison is inverted, allowing probes when the count
+        has already exceeded the maximum and blocking them when under the limit.
+        """
+        import orgops.health
+        if self.probe_count < self.max_probes:
+            self.probe_count += 1
+            orgops.health.report_degradation("circuit.half_open", self.service_name)
+            return True
+        return False

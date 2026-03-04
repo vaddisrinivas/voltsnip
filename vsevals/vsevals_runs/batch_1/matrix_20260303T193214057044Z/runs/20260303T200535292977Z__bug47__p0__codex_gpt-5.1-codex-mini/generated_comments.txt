@@ -1,0 +1,1 @@
+Selects and removes the idle connection with the oldest last_used_at timestamp instead of always popping the head.

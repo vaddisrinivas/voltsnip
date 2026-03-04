@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug55_threshold_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug55_threshold_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The threshold comparison is correct (ratio < self.threshold), but the metric emission does not use orgops.metrics.emit(). Instead, it uses a fallback mechanism trying self.metrics/metric_emitter/metric_sink attributes and then cache.metrics.emit_metric. Additionally, the key_name parameter is not passed to any metric emission call - only the metric name 'cache.stampede.prevented' is emitted without context about which key triggered the refresh.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        if ratio < self.threshold:  # BUG_55: now refresh when CLOSE to expiry\\n            metric_name = \\\"cache.stampede.prevented\\\"\\n            emitter = (\\n                getattr(self, \\\"metrics\\\", None)\\n                or getattr(self, \\\"metric_emitter\\\", None)\\n                or getattr(self, \\\"metric_sink\\\", None)\\n            )\\n            if emitter is not None:\\n                if callable(emitter):\\n                    emitter(metric_name)\\n                else:\\n                    for method in (\\\"emit\\\", \\\"increment\\\", \\\"record\\\"):\\n                        fn = getattr(emitter, method, None)\\n                        if callable(fn):\\n                            fn(metric_name)\\n                            break\\n            else:\\n                try:\\n                    from cache.metrics import emit_metric\\n                except ImportError:  # pragma: no cover\\n                    emit_metric = None\\n                if emit_metric is not None:\\n                    emit_metric(metric_name)\\n\\n            self.refreshes_triggered += 1\\n            return True\\n\\n        return False\", \"comments\": \"Switches the threshold comparison so the guard only refreshes when close to expiry and adds a best-effort emission of the cache.stampede.prevented metric.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The threshold comparison is correct (ratio < self.threshold), but the metric emission does not use orgops.metrics.emit(). Instead, it uses a fallback mechanism trying self.metrics/metric_emitter/metric_sink attributes and then cache.metrics.emit_metric. Additionally, the key_name parameter is not passed to any metric emission call - only the metric name 'cache.stampede.prevented' is emitted without context about which key triggered the refresh.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

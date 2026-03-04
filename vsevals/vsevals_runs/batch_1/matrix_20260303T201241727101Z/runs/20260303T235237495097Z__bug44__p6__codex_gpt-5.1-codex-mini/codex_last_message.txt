@@ -1,0 +1,1 @@
+{"code":"        from orgops import metrics\n\n        stale = entry.stale_at <= now\n        if stale:\n            metrics.emit(\"dns.cache.refresh\")\n        return stale","comments":"Reverse the TTL comparison and emit the dns.cache.refresh metric whenever the entry is stale."}

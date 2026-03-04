@@ -1,0 +1,4 @@
+    boundary = now - window_seconds
+    idx = bisect.bisect_left(timestamps, boundary)
+    idx = bisect.bisect_left(timestamps, boundary)
+    return len(timestamps) - idx

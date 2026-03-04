@@ -1,0 +1,1 @@
+Clamped the effective timeout to at least 1 ms and annotated the trace with the computed value.

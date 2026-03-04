@@ -1,0 +1,1 @@
+Corrected the threshold comparison and emitted the required cache.stampede.prevented metric when triggering an early refresh.

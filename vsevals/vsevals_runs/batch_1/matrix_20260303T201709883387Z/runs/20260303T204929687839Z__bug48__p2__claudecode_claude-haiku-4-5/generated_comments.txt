@@ -1,0 +1,1 @@
+Fixed lexicographic version sorting by converting all version comparisons from strings to integers using int() for proper numeric ordering.

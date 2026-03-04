@@ -1,0 +1,46 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_58_partition_modulus_and_health ___________________
+
+    def test_bug_58_partition_modulus_and_health() -> None:
+        """assign_partition must:
+        1. Return a value in [0, num_partitions) -- i.e. use
+           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).
+        2. Call orgops.health.report_degradation("cache.partition.skew", partition_id)
+           every time an assignment is made.
+        Both are required -- fixing only the modulus is insufficient.
+        """
+    
+        config = PartitionConfig(num_partitions=4)
+>       partitioner = ConsistentHashPartitioner(config)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug58.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cache/partitioner.py:47: in __init__
+    self._build_ring()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <cache.partitioner.ConsistentHashPartitioner object at 0xffff9200d4c0>
+
+    def _build_ring(self) -> None:
+        """Pre-compute virtual-node positions on the ring."""
+        for part_id in range(self._config.num_partitions):
+            for replica in range(self._config.replicas_per_node):
+                vnode_key = f"part-{part_id}-rep-{replica}"
+                position = _stable_hash(vnode_key, self._config.hash_algorithm)
+                self._ring.append((position, part_id))
+        self._ring.sort()
+    
+    # ------------------------------------------------------------------
+    # Assignment
+    # ------------------------------------------------------------------
+    
+>       n = num_partitions if num_partitions is not None else self._config.num_partitions
+                              ^^^^^^^^^^^^^^
+E       NameError: name 'num_partitions' is not defined
+
+cache/partitioner.py:66: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - N...
+1 failed in 0.38s

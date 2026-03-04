@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug46_boundary_and_quota"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug46_boundary_and_quota"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug46_boundary_and_quota"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug46_boundary_and_quota"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug46_boundary_and_quota"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug46_boundary_and_quota",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code correctly removes int() truncation and uses exact float subtraction (now - window_seconds) for the boundary, BUT it does not call orgops.ratelimit.check_quota(\"request.sliding_window\", count). The constraint requires both conditions (joined by AND), so this fails because the quota check is missing.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    boundary = now - window_seconds  # BUG_46: keep full precision for the window boundary\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\", \"comments\": \"Use the precise float window boundary instead of truncating to an int to prevent undercounting near sub-second edges.\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly removes int() truncation and uses exact float subtraction (now - window_seconds) for the boundary, BUT it does not call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count). The constraint requires both conditions (joined by AND), so this fails because the quota check is missing.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,25 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection.
+
+        BUG_47: uses ``self.connections.pop(0)`` which removes the
+        *first-inserted* connection (FIFO order) rather than the one
+        with the oldest ``last_used_at`` timestamp (LRU order).  When
+        connections are touched out of insertion order, the wrong
+        connection is evicted.
+        """
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+        try:
+            from metrics import emit as emit_metric
+        except ImportError:  # pragma: no cover
+            emit_metric = None
+        if emit_metric is not None:
+            emit_metric("pool.connection.evicted", idle_seconds=idle_seconds)
+        return evicted

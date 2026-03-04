@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T215231842689Z__bug62__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG62",
+  "task_name": "fallback_context_loss_and_trace",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 74167,
+    "prompt_chars": 8588,
+    "output_chars": 1521,
+    "prompt_system_chars": 3363,
+    "prompt_user_chars": 5225,
+    "snippet_injected_chars": 1695,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 74097,
+    "model_request_started_at": "2026-03-03T21:52:31.912717Z",
+    "model_request_finished_at": "2026-03-03T21:53:46.010820Z",
+    "model_request_id": "e09442f9-d5da-4816-9f4a-a65ea3bbc31a",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1807,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5,
+      "total_tokens": 15,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.8e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug62_context_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug62_context_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "In the fallback loop, it calls orgops.tracing.annotate_span(\"fallback.activated\", _idx) with _idx from enumerate(self.fallbacks) (0-based), and it invokes each fallback as return fb(self.context), thus passing context.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug62/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def execute_with_fallback(self) -> Any:\\n        \\\"\\\"\\\"Try *primary_fn*, then each fallback in order.\\n\\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\\n        *context*, so the downstream handler loses the request ID,\\n        headers, and deadline.  The correct call is ``fb(self.context)``.\\n\\n        Additionally, each activated fallback must be annotated via\\n        ``orgops.tracing.annotate_span(\\\"fallback.activated\\\", index)``\\n        where *index* is the 0-based position in the fallbacks list.\\n        Neither the context propagation nor the tracing annotation is\\n        present in the buggy implementation.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                # BUG_62: context not passed — should be fb(self.context)\\n                # BUG_62: missing orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\", \"comments\": \"Fixed context propagation to fallbacks and added tracing annotation for each activated fallback.\"}, \"constraints\": [{\"id\": \"bug62_context_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug62/scenario_context/v1\", \"check\": \"Context propagation to fallbacks AND tracing annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both pass context to each fallback callable (fb(self.context) instead of fb()) AND call orgops.tracing.annotate_span(\\\"fallback.activated\\\", index) for each activated fallback where index is 0-based?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"In the fallback loop, it calls orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx) with _idx from enumerate(self.fallbacks) (0-based), and it invokes each fallback as return fb(self.context), thus passing context.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.47s\n",
+    "stderr": "",
+    "duration_ms": 2471,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

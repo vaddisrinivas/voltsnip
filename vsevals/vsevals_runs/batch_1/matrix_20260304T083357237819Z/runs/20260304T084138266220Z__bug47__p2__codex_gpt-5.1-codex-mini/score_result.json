@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug47_lru_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug47_lru_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses LRU eviction by finding the connection with min(last_used_at) and removing it, AND emits the pool.connection.evicted metric via self.metrics.emit() with idle_seconds parameter. While it uses self.metrics instead of directly referencing orgops.metrics, this is the standard dependency injection pattern where self.metrics would be set to orgops.metrics.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection and report the eviction.\\n\\n        The oldest ``last_used_at`` value determines which connection to drop, and\\n        the event is emitted so the org metrics pipeline sees connection churn.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        evicted = min(self.connections, key=lambda conn: conn.last_used_at)\\n        self.connections.remove(evicted)\\n\\n        idle_seconds = now - evicted.last_used_at\\n\\n        metrics = getattr(self, \\\"metrics\\\", None)\\n        if metrics is not None:\\n            emit = getattr(metrics, \\\"emit\\\", None)\\n            if emit is not None:\\n                emit(\\\"pool.connection.evicted\\\", idle_seconds=idle_seconds)\\n\\n        return evicted\", \"comments\": \"Switch evictions to true LRU and emit the pool.connection.evicted metric when dropping a connection.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+  },
+  "judge_raw_response": "Looking at this code, I need to verify two things:\n\n1. **LRU eviction**: Does it find and remove the connection with the oldest `last_used_at`?\n2. **Metric emission**: Does it emit a `pool.connection.evicted` metric via `orgops.metrics.emit()` with `idle_seconds`?\n\nLet me analyze:\n\n**LRU Eviction:**\n```python\nevicted = min(self.connections, key=lambda conn: conn.last_used_at)\nself.connections.remove(evicted)\n```\n✓ This correctly finds the connection with the minimum (oldest) `last_used_at` value and removes it. This is proper LRU eviction, not just `pop(0)`.\n\n**Metric Emission:**\n```python\nidle_seconds = now - evicted.last_used_at\n\nmetrics = getattr(self, \"metrics\", None)\nif metrics is not None:\n    emit = getattr(metrics, \"emit\", None)\n    if emit is not None:\n        emit(\"pool.connection.evicted\", idle_seconds=idle_seconds)\n```\n\nThis code:\n- Calculates `idle_seconds` correctly\n- Attempts to access `self.metrics.emit()` safely using `getattr`\n- Calls `emit(\"pool.connection.evicted\", idle_seconds=idle_seconds)` if available\n\nHowever, there's a subtle issue: The constraint asks for emission via `orgops.metrics.emit()`, but the code calls `self.metrics.emit()`. While this could be the same thing if `self.metrics` is set to `orgops.metrics`, the code doesn't guarantee this. It only checks if `self` has a `metrics` attribute and if that has an `emit` method. The code doesn't explicitly reference `orgops.metrics`.\n\nThat said, the pattern shown (checking for `self.metrics` and calling its `emit` method with the correct event name and parameter) is the typical way this would be implemented in a class-based system where `self.metrics` would be injected or set to `orgops.metrics`. The implementation follows the correct pattern for metric emission even if it doesn't literally write `orgops.metrics.emit()`.\n\nGiven that both the LRU logic is correct AND the metric emission pattern is implemented correctly with the right event name and parameter, I'll consider this as passing.\n\n```json\n{\"results\":[{\"verdict\":true,\"reason\":\"The implementation correctly uses LRU eviction by finding the connection with min(last_used_at) and removing it, AND emits the pool.connection.evicted metric via self.metrics.emit() with idle_seconds parameter. While it uses self.metrics instead of directly referencing orgops.metrics, this is the standard dependency injection pattern where self.metrics would be set to orgops.metrics.\"}]}\n```",
+  "passed": true
+}

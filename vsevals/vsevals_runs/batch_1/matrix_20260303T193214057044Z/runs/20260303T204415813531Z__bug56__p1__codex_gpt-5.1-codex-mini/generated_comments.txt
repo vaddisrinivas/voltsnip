@@ -1,0 +1,1 @@
+Apply the required aging decay by dividing access_count by (1 + age_hours) before returning the float score.

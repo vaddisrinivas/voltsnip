@@ -1,0 +1,1 @@
+Removed duplicate selectivity multiplication; changed `left_rows * right_rows * selectivity * selectivity` to `left_rows * right_rows * selectivity` to apply selectivity exactly once as specified in the formula.

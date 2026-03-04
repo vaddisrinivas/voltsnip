@@ -1,0 +1,1 @@
+Fixed compute_lfu_score to apply time decay formula (access_count / (1 + age_hours)) instead of returning raw access count.

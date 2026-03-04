@@ -1,0 +1,1 @@
+Fixes resource leak by executing RELEASE after ROLLBACK and removing savepoint from tracking, making the rollback event observable via dual execution.

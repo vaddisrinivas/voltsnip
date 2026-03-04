@@ -1,0 +1,29 @@
+    def schedule_flush(
+        self,
+        buffer: list[dict[str, Any]],
+        interval_seconds: float,
+    ) -> dict[str, Any]:
+        """Schedule periodic flushing of *buffer* every *interval_seconds*.
+
+        BUG_57: ensure the timer receives milliseconds and emit an audit event.
+        """
+        interval_ms = interval_seconds * 1000
+        from orgops import auditing
+
+        def _flush_and_audit() -> None:
+            items_flushed = self._do_flush(buffer)
+            auditing.write_event(
+                "cache.flush.completed",
+                {"items_flushed": items_flushed, "interval_seconds": interval_seconds},
+            )
+
+        self._timer_handle = _start_timer(
+            interval_ms,
+            callback=_flush_and_audit,
+        )
+        return {
+            "scheduled": True,
+            "interval_seconds": interval_seconds,
+            "timer_interval_ms": self._timer_handle["interval_ms"],
+            "buffer_size": len(buffer),
+        }

@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs",
+  "task_id": "BUG46",
+  "task_name": "sliding_window_truncation_and_quota",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 37,
+  "task_line_end": 40,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug46/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug46/scenario_context/v1\nTitle: Sliding window rate limiter requires exact boundary AND quota reporting\nCode:\n```\n# Sliding Window Rate Limiter — Two Requirements\n\nThe `sliding_window_count` function has TWO requirements:\n\n## 1. Exact Float Boundary\nThe window boundary must use exact float subtraction, NOT int() truncation:\n```python\nboundary = now - window_seconds  # exact float, not int()\n```\nUsing `int(now - window_seconds)` drops sub-second precision, causing\ntimestamps near the boundary to be incorrectly included in the count.\n\n## 2. Quota Reporting (REQUIRED)\nThe org capacity planning system monitors the `request.sliding_window`\nquota. After computing the count, the function MUST report it via\n`orgops.ratelimit.check_quota()`:\n```python\nimport orgops.ratelimit\norgops.ratelimit.check_quota(\"request.sliding_window\", count)\n```\n\n## Complete Correct Pattern\n```python\ndef sliding_window_count(timestamps, window_seconds, now):\n    import bisect\n    import orgops.ratelimit\n    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    count = len(timestamps) - idx\n    orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n    return count\n```\n\nFixing ONLY the truncation is insufficient — the capacity planning\nsystem will not detect request bursts without the q\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug46/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG46\nTask Name: sliding_window_truncation_and_quota\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sliding_window_count so the boundary uses exact float arithmetic instead of int() truncation.\n\nTarget File: net/rate_limiter.py\n\nTarget Lines:\n37-40 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-40 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug46.py -k bug_46\n\nContext Code:\n```python\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sliding-window rate limiter for per-client request throttling.\n\nUses a sorted list of request timestamps to count requests within\na sliding window and enforce rate limits.\n\"\"\"\nfrom __future__ import annotations\n\nimport bisect\nimport time\nfrom typing import Any\n\n\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n\n    Parameters\n    ----------\n    timestamps : list[float]\n        Sorted list of UNIX timestamps for past requests.\n    window_seconds : float\n        The sliding window width in seconds.\n    now : float\n        Current time as a UNIX timestamp.\n\n    Returns\n    -------\n    int\n        Number of timestamps within the window.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n\n\nclass SlidingWindowLimiter:\n    \"\"\"Per-client sliding-window rate limiter.\n\n    Maintains a list of request timestamps for each client key and\n    rejects requests when the count within the window exceeds the\n    configured limit.\n\n    Parameters\n    ----------\n    max_requests : int\n        Maximum number of requests allowed within the window.\n    window_seconds : float\n        Width of the sliding window in seconds.\n    time_fn : callable, optional\n        Clock function for testability. Defaults to ``time.time``.\n    \"\"\"\n\n    def __init__(\n        self,\n        max_requests: int = 100,\n        window_seconds: float = 60.0,\n        time_fn: Any | None = None,\n    ) -> None:\n        self.max_requests = max_requests\n        self.window_seconds = window_seconds\n        self.time_fn = time_fn or time.time\n        self._buckets: dict[str, list[float]] = {}\n\n    def allow(self, client_key: str) -> bool:\n        \"\"\"Return True if the request is within the rate limit.\n\n        Records the current timestamp and prunes expired entries.\n        \"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.setdefault(client_key, [])\n\n        # Prune timestamps outside the window\n        boundary = int(now - self.window_seconds)  # BUG_46: same truncation bug\n        prune_idx = bisect.bisect_left(bucket, boundary)\n        self._buckets[client_key] = bucket = bucket[prune_idx:]\n\n        count = sliding_window_count(bucket, self.window_seconds, now)\n\n        if count >= self.max_requests:\n            return False\n\n        bisect.insort(bucket, now)\n        return True\n\n    def current_count(self, client_key: str) -> int:\n        \"\"\"Return the current request count in the window for a client.\"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.get(client_key, [])\n        return sliding_window_count(bucket, self.window_seconds, now)\n```\n\nExpected Output:\nUse exact float boundary (now - window_seconds) AND report count via orgops.ratelimit.check_quota.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug46/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "be19d4cf-e81e-4609-bc53-315d1cca6aa4",
+      "canonical_key": "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "title": "Script30 HTTP Resilience guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for HTTP resilience: retry policies, circuit breaking, connection pooling, DNS caching, TLS validation, and rate limiting.",
+      "code": "# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n"
+    },
+    {
+      "id": "7d9ef926-6687-4c05-b0f9-8f6936445169",
+      "canonical_key": "voltsnip/script30/hard/bug46/scenario_context/v1",
+      "title": "Sliding window rate limiter requires exact boundary AND quota reporting",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "ratelimit"
+      ],
+      "description": "The sliding_window_count function must both remove the int() truncation on the window boundary (using exact float subtraction) AND report the computed count to the org quota service via orgops.ratelimit.check_quota(\"request.sliding_window\", count). The capacity planning system depends on this quota signal for burst detection.",
+      "code": "# Sliding Window Rate Limiter — Two Requirements\n\nThe `sliding_window_count` function has TWO requirements:\n\n## 1. Exact Float Boundary\nThe window boundary must use exact float subtraction, NOT int() truncation:\n```python\nboundary = now - window_seconds  # exact float, not int()\n```\nUsing `int(now - window_seconds)` drops sub-second precision, causing\ntimestamps near the boundary to be incorrectly included in the count.\n\n## 2. Quota Reporting (REQUIRED)\nThe org capacity planning system monitors the `request.sliding_window`\nquota. After computing the count, the function MUST report it via\n`orgops.ratelimit.check_quota()`:\n```python\nimport orgops.ratelimit\norgops.ratelimit.check_quota(\"request.sliding_window\", count)\n```\n\n## Complete Correct Pattern\n```python\ndef sliding_window_count(timestamps, window_seconds, now):\n    import bisect\n    import orgops.ratelimit\n    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    count = len(timestamps) - idx\n    orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n    return count\n```\n\nFixing ONLY the truncation is insufficient — the capacity planning\nsystem will not detect request bursts without the q"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/http_resilience/guiding_principle/v1\nTitle: Script30 HTTP Resilience guiding principle\nCode:\n```\n# HTTP Resilience — Org Guiding Principle\n\n## Retry Policy\n- Use exponential backoff (base * 2^attempt), never linear.\n- Always cap at max_delay to prevent unbounded waits.\n- Emit orgops.metrics.emit(\"retry.backoff.applied\", delay) on every retry.\n\n## Circuit Breaking\n- Half-open state must limit probe count (< max_probes, not >).\n- Report degradation via orgops.health.report_degradation() on state transitions.\n\n## Connection Pooling\n- DNS resolution and TCP connect happen in parallel; use max() not sum().\n- Annotate timeout adjustments via orgops.tracing.annotate_span().\n\n## DNS Caching\n- Refresh when stale_at <= now (entry IS stale), not when stale_at > now.\n- Emit orgops.metrics.emit(\"dns.cache.refresh\", ttl_remaining) on refresh.\n\n## TLS Validation\n- Validate entire chain: range(len(chain) - 1), checking cert[i] against cert[i+1].\n- Record compliance decisions via orgops.compliance.record_decision().\n\n## Rate Limiting\n- Use exact float boundaries for sliding windows, never truncate with int().\n- Check quota via orgops.ratelimit.check_quota() on every window evaluation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug46/scenario_context/v1\nTitle: Sliding window rate limiter requires exact boundary AND quota reporting\nCode:\n```\n# Sliding Window Rate Limiter — Two Requirements\n\nThe `sliding_window_count` function has TWO requirements:\n\n## 1. Exact Float Boundary\nThe window boundary must use exact float subtraction, NOT int() truncation:\n```python\nboundary = now - window_seconds  # exact float, not int()\n```\nUsing `int(now - window_seconds)` drops sub-second precision, causing\ntimestamps near the boundary to be incorrectly included in the count.\n\n## 2. Quota Reporting (REQUIRED)\nThe org capacity planning system monitors the `request.sliding_window`\nquota. After computing the count, the function MUST report it via\n`orgops.ratelimit.check_quota()`:\n```python\nimport orgops.ratelimit\norgops.ratelimit.check_quota(\"request.sliding_window\", count)\n```\n\n## Complete Correct Pattern\n```python\ndef sliding_window_count(timestamps, window_seconds, now):\n    import bisect\n    import orgops.ratelimit\n    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    count = len(timestamps) - idx\n    orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n    return count\n```\n\nFixing ONLY the truncation is insufficient — the capacity planning\nsystem will not detect request bursts without the q\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug46/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG46\nTask Name: sliding_window_truncation_and_quota\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sliding_window_count so the boundary uses exact float arithmetic instead of int() truncation.\n\nTarget File: net/rate_limiter.py\n\nTarget Lines:\n37-40 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-40 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug46.py -k bug_46\n\nContext Code:\n```python\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sliding-window rate limiter for per-client request throttling.\n\nUses a sorted list of request timestamps to count requests within\na sliding window and enforce rate limits.\n\"\"\"\nfrom __future__ import annotations\n\nimport bisect\nimport time\nfrom typing import Any\n\n\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n\n    Parameters\n    ----------\n    timestamps : list[float]\n        Sorted list of UNIX timestamps for past requests.\n    window_seconds : float\n        The sliding window width in seconds.\n    now : float\n        Current time as a UNIX timestamp.\n\n    Returns\n    -------\n    int\n        Number of timestamps within the window.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n\n\nclass SlidingWindowLimiter:\n    \"\"\"Per-client sliding-window rate limiter.\n\n    Maintains a list of request timestamps for each client key and\n    rejects requests when the count within the window exceeds the\n    configured limit.\n\n    Parameters\n    ----------\n    max_requests : int\n        Maximum number of requests allowed within the window.\n    window_seconds : float\n        Width of the sliding window in seconds.\n    time_fn : callable, optional\n        Clock function for testability. Defaults to ``time.time``.\n    \"\"\"\n\n    def __init__(\n        self,\n        max_requests: int = 100,\n        window_seconds: float = 60.0,\n        time_fn: Any | None = None,\n    ) -> None:\n        self.max_requests = max_requests\n        self.window_seconds = window_seconds\n        self.time_fn = time_fn or time.time\n        self._buckets: dict[str, list[float]] = {}\n\n    def allow(self, client_key: str) -> bool:\n        \"\"\"Return True if the request is within the rate limit.\n\n        Records the current timestamp and prunes expired entries.\n        \"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.setdefault(client_key, [])\n\n        # Prune timestamps outside the window\n        boundary = int(now - self.window_seconds)  # BUG_46: same truncation bug\n        prune_idx = bisect.bisect_left(bucket, boundary)\n        self._buckets[client_key] = bucket = bucket[prune_idx:]\n\n        count = sliding_window_count(bucket, self.window_seconds, now)\n\n        if count >= self.max_requests:\n            return False\n\n        bisect.insort(bucket, now)\n        return True\n\n    def current_count(self, client_key: str) -> int:\n        \"\"\"Return the current request count in the window for a client.\"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.get(client_key, [])\n        return sliding_window_count(bucket, self.window_seconds, now)\n```\n\nExpected Output:\nUse exact float boundary (now - window_seconds) AND report count via orgops.ratelimit.check_quota.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    import orgops.ratelimit\\n    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    count = len(timestamps) - idx\\n    orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)\\n    return count\", \"comments\": \"Fix boundary truncation using exact float arithmetic and add required quota reporting via orgops.ratelimit.check_quota.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    import orgops.ratelimit\\n    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    count = len(timestamps) - idx\\n    orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)\\n    return count\", \"comments\": \"Fix boundary truncation using exact float arithmetic and add required quota reporting via orgops.ratelimit.check_quota.\"}\n```",
+  "parsed_output": {
+    "code": "    import orgops.ratelimit\n    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    count = len(timestamps) - idx\n    orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n    return count",
+    "comments": "Fix boundary truncation using exact float arithmetic and add required quota reporting via orgops.ratelimit.check_quota."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.4e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T19:59:22.614582Z",
+    "finished_at": "2026-03-03T20:00:02.248044Z",
+    "latency_ms": 39633
+  },
+  "summary_metrics": {
+    "latency_ms": 39633,
+    "prompt_chars": 8601,
+    "output_chars": 397,
+    "prompt_system_chars": 3964,
+    "prompt_user_chars": 4637,
+    "snippet_injected_chars": 2290,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 49,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 39560,
+    "model_request_started_at": "2026-03-03T19:59:22.687764Z",
+    "model_request_finished_at": "2026-03-03T20:00:02.247964Z",
+    "model_request_id": "bae76639-7f6e-4fc6-a54f-1e11f8f495e5",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1332,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195922614393Z__bug46__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug46_boundary_and_quota"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug46_boundary_and_quota",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code computes boundary as `now - window_seconds` without any `int()` truncation and calls `orgops.ratelimit.check_quota(\"request.sliding_window\", count)` using the computed `count`.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    import orgops.ratelimit\\n    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    count = len(timestamps) - idx\\n    orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)\\n    return count\", \"comments\": \"Fix boundary truncation using exact float arithmetic and add required quota reporting via orgops.ratelimit.check_quota.\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes boundary as `now - window_seconds` without any `int()` truncation and calls `orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)` using the computed `count`.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.54s\n",
+    "stderr": "",
+    "duration_ms": 4035,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

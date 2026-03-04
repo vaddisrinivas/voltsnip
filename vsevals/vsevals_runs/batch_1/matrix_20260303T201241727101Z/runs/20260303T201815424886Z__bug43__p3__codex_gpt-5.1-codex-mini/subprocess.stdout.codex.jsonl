@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb559-ed6f-7361-be4f-c50d84a933e0"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Updating timeout calculation with tracing annotation**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: DNS resolution and connect happen in parallel, so cap by max.\\n        total_timeout = max(ct, dt) + rt\\n        import orgops.tracing\\n        orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)\\n        return total_timeout\", \"comments\": \"Treat DNS/connect as parallel using max() and annotate the span before returning the total timeout.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9688,"cached_input_tokens":5888,"output_tokens":333}}

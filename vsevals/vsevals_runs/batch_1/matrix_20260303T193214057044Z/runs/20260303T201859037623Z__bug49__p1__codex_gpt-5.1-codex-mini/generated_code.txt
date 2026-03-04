@@ -1,0 +1,15 @@
+    def rollback_to_savepoint(self, savepoint_id: str) -> None:
+        """Rollback to a named savepoint.
+
+        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on
+        the server but is never released, leaking the resource.  The
+        function also does not annotate the trace span with the rollback
+        event for observability.
+        """
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )
+        self.release_savepoint(savepoint_id)
+        trace_event = getattr(self.session, "trace_event", None)
+        if callable(trace_event):
+            trace_event("rollback_to_savepoint", savepoint_id=savepoint_id)

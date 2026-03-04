@@ -1,0 +1,1 @@
+Apply exponential compounding formula (multiplier ** attempt) instead of linear multiplication to properly escalate timeouts.

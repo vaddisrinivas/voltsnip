@@ -1,0 +1,1 @@
+Fixed selectivity being applied twice by removing duplicate multiplication in cost calculation.

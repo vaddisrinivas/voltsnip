@@ -1,0 +1,25 @@
+        """Create a new audit entry and append it to the trail.
+
+        BUG_69: uses ``datetime.now()`` which returns local time that
+        varies across deployment regions.  Audit entries from us-east-1
+        and eu-west-1 become incomparable.  Must use
+        ``datetime.now(timezone.utc)`` so all entries share a single
+        reference clock.
+        """
+        from datetime import timezone
+        import orgops.compliance
+
+        # BUG_69: ensure UTC timestamps and capture the compliance decision
+        ts = datetime.now(timezone.utc)
+        entry: dict[str, Any] = {
+            "event": event,
+            "user_id": user_id,
+            "timestamp": ts.isoformat(),
+            "utc": True,
+        }
+        self.entries.append(entry)
+        orgops.compliance.record_decision(
+            "audit_timestamp_utc",
+            {"event": event, "user_id": user_id, "timestamp": entry["timestamp"]},
+        )
+        return entry

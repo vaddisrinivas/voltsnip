@@ -1,0 +1,1 @@
+Replace FIFO eviction (pop(0)) with LRU eviction (min last_used_at) and add required metric emission for alerting system.

@@ -1,0 +1,1 @@
+Apply case-insensitive comparison using .upper() and record compliance decision when validation passes.

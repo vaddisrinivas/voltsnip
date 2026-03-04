@@ -1,0 +1,1 @@
+Refilled a token on success, decremented only on failure, and reported the remaining budget after every call.

@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation clearly recurses into nested dictionaries through the _redact helper function which checks 'elif isinstance(value, dict): redacted[key] = _redact(value)' to handle nested structures. It maintains a count of redacted keys using 'nonlocal count' that increments whenever a sensitive key is found. After recursion completes, it calls 'orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)' with the total count. Both required behaviors are present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a deeply redacted copy of *data* and log the audit event.\\\"\\\"\\\"\\n        count = 0\\n\\n        def _redact(payload: dict[str, Any]) -> dict[str, Any]:\\n            nonlocal count\\n            redacted: dict[str, Any] = {}\\n            for key, value in payload.items():\\n                if self.is_sensitive(key):\\n                    redacted[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    redacted[key] = _redact(value)\\n                else:\\n                    redacted[key] = value\\n            return redacted\\n\\n        result: dict[str, Any] = _redact(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\\n\", \"comments\": \"Recurses through nested dicts while counting redactions and logs the compliance event.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation clearly recurses into nested dictionaries through the _redact helper function which checks 'elif isinstance(value, dict): redacted[key] = _redact(value)' to handle nested structures. It maintains a count of redacted keys using 'nonlocal count' that increments whenever a sensitive key is found. After recursion completes, it calls 'orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)' with the total count. Both required behaviors are present.\"\n    }\n  ]\n}",
+  "passed": true
+}

@@ -1,0 +1,1 @@
+Apply the selectivity once and, if available, call any emit_metric hook to publish query.plan.estimated_cost.

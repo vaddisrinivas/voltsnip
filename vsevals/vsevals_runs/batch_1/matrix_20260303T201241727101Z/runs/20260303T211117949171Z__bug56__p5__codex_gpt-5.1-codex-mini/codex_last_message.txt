@@ -1,0 +1,1 @@
+{"code":"        score = access_count / (1.0 + age_hours)\n        metrics.increment(\"cache.eviction.lfu\")\n        return float(score)\n","comments":"Apply the decay formula for LFU scoring and emit the cache.eviction.lfu metric."}

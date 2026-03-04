@@ -1,0 +1,1 @@
+Compare in milliseconds and fire the operational alert when lag exceeds the threshold.

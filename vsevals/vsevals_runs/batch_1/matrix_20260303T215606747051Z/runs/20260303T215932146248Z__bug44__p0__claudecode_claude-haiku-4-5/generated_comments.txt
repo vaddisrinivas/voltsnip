@@ -1,0 +1,1 @@
+Fixed inverted comparison: entry is stale when now >= stale_at, not when stale_at > now.

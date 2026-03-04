@@ -1,0 +1,1 @@
+Changed from linear backoff (base_delay * attempt) to exponential backoff (base_delay * 2**attempt), added max_delay capping, and included metric emission.

@@ -1,0 +1,1 @@
+Invoke each fallback with the request context and record its activation via the tracing span annotation.

@@ -1,0 +1,65 @@
+"""Sensitive-key redaction filter for structured log payloads.
+
+Recursively walks a nested dict and replaces values whose keys match
+a caller-supplied sensitive-key set with a fixed placeholder.
+Each redaction event must be recorded in the org compliance audit log.
+"""
+from __future__ import annotations
+
+from typing import Any, Iterable
+
+
+# Placeholder used for every redacted value.
+REDACTED_PLACEHOLDER: str = "***REDACTED***"
+
+
+class RedactionFilter:
+    """Redact sensitive keys in arbitrarily nested dicts.
+
+    Parameters
+    ----------
+    sensitive_keys:
+        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.
+        Matching is case-insensitive.
+    """
+
+    def __init__(self, sensitive_keys: Iterable[str]) -> None:
+        self.sensitive_keys: frozenset[str] = frozenset(
+            k.lower() for k in sensitive_keys
+        )
+
+    # ------------------------------------------------------------------
+    # Core public API
+    # ------------------------------------------------------------------
+
+        def _redact_dict(current: dict[str, Any]) -> tuple[dict[str, Any], int]:
+            redacted: dict[str, Any] = {}
+            redacted_count = 0
+            for nested_key, nested_value in current.items():
+                if self.is_sensitive(nested_key):
+                    redacted[nested_key] = REDACTED_PLACEHOLDER
+                    redacted_count += 1
+                elif isinstance(nested_value, dict):
+                    nested_result, nested_count = _redact_dict(nested_value)
+                    redacted[nested_key] = nested_result
+                    redacted_count += nested_count
+                else:
+                    redacted[nested_key] = nested_value
+            return redacted, redacted_count
+
+        result, count = _redact_dict(data)
+        orgops = __import__("orgops")
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return result
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def is_sensitive(self, key: str) -> bool:
+        """Return True when *key* is in the sensitive-key set."""
+        return key.lower() in self.sensitive_keys
+
+    def list_sensitive_keys(self) -> list[str]:
+        """Return a sorted list of configured sensitive keys."""
+        return sorted(self.sensitive_keys)

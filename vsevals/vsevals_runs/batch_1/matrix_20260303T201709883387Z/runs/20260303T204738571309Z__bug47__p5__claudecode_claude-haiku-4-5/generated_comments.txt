@@ -1,0 +1,1 @@
+Fixed FIFO to LRU eviction using min(last_used_at) and added pool.connection.evicted metric emission for operational monitoring.

@@ -1,0 +1,1 @@
+Use the exact floating window boundary so sub-second timestamps aren’t truncated.

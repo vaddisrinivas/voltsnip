@@ -1,0 +1,1 @@
+Fix probe limit comparison and report the half-open degradation when probes are throttled.

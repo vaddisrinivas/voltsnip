@@ -1,0 +1,25 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection.
+
+        Evicts the connection with the oldest ``last_used_at`` timestamp so
+        the pool follows true LRU order, and reports the eviction metric.
+        """
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        oldest_index = min(
+            range(len(self.connections)),
+            key=lambda index: self.connections[index].last_used_at,
+        )
+        evicted = self.connections.pop(oldest_index)
+
+        idle_seconds = now - evicted.last_used_at
+
+        metrics_sink = getattr(self, "metrics", None)
+        emit_metric = getattr(metrics_sink, "emit", None)
+        if callable(emit_metric):
+            emit_metric("pool.connection.evicted", idle_seconds)
+
+        return evicted

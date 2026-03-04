@@ -1,0 +1,1 @@
+Fixed selectivity double-application and added required query.plan.estimated_cost metric emission for optimizer dashboard.

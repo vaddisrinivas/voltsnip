@@ -1,0 +1,21 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a copy of *data* with sensitive values recursively redacted and audited."""
+        count = 0
+
+        def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
+            nonlocal count
+            redacted: dict[str, Any] = {}
+            for key, value in mapping.items():
+                if self.is_sensitive(key):
+                    count += 1
+                    redacted[key] = REDACTED_PLACEHOLDER
+                elif isinstance(value, dict):
+                    redacted[key] = _redact_mapping(value)
+                else:
+                    redacted[key] = value
+            return redacted
+
+        result = _redact_mapping(data)
+        import orgops
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

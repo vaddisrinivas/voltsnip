@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T223406825936Z__bug64__p0__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG64",
+  "task_name": "timeout_escalation_no_compound_and_metric",
+  "variant_id": "P0",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 4836,
+    "prompt_chars": 6419,
+    "output_chars": 732,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5369,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 4836,
+    "model_request_started_at": "2026-03-03T22:34:06.826464Z",
+    "model_request_finished_at": "2026-03-03T22:34:11.662815Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8185,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8979,
+      "completion_tokens": 428,
+      "total_tokens": 9407,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0042764
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug64_compound_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug64_compound_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code correctly implements compound timeout escalation using (multiplier ** attempt), but it does NOT emit a timeout.escalated metric via orgops.metrics.emit(). The constraint requires BOTH behaviors to be present, and metric emission is missing.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug64/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\\n\", \"comments\": \"Compound the timeout with the multiplier raised to the attempt count before capping to align with BUG_64 requirements.\"}, \"constraints\": [{\"id\": \"bug64_compound_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug64/scenario_context/v1\", \"check\": \"Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly implements compound timeout escalation using (multiplier ** attempt), but it does NOT emit a timeout.escalated metric via orgops.metrics.emit(). The constraint requires BOTH behaviors to be present, and metric emission is missing.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_64_timeout_compound_and_metric ____________________\n\n    def test_bug_64_timeout_compound_and_metric() -> None:\n        \"\"\"escalate_timeout must:\n        1. Compound the timeout: original_ms * (multiplier ** attempt), not original_ms * multiplier.\n        2. Emit a 'timeout.escalated' metric via orgops.metrics.emit() with the new timeout value.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n>       from errors.timeout_escalation import TimeoutEscalator\nE         File \"/workspace/errors/timeout_escalation.py\", line 26\nE           new_timeout_ms = original_ms * (multiplier ** attempt)\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug64.py:14: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug64.py::test_bug_64_timeout_compound_and_metric -   ...\n1 failed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 4305,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

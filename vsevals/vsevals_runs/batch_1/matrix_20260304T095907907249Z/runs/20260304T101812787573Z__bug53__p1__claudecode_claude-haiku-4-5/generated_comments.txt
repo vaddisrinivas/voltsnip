@@ -1,0 +1,1 @@
+Clamp effective timeout to never go negative when clock skew exceeds requested timeout.

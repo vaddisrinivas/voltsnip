@@ -1,0 +1,1 @@
+Flip the ratio check so only entries close to expiry trigger refreshes and emit the cache.stampede.prevented metric when doing so.

@@ -1,0 +1,1 @@
+Fixed BUG64: changed calculation from original_ms * multiplier to original_ms * (multiplier ** attempt) for exponential compounding, and added orgops.metrics.emit('timeout.escalated', new_timeout_ms) to emit the required metric for alerting.

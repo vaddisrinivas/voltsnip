@@ -1,0 +1,1 @@
+Fixed email regex to include '+' in local-part for plus-addressed emails AND added orgops.compliance.record_decision call for SOC2 audit compliance.

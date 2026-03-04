@@ -1,0 +1,1 @@
+Changed loop range from range(1, len(chain)) to range(len(chain) - 1) and simplified the logic to validate each adjacent pair including the leaf-to-first-intermediate check.

@@ -1,0 +1,1 @@
+Recurse into nested dicts via _redact_recursive helper, track total redactions with nonlocal count, and emit audit event before returning.

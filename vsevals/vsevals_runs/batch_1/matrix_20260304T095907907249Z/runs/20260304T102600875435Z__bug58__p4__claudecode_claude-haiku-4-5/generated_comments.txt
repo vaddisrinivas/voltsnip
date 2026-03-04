@@ -1,0 +1,1 @@
+Fix off-by-one error by changing hash(key) % (n + 1) to hash(key) % n to ensure partition ID stays in valid range [0, num_partitions).

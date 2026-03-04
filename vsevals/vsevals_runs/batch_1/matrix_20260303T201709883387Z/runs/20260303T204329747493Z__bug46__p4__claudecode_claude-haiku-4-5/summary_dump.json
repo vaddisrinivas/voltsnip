@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T204329747493Z__bug46__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG46",
+  "task_name": "sliding_window_truncation_and_quota",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 22532,
+    "prompt_chars": 5627,
+    "output_chars": 286,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4577,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 22510,
+    "model_request_started_at": "2026-03-03T20:43:29.768654Z",
+    "model_request_finished_at": "2026-03-03T20:43:52.279640Z",
+    "model_request_id": "2b8ac9e2-18e1-4a97-9155-5a8c34ab4993",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1300,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug46_boundary_and_quota"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug46_boundary_and_quota",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code uses exact float subtraction for the boundary (now - window_seconds) and bisect to compute the count, but it does not call orgops.ratelimit.check_quota(\"request.sliding_window\", count) anywhere.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\\n\", \"comments\": \"Replace int() truncation with exact float arithmetic to preserve sub-second precision in window boundary calculation.\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code uses exact float subtraction for the boundary (now - window_seconds) and bisect to compute the count, but it does not call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) anywhere.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_46_sliding_window_and_quota _____________________\n\n    def test_bug_46_sliding_window_and_quota() -> None:\n        \"\"\"sliding_window_count must:\n        1. Use exact float boundary (now - window_seconds), NOT int() truncation\n        2. Report the window count to orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n    \n        from net.rate_limiter import sliding_window_count\n    \n        # Scenario: now=1000.9, window=10.0 => exact boundary = 990.9\n        # int() truncation would give boundary = 990, including timestamps\n        # in [990.0, 990.9) that should be OUTSIDE the window.\n        timestamps = [989.5, 990.0, 990.5, 990.8, 991.0, 995.0, 1000.5]\n    \n        now = 1000.9\n        window_seconds = 10.0\n    \n        # Exact boundary = 990.9.  Timestamps >= 990.9: [991.0, 995.0, 1000.5] => 3\n        # Truncated boundary = 990 => [990.0, 990.5, 990.8, 991.0, 995.0, 1000.5] => 6\n        with patch(\"orgops.ratelimit.check_quota\") as mock_quota:\n            count = sliding_window_count(timestamps, window_seconds, now)\n    \n        assert count == 3, (\n            f\"Expected 3 timestamps in [990.9, 1000.9] but got {count}; \"\n            \"boundary must use exact float arithmetic, not int() truncation\"\n        )\n    \n        # Must also call orgops.ratelimit.check_quota with the computed count\n>       mock_quota.assert_called_once()\n\ntests/unit/test_bug46.py:35: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='check_quota' id='281473351036960'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'check_quota' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug46.py::test_bug_46_sliding_window_and_quota - Asser...\n1 failed in 0.67s\n",
+    "stderr": "",
+    "duration_ms": 3801,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs",
+  "task_id": "BUG67",
+  "task_name": "sampling_rate_truncation_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 19,
+  "task_line_end": 45,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug67/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug67/scenario_context/v1\nTitle: Sampling rate requires proper rounding AND metric emission\nCode:\n```\n# Log Sampling Rate — Two Requirements\n\n## 1. Proper Rounding\nUsing int() truncation loses decimal precision (66.67 becomes 66).\nAlways use round with 2 decimal places:\n```python\nrate = round(target_events / total_events * 100, 2)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"log.sampling.rate\", rate)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug67/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG67\nTask Name: sampling_rate_truncation_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_sample_rate to use round() instead of int() truncation for decimal precision.\n\nTarget File: logops/log_sampler.py\n\nTarget Lines:\n19-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 19-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug67.py -k bug_67\n\nContext Code:\n```python\ndef compute_sample_rate(\n    self,\n    total_events: int,\n    target_events: int,\n) -> float:\n    \"\"\"Compute the sampling rate as a percentage (0-100).\n\n    Returns the percentage of events to retain so that roughly\n    *target_events* survive out of *total_events*.\n\n    BUG_67: uses int() truncation instead of round(), losing decimal\n    precision.  For example target=200, total=300 yields 66 instead\n    of the correct 66.67.  Should use round(..., 2) for proper\n    rounding with two-decimal precision.\n    \"\"\"\n    if total_events <= 0:\n        return 0.0\n    if target_events >= total_events:\n        return 100.0\n\n    rate = int(target_events / total_events * 100)  # BUG_67: truncates instead of rounding\n    self.history.append({\n        \"total_events\": total_events,\n        \"target_events\": target_events,\n        \"rate\": rate,\n    })\n    return float(rate)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Log sampler with configurable sampling rate computation.\n\nThis module provides sampling rate calculation for high-volume log pipelines.\nCallers use `compute_sample_rate` to determine what percentage of events to\nretain when total volume exceeds a target threshold.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass LogSampler:\n    \"\"\"Computes and tracks log sampling rates for volume control.\"\"\"\n\n    history: list[dict[str, Any]] = field(default_factory=list)\n\n    def compute_sample_rate(\n        self,\n        total_events: int,\n        target_events: int,\n    ) -> float:\n        \"\"\"Compute the sampling rate as a percentage (0-100).\n\n        Returns the percentage of events to retain so that roughly\n        *target_events* survive out of *total_events*.\n\n        BUG_67: uses int() truncation instead of round(), losing decimal\n        precision.  For example target=200, total=300 yields 66 instead\n        of the correct 66.67.  Should use round(..., 2) for proper\n        rounding with two-decimal precision.\n        \"\"\"\n        if total_events <= 0:\n            return 0.0\n        if target_events >= total_events:\n            return 100.0\n\n        rate = int(target_events / total_events * 100)  # BUG_67: truncates instead of rounding\n        self.history.append({\n            \"total_events\": total_events,\n            \"target_events\": target_events,\n            \"rate\": rate,\n        })\n        return float(rate)\n\n    def last_rate(self) -> float | None:\n        \"\"\"Return the most recently computed rate, or None.\"\"\"\n        if not self.history:\n            return None\n        return self.history[-1][\"rate\"]\n\n    def average_rate(self) -> float:\n        \"\"\"Return the average sampling rate across all computations.\"\"\"\n        if not self.history:\n            return 0.0\n        return round(\n            sum(entry[\"rate\"] for entry in self.history) / len(self.history), 2\n        )\n```\n\nExpected Output:\nUse round(..., 2) instead of int() truncation AND emit log.sampling.rate metric via orgops.metrics.emit.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug67/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "59610a66-542e-4aaa-a2da-f6d66f5e03c9",
+      "canonical_key": "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "title": "Script30 Logging & Privacy guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for logging and privacy: PII sanitization, context propagation, log sampling, JSON redaction, audit timestamps, and secret scanning.",
+      "code": "# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n"
+    },
+    {
+      "id": "ce62c0de-a9bd-4f18-a286-2747ee6ce164",
+      "canonical_key": "voltsnip/script30/hard/bug67/scenario_context/v1",
+      "title": "Sampling rate requires proper rounding AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The compute_sample_rate function must use round(..., 2) instead of int() truncation AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# Log Sampling Rate — Two Requirements\n\n## 1. Proper Rounding\nUsing int() truncation loses decimal precision (66.67 becomes 66).\nAlways use round with 2 decimal places:\n```python\nrate = round(target_events / total_events * 100, 2)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"log.sampling.rate\", rate)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug67/scenario_context/v1\nTitle: Sampling rate requires proper rounding AND metric emission\nCode:\n```\n# Log Sampling Rate — Two Requirements\n\n## 1. Proper Rounding\nUsing int() truncation loses decimal precision (66.67 becomes 66).\nAlways use round with 2 decimal places:\n```python\nrate = round(target_events / total_events * 100, 2)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"log.sampling.rate\", rate)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug67/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG67\nTask Name: sampling_rate_truncation_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_sample_rate to use round() instead of int() truncation for decimal precision.\n\nTarget File: logops/log_sampler.py\n\nTarget Lines:\n19-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 19-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug67.py -k bug_67\n\nContext Code:\n```python\ndef compute_sample_rate(\n    self,\n    total_events: int,\n    target_events: int,\n) -> float:\n    \"\"\"Compute the sampling rate as a percentage (0-100).\n\n    Returns the percentage of events to retain so that roughly\n    *target_events* survive out of *total_events*.\n\n    BUG_67: uses int() truncation instead of round(), losing decimal\n    precision.  For example target=200, total=300 yields 66 instead\n    of the correct 66.67.  Should use round(..., 2) for proper\n    rounding with two-decimal precision.\n    \"\"\"\n    if total_events <= 0:\n        return 0.0\n    if target_events >= total_events:\n        return 100.0\n\n    rate = int(target_events / total_events * 100)  # BUG_67: truncates instead of rounding\n    self.history.append({\n        \"total_events\": total_events,\n        \"target_events\": target_events,\n        \"rate\": rate,\n    })\n    return float(rate)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Log sampler with configurable sampling rate computation.\n\nThis module provides sampling rate calculation for high-volume log pipelines.\nCallers use `compute_sample_rate` to determine what percentage of events to\nretain when total volume exceeds a target threshold.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass LogSampler:\n    \"\"\"Computes and tracks log sampling rates for volume control.\"\"\"\n\n    history: list[dict[str, Any]] = field(default_factory=list)\n\n    def compute_sample_rate(\n        self,\n        total_events: int,\n        target_events: int,\n    ) -> float:\n        \"\"\"Compute the sampling rate as a percentage (0-100).\n\n        Returns the percentage of events to retain so that roughly\n        *target_events* survive out of *total_events*.\n\n        BUG_67: uses int() truncation instead of round(), losing decimal\n        precision.  For example target=200, total=300 yields 66 instead\n        of the correct 66.67.  Should use round(..., 2) for proper\n        rounding with two-decimal precision.\n        \"\"\"\n        if total_events <= 0:\n            return 0.0\n        if target_events >= total_events:\n            return 100.0\n\n        rate = int(target_events / total_events * 100)  # BUG_67: truncates instead of rounding\n        self.history.append({\n            \"total_events\": total_events,\n            \"target_events\": target_events,\n            \"rate\": rate,\n        })\n        return float(rate)\n\n    def last_rate(self) -> float | None:\n        \"\"\"Return the most recently computed rate, or None.\"\"\"\n        if not self.history:\n            return None\n        return self.history[-1][\"rate\"]\n\n    def average_rate(self) -> float:\n        \"\"\"Return the average sampling rate across all computations.\"\"\"\n        if not self.history:\n            return 0.0\n        return round(\n            sum(entry[\"rate\"] for entry in self.history) / len(self.history), 2\n        )\n```\n\nExpected Output:\nUse round(..., 2) instead of int() truncation AND emit log.sampling.rate metric via orgops.metrics.emit.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        orgops.metrics.emit(\\\"log.sampling.rate\\\", rate)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        return float(rate)\", \"comments\": \"Replace int() truncation with round(..., 2) for decimal precision and emit log.sampling.rate metric via orgops.metrics.emit().\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        orgops.metrics.emit(\\\"log.sampling.rate\\\", rate)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        return float(rate)\", \"comments\": \"Replace int() truncation with round(..., 2) for decimal precision and emit log.sampling.rate metric via orgops.metrics.emit().\"}\n```",
+  "parsed_output": {
+    "code": "    def compute_sample_rate(\n        self,\n        total_events: int,\n        target_events: int,\n    ) -> float:\n        \"\"\"Compute the sampling rate as a percentage (0-100).\n\n        Returns the percentage of events to retain so that roughly\n        *target_events* survive out of *total_events*.\n\n        BUG_67: uses int() truncation instead of round(), losing decimal\n        precision.  For example target=200, total=300 yields 66 instead\n        of the correct 66.67.  Should use round(..., 2) for proper\n        rounding with two-decimal precision.\n        \"\"\"\n        if total_events <= 0:\n            return 0.0\n        if target_events >= total_events:\n            return 100.0\n\n        rate = round(target_events / total_events * 100, 2)\n        orgops.metrics.emit(\"log.sampling.rate\", rate)\n        self.history.append({\n            \"total_events\": total_events,\n            \"target_events\": target_events,\n            \"rate\": rate,\n        })\n        return float(rate)",
+    "comments": "Replace int() truncation with round(..., 2) for decimal precision and emit log.sampling.rate metric via orgops.metrics.emit()."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.4e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T23:07:16.385205Z",
+    "finished_at": "2026-03-03T23:08:10.339718Z",
+    "latency_ms": 53954
+  },
+  "summary_metrics": {
+    "latency_ms": 53954,
+    "prompt_chars": 7191,
+    "output_chars": 1191,
+    "prompt_system_chars": 3191,
+    "prompt_user_chars": 4000,
+    "snippet_injected_chars": 1529,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 53884,
+    "model_request_started_at": "2026-03-03T23:07:16.454527Z",
+    "model_request_finished_at": "2026-03-03T23:08:10.339542Z",
+    "model_request_id": "329a3f38-d4a2-4490-9f96-5689f24337f9",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1701,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T230716385022Z__bug67__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug67_sampling_round_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug67_sampling_round_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code computes rate using round(target_events / total_events * 100, 2) (no int() truncation) and emits orgops.metrics.emit(\"log.sampling.rate\", rate) with the computed rate.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug67/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        orgops.metrics.emit(\\\"log.sampling.rate\\\", rate)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        return float(rate)\", \"comments\": \"Replace int() truncation with round(..., 2) for decimal precision and emit log.sampling.rate metric via orgops.metrics.emit().\"}, \"constraints\": [{\"id\": \"bug67_sampling_round_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug67/scenario_context/v1\", \"check\": \"Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a \\\"log.sampling.rate\\\" metric via orgops.metrics.emit() with the computed rate value?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes rate using round(target_events / total_events * 100, 2) (no int() truncation) and emits orgops.metrics.emit(\\\"log.sampling.rate\\\", rate) with the computed rate.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_67_sampling_round_and_metric _____________________\n\n    def test_bug_67_sampling_round_and_metric() -> None:\n        \"\"\"compute_sample_rate must:\n        1. Use round(..., 2) instead of int() truncation for decimal precision.\n        2. Emit a 'log.sampling.rate' metric via orgops.metrics.emit().\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from logops.log_sampler import LogSampler\n    \n        sampler = LogSampler()\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # target=200, total=300 => 200/300*100 = 66.666... => round => 66.67\n>           rate = sampler.compute_sample_rate(total_events=300, target_events=200)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug67.py:20: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = LogSampler(history=[]), total_events = 300, target_events = 200\n\n    def compute_sample_rate(\n        self,\n        total_events: int,\n        target_events: int,\n    ) -> float:\n        \"\"\"Compute the sampling rate as a percentage (0-100).\n    \n        Returns the percentage of events to retain so that roughly\n        *target_events* survive out of *total_events*.\n    \n        BUG_67: uses int() truncation instead of round(), losing decimal\n        precision.  For example target=200, total=300 yields 66 instead\n        of the correct 66.67.  Should use round(..., 2) for proper\n        rounding with two-decimal precision.\n        \"\"\"\n        if total_events <= 0:\n            return 0.0\n        if target_events >= total_events:\n            return 100.0\n    \n        rate = round(target_events / total_events * 100, 2)\n>       orgops.metrics.emit(\"log.sampling.rate\", rate)\n        ^^^^^^\nE       NameError: name 'orgops' is not defined\n\nlogops/log_sampler.py:40: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug67.py::test_bug_67_sampling_round_and_metric - Name...\n1 failed in 0.40s\n",
+    "stderr": "",
+    "duration_ms": 2343,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

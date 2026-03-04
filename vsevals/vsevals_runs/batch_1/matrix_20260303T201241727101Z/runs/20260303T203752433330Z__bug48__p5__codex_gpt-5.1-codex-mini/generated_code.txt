@@ -1,0 +1,21 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+
+        Versions are compared numerically to avoid lexicographic ordering.
+        """
+        def version_key(value: str) -> int:
+            return int(value)
+
+        if not self.applied_versions:
+            return sorted(
+                self.available_migrations,
+                key=lambda m: version_key(m["version"]),
+            )
+
+        max_applied = max(map(version_key, self.applied_versions))
+        pending = [
+            m
+            for m in self.available_migrations
+            if version_key(m["version"]) > max_applied
+        ]
+        return sorted(pending, key=lambda m: version_key(m["version"]))

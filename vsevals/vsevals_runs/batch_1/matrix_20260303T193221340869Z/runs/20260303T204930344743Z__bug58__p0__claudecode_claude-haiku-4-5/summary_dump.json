@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T204930344743Z__bug58__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG58",
+  "task_name": "hash_ring_modulus_off_by_one_and_health",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 34380,
+    "prompt_chars": 6133,
+    "output_chars": 701,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5083,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 34380,
+    "model_request_started_at": "2026-03-03T20:49:30.345212Z",
+    "model_request_finished_at": "2026-03-03T20:50:04.725671Z",
+    "model_request_id": "90a2ee07-b9eb-422d-82d4-3c04cf3cee07",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1253,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5,
+      "total_tokens": 15,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.8e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug58_modulus_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug58_modulus_and_health",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code fixes the modulus to `_stable_hash(key) % n` (no `+1`), but it does not call `orgops.health.report_degradation()` or report any `cache.partition.skew` degradation signal.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n    \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n    return ``num_partitions`` itself -- an out-of-range value\\n    (valid range is ``0 .. num_partitions - 1``).  The fix must\\n    use ``hash(key) % num_partitions`` instead.\\n    \\\"\\\"\\\"\\n    n = num_partitions if num_partitions is not None else self._config.num_partitions\\n    partition_id = _stable_hash(key) % n\\n    return partition_id\", \"comments\": \"Fixed off-by-one error: changed hash modulus from (n + 1) to n so partition_id stays in valid range [0, num_partitions).\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code fixes the modulus to `_stable_hash(key) % n` (no `+1`), but it does not call `orgops.health.report_degradation()` or report any `cache.partition.skew` degradation signal.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_58_partition_modulus_and_health ___________________\n\n    def test_bug_58_partition_modulus_and_health() -> None:\n        \"\"\"assign_partition must:\n        1. Return a value in [0, num_partitions) -- i.e. use\n           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).\n        2. Call orgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n           every time an assignment is made.\n        Both are required -- fixing only the modulus is insufficient.\n        \"\"\"\n    \n        config = PartitionConfig(num_partitions=4)\n        partitioner = ConsistentHashPartitioner(config)\n    \n        with patch(\"orgops.health.report_degradation\") as mock_health:\n>           result = partitioner.assign_partition(\"test-key-alpha\", num_partitions=4)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'ConsistentHashPartitioner' object has no attribute 'assign_partition'\n\ntests/unit/test_bug58.py:23: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - A...\n1 failed in 0.40s\n",
+    "stderr": "",
+    "duration_ms": 2779,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

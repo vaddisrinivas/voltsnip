@@ -1,0 +1,1 @@
+Fix compute_ttl_with_jitter so it adds random jitter instead of subtracting it to spread expiry forward.

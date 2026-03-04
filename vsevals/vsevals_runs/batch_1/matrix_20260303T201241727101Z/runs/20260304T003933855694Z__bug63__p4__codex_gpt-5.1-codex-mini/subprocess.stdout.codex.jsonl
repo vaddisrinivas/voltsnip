@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb649-2924-7701-9aa9-a4458969d224"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Revising capacity check with alert**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"    # BUG_63: off-by-one — reject once max_size is reached (>= ensures we never exceed it)\\n    if len(self.queue) >= self.max_size:\\n        return False\\n\\n    self.queue.append(message)\\n\\n    # fire the capacity-warning alert when utilization reaches 80 %\\n    if self.utilization_pct >= 80.0:\\n        from orgops.alerts import notify\\n\\n        notify(\\\"dlq.capacity.warning\\\")\\n\\n    return True\", \"comments\": \"Tightened the capacity guard to ≥ max_size and added the 80% utilization alert, importing notify lazily inside the branch.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9862,"cached_input_tokens":6912,"output_tokens":1407}}

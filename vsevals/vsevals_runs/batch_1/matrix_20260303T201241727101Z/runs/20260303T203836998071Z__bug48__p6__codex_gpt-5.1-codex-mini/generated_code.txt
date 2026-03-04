@@ -1,0 +1,23 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+
+        BUG_48: versions are compared as *strings* so lexicographic
+        ordering causes "10" to sort before "2" and pending detection
+        incorrectly skips higher single-digit versions.
+        """
+        def _version_key(migration: dict[str, Any]) -> int:
+            return int(migration["version"])
+
+        if not self.applied_versions:
+            return sorted(
+                self.available_migrations,
+                key=_version_key,
+            )
+
+        max_applied = max(int(version) for version in self.applied_versions)
+        pending = [
+            migration
+            for migration in self.available_migrations
+            if _version_key(migration) > max_applied
+        ]
+        return sorted(pending, key=_version_key)

@@ -1,0 +1,1 @@
+Restrict probes with `< max_probes` and report the circuit.half_open degradation when granting a probe.

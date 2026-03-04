@@ -1,0 +1,1 @@
+Compare normalized types and log the schema validation outcome with orgops compliance.

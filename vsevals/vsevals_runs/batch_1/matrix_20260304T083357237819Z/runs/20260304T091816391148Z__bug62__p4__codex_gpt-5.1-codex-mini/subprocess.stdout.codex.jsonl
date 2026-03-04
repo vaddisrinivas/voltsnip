@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb824-0d89-7cc3-99e3-7c6c87b9c804"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Handling fallback activation annotation**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        import orgops\\n\\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n            try:\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\", \"comments\": \"Pass the shared context into each fallback and emit a tracing annotation right before invoking it to mark the activation index.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":10289,"cached_input_tokens":7040,"output_tokens":1589}}

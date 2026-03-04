@@ -1,0 +1,1 @@
+Clamp the adjusted timeout at zero so clock skew cannot drive it negative.

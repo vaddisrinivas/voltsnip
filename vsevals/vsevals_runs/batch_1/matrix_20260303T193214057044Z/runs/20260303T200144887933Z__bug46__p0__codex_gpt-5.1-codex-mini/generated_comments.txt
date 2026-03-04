@@ -1,0 +1,1 @@
+Use the precise float boundary instead of truncating to avoid missing near-boundary timestamps.

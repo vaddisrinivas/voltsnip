@@ -1,0 +1,7 @@
+        self.findings = []
+        self._scan_plaintext(text)
+        for segment in _BASE64_RE.findall(text):
+            decoded = self._try_decode_base64(segment)
+            if decoded:
+                self._scan_plaintext(decoded)
+        return list(self.findings)

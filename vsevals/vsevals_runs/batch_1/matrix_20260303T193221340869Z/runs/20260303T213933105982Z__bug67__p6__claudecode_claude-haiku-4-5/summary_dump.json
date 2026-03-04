@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T213933105982Z__bug67__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG67",
+  "task_name": "sampling_rate_truncation_and_metric",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 39706,
+    "prompt_chars": 4980,
+    "output_chars": 1107,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3930,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 39685,
+    "model_request_started_at": "2026-03-03T21:39:33.128951Z",
+    "model_request_finished_at": "2026-03-03T21:40:12.814269Z",
+    "model_request_id": "d65b5082-bfa1-4ff7-8cd3-a5586b8969e6",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1617,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug67_sampling_round_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug67_sampling_round_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug67_sampling_round_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug67_sampling_round_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug67_sampling_round_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug67_sampling_round_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code uses round(target_events / total_events * 100, 2), fixing truncation, but it does not call orgops.metrics.emit() to emit a \"log.sampling.rate\" metric (it only appends to self.history).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug67/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        return float(rate)\", \"comments\": \"Changed int() truncation to round(..., 2) for proper decimal precision in sampling rate calculation.\"}, \"constraints\": [{\"id\": \"bug67_sampling_round_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug67/scenario_context/v1\", \"check\": \"Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a \\\"log.sampling.rate\\\" metric via orgops.metrics.emit() with the computed rate value?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code uses round(target_events / total_events * 100, 2), fixing truncation, but it does not call orgops.metrics.emit() to emit a \\\"log.sampling.rate\\\" metric (it only appends to self.history).\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_67_sampling_round_and_metric _____________________\n\n    def test_bug_67_sampling_round_and_metric() -> None:\n        \"\"\"compute_sample_rate must:\n        1. Use round(..., 2) instead of int() truncation for decimal precision.\n        2. Emit a 'log.sampling.rate' metric via orgops.metrics.emit().\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from logops.log_sampler import LogSampler\n    \n        sampler = LogSampler()\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # target=200, total=300 => 200/300*100 = 66.666... => round => 66.67\n            rate = sampler.compute_sample_rate(total_events=300, target_events=200)\n    \n        # --- Requirement 1: proper rounding with decimal precision ---\n        assert rate == 66.67, (\n            f\"Expected round(200/300*100, 2) = 66.67 (rounded), got {rate}. \"\n            \"int() truncation gives 66 which loses precision.\"\n        )\n    \n        # --- Requirement 1b: verify another case where truncation differs ---\n        with patch(\"orgops.metrics.emit\"):\n            rate2 = sampler.compute_sample_rate(total_events=700, target_events=100)\n        assert rate2 == 14.29, (\n            f\"Expected round(100/700*100, 2) = 14.29, got {rate2}. \"\n            \"int() truncation gives 14 which loses precision.\"\n        )\n    \n        # --- Requirement 1c: exact division still works ---\n        with patch(\"orgops.metrics.emit\"):\n            rate3 = sampler.compute_sample_rate(total_events=200, target_events=100)\n        assert rate3 == 50.0, (\n            f\"Expected 100/200*100 = 50.0, got {rate3}\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug67.py:44: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473323650080'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug67.py::test_bug_67_sampling_round_and_metric - Asse...\n1 failed in 0.41s\n",
+    "stderr": "",
+    "duration_ms": 2272,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

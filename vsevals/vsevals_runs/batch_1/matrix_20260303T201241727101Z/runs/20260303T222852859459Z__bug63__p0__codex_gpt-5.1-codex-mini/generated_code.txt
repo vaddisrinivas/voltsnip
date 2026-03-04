@@ -1,0 +1,11 @@
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+
+        util_pct = self.utilization_pct
+        alert = getattr(self, "capacity_warning_alert", None)
+        if self.max_size > 0 and util_pct >= 80.0 and callable(alert):
+            alert(util_pct)
+
+        return True

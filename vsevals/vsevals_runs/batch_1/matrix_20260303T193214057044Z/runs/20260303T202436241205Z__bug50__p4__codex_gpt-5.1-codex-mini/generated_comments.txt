@@ -1,0 +1,1 @@
+Apply selectivity once, append the history, and emit the query plan cost metric.

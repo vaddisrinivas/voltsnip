@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T092514933191Z__bug68__p3__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 7245,
+    "prompt_chars": 7900,
+    "output_chars": 1422,
+    "prompt_system_chars": 3507,
+    "prompt_user_chars": 4393,
+    "snippet_injected_chars": 1837,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 52,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 7168,
+    "model_request_started_at": "2026-03-04T09:25:15.010412Z",
+    "model_request_finished_at": "2026-03-04T09:25:22.179153Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8603,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9386,
+      "completion_tokens": 994,
+      "total_tokens": 10380,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0053448
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation includes a recursive helper function `_redact` that traverses nested dictionaries (via `isinstance(value, dict)` and recursive call), accumulates the total count of redacted keys across all levels, and after redaction calls `orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)` with the aggregated count. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n        BUG_68: only top-level keys are checked.  Nested dicts are\\n        returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n        sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n        The function also fails to call\\n        ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n        after redaction to record how many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in obj.items():\\n                if self.is_sensitive(key):\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested = _redact(value)\\n                    count += nested\\n                else:\\n                    result[key] = value\\n            return result, count\\n\\n        redacted, count = _redact(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return redacted\\n\", \"comments\": \"Recurse through nested dicts to redact all sensitive keys and log the total via orgops auditing.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation includes a recursive helper function `_redact` that traverses nested dictionaries (via `isinstance(value, dict)` and recursive call), accumulates the total count of redacted keys across all levels, and after redaction calls `orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)` with the aggregated count. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 897,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

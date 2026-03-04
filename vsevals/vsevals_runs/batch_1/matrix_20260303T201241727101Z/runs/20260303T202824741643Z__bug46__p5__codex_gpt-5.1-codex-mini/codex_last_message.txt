@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx","comments":"Use the precise float boundary when slicing timestamps so sub-second requests count correctly."}

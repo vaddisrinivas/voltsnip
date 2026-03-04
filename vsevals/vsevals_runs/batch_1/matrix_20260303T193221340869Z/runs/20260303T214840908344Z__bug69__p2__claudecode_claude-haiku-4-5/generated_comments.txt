@@ -1,0 +1,1 @@
+Use timezone-aware UTC timestamp and record compliance decision for SOC2 audit trail normalization.

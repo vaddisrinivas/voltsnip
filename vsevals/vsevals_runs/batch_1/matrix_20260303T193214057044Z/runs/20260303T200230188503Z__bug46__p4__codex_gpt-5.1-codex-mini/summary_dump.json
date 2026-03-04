@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T200230188503Z__bug46__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG46",
+  "task_name": "sliding_window_truncation_and_quota",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 4605,
+    "prompt_chars": 5627,
+    "output_chars": 321,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4577,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 4582,
+    "model_request_started_at": "2026-03-03T20:02:30.210031Z",
+    "model_request_finished_at": "2026-03-03T20:02:34.792951Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6550,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10417,
+      "completion_tokens": 121,
+      "total_tokens": 10538,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0043604
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug46_boundary_and_quota"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug46_boundary_and_quota",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code correctly removes int() truncation and uses exact float subtraction (now - window_seconds) for the boundary, BUT it does not call orgops.ratelimit.check_quota(\"request.sliding_window\", count). The constraint requires both conditions (joined by AND), so this fails because the quota check is missing.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    boundary = now - window_seconds  # BUG_46: keep full precision for the window boundary\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\", \"comments\": \"Use the precise float window boundary instead of truncating to an int to prevent undercounting near sub-second edges.\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly removes int() truncation and uses exact float subtraction (now - window_seconds) for the boundary, BUT it does not call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count). The constraint requires both conditions (joined by AND), so this fails because the quota check is missing.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

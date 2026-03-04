@@ -1,0 +1,1 @@
+Gather every validation error before returning and log a "validation.completed" decision with the total count.

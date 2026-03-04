@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < so early refresh triggers when close to expiry (low ratio), with refreshes_triggered counter emitting the cache.stampede.prevented metric.

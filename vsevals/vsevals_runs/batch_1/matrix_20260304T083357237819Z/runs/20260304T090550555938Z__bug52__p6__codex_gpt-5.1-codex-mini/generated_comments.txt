@@ -1,0 +1,1 @@
+Normalize both types before comparing and record the schema validation decision via orgops compliance.

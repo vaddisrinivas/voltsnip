@@ -1,0 +1,6 @@
+        n = num_partitions if num_partitions is not None else self._config.num_partitions
+        # keep partition_id in [0, n)
+        partition_id = _stable_hash(key) % n
+        import orgops.health
+        orgops.health.report_degradation("cache.partition.skew", partition_id)
+        return partition_id

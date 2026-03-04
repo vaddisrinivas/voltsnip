@@ -1,0 +1,1 @@
+Treat DNS/connect as parallel using max() and annotate the span before returning the total timeout.

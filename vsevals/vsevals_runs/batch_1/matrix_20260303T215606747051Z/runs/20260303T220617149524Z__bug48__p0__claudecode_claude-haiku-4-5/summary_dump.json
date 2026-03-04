@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T220617149524Z__bug48__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 23995,
+    "prompt_chars": 5712,
+    "output_chars": 946,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4662,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 23995,
+    "model_request_started_at": "2026-03-03T22:06:17.150021Z",
+    "model_request_finished_at": "2026-03-03T22:06:41.145551Z",
+    "model_request_id": "dd73cac5-442f-4beb-b3d9-386369525b7e",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1294,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 2,
+      "total_tokens": 12,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.6e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code fixes version ordering by converting versions to int() for comparisons and sorting, but it does not call orgops.auditing.write_event(\"migration.applied\", version=version) anywhere (and this function is get_pending_migrations, not applying migrations).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        if not self.applied_versions:\\n            return sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n\\n        max_applied = max(int(v) for v in self.applied_versions)\\n        pending = [\\n            m\\n            for m in self.available_migrations\\n            if int(m[\\\"version\\\"]) > max_applied\\n        ]\\n        return sorted(pending, key=lambda m: int(m[\\\"version\\\"]))\", \"comments\": \"Convert version strings to integers for numeric comparison instead of lexicographic string sorting.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code fixes version ordering by converting versions to int() for comparisons and sorting, but it does not call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) anywhere (and this function is get_pending_migrations, not applying migrations).\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_48_migration_version_and_audit ____________________\n\n    def test_bug_48_migration_version_and_audit() -> None:\n        \"\"\"MigrationRunner must:\n        1. Compare versions numerically so \"10\" sorts after \"9\" (not before \"2\").\n        2. Call orgops.auditing.write_event(\"migration.applied\", version=version)\n           for each migration applied.\n        Both are required -- fixing only the ordering is insufficient.\n        \"\"\"\n        from data.migration_runner import MigrationRunner\n    \n        applied_versions = {\"1\", \"2\", \"3\", \"9\"}\n        available_migrations = [\n            {\"version\": \"1\", \"sql\": \"CREATE TABLE a;\"},\n            {\"version\": \"2\", \"sql\": \"CREATE TABLE b;\"},\n            {\"version\": \"3\", \"sql\": \"CREATE TABLE c;\"},\n            {\"version\": \"9\", \"sql\": \"CREATE TABLE i;\"},\n            {\"version\": \"10\", \"sql\": \"CREATE TABLE j;\"},\n            {\"version\": \"11\", \"sql\": \"CREATE TABLE k;\"},\n            {\"version\": \"20\", \"sql\": \"CREATE TABLE t;\"},\n        ]\n    \n        runner = MigrationRunner(applied_versions, available_migrations)\n    \n        # ── 1. Numeric ordering: versions 10, 11, 20 are pending ────────\n        pending = runner.get_pending_migrations()\n        pending_versions = [str(m[\"version\"]) for m in pending]\n        assert pending_versions == [\"10\", \"11\", \"20\"], (\n            f\"Expected pending ['10', '11', '20'] with numeric comparison, \"\n            f\"got {pending_versions} (likely lexicographic string comparison)\"\n        )\n    \n        # ── 2. Audit event for each applied migration ───────────────────\n        executor = MagicMock()\n    \n        with patch(\"orgops.auditing.write_event\") as mock_audit:\n            applied = runner.apply_pending(executor)\n    \n            assert applied == [\"10\", \"11\", \"20\"], (\n                f\"Expected applied versions ['10', '11', '20'], got {applied}\"\n            )\n    \n            # One audit call per applied migration\n>           assert mock_audit.call_count == 3, (\n                f\"Expected 3 audit calls (one per migration), got {mock_audit.call_count}\"\n            )\nE           AssertionError: Expected 3 audit calls (one per migration), got 0\nE           assert 0 == 3\nE            +  where 0 = <MagicMock name='write_event' id='281472985260752'>.call_count\n\ntests/unit/test_bug48.py:50: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - As...\n1 failed in 0.47s\n",
+    "stderr": "",
+    "duration_ms": 3432,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

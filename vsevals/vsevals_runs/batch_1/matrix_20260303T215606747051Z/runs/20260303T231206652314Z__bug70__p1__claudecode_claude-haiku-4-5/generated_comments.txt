@@ -1,0 +1,1 @@
+Decode base64 segments and re-scan for encoded secrets using the existing _BASE64_RE pattern and _try_decode_base64 helper.

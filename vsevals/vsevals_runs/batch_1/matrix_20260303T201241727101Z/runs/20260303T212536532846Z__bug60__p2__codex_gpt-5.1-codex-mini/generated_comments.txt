@@ -1,0 +1,1 @@
+Collects every validation error instead of short-circuiting on the first failure.

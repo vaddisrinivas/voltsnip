@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T025224934262Z__bug59__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG59",
+  "task_name": "http_status_classification_and_metric",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 50541,
+    "prompt_chars": 5162,
+    "output_chars": 816,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4112,
+    "snippet_injected_chars": 2763,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 4,
+    "tool_call_count": 3,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 50250,
+    "model_request_started_at": "2026-03-04T02:52:24.963448Z",
+    "model_request_finished_at": "2026-03-04T02:53:15.214340Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2648,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 62142,
+      "completion_tokens": 6060,
+      "total_tokens": 68202,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0345528
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug59_classification_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug59_classification_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly splits HTTP status codes with 400-499 classified as 'client_error' and 500-599 as 'server_error'. It also emits the required 'error.mapped' metric via orgops.metrics.emit() with both status_code and category included in the metric data.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: split 4xx vs 5xx while emitting error.mapped via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    from orgops import metrics\\n\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n\\n    metrics.emit(\\\"error.mapped\\\", {\\\"status_code\\\": status_code, \\\"category\\\": category})\\n    return category\", \"comments\": \"Distinguishes 4xx from 5xx classifications and emits the required error.mapped metric.\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly splits HTTP status codes with 400-499 classified as 'client_error' and 500-599 as 'server_error'. It also emits the required 'error.mapped' metric via orgops.metrics.emit() with both status_code and category included in the metric data.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_________________ test_bug_59_status_classification_and_metric _________________\n\n    def test_bug_59_status_classification_and_metric() -> None:\n        \"\"\"classify_http_error must:\n        1. Return \"client_error\" for 400-499 (not \"server_error\").\n        2. Return \"server_error\" for 500-599.\n        3. Emit an 'error.mapped' metric via orgops.metrics.emit().\n        All three are required -- fixing only the classification is insufficient.\n        \"\"\"\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # 429 is a client error (4xx range)\n            result = classify_http_error(429)\n    \n        # --- Requirement 1: correct classification for 4xx ---\n        assert result == \"client_error\", (\n            f\"Expected 'client_error' for status 429, got '{result}' \"\n            \"(bug lumps all 4xx+5xx into 'server_error')\"\n        )\n    \n        # --- Requirement 1b: verify 5xx still returns server_error ---\n        with patch(\"orgops.metrics.emit\"):\n            server_result = classify_http_error(502)\n        assert server_result == \"server_error\", (\n            f\"Expected 'server_error' for status 502, got '{server_result}'\"\n        )\n    \n        # --- Requirement 1c: verify unknown for non-error codes ---\n        with patch(\"orgops.metrics.emit\"):\n            unknown_result = classify_http_error(200)\n        assert unknown_result == \"unknown\", (\n            f\"Expected 'unknown' for status 200, got '{unknown_result}'\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n        mock_emit.assert_called_once()\n        call_args = mock_emit.call_args\n        assert call_args[0][0] == \"error.mapped\", (\n            \"Must emit 'error.mapped' metric for operational monitoring\"\n        )\n>       assert call_args[0][1] == 429, (\n            \"Metric value must be the status code (429)\"\n        )\nE       AssertionError: Metric value must be the status code (429)\nE       assert {'category': 'client_error', 'status_code': 429} == 429\n\ntests/unit/test_bug59.py:48: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug59.py::test_bug_59_status_classification_and_metric\n1 failed in 0.12s\n",
+    "stderr": "",
+    "duration_ms": 816,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Fixed loop range from range(1, len(chain)) to range(len(chain) - 1) and removed conditional to validate every adjacent pair including leaf-to-first-intermediate.

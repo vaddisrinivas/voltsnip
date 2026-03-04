@@ -1,0 +1,1 @@
+Clamp effective_timeout to minimum 1ms and annotate trace span for lock acquisition observability.

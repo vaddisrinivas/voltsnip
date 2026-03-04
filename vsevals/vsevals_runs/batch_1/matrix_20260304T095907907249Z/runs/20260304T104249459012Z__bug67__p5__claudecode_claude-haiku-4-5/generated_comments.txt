@@ -1,0 +1,1 @@
+Fixed BUG_67: replaced int() truncation with round(..., 2) for decimal precision and added metrics.emit() to track log.sampling.rate.

@@ -1,0 +1,1 @@
+Fixed version comparisons to use int() instead of string comparison, ensuring numeric ordering where 10 sorts after 9, not before 2.

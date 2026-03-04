@@ -1,0 +1,11 @@
+        effective_timeout = max(0, timeout_ms - clock_skew_ms)  # ensure clock skew never makes timeout negative
+        self.store[key] = {
+            "acquired_at": time.monotonic(),
+            "timeout_ms": effective_timeout,
+        }
+        self.held_keys.add(key)
+        return {
+            "key": key,
+            "effective_timeout_ms": effective_timeout,
+            "acquired": True,
+        }

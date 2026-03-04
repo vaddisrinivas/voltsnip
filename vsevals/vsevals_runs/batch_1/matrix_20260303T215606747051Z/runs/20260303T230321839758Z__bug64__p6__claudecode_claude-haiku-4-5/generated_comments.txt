@@ -1,0 +1,1 @@
+Fixed timeout compounding with exponential math (multiplier ** attempt) and added timeout.escalated metric emission for operational monitoring.

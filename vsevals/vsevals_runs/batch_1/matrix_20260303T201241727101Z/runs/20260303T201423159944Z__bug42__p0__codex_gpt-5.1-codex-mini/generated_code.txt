@@ -1,0 +1,4 @@
+        if self.probe_count < self.max_probes:
+            self.probe_count += 1
+            return True
+        return False

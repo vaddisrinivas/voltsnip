@@ -1,0 +1,1 @@
+Clamp effective_timeout to minimum 1 ms using max() to prevent negative values when clock_skew_ms exceeds timeout_ms, and annotate trace span with the clamped timeout.

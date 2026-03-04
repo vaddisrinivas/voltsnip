@@ -1,0 +1,1 @@
+Changed to append errors to list instead of returning on first error, collecting all validation errors for the caller.

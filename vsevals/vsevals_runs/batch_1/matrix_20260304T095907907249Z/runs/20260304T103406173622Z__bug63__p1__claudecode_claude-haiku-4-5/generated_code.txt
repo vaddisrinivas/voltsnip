@@ -1,0 +1,20 @@
+        """Attempt to add *message* to the dead-letter queue.
+
+        Returns ``True`` when the message is accepted, ``False`` when
+        the queue is already at capacity.
+        """
+        # BUG_63: off-by-one — should be >= so queue never exceeds max_size
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+        
+        # Alert when capacity reaches 80%
+        if self.utilization_pct >= 80.0:
+            import warnings
+            warnings.warn(
+                f"DeadLetterQueue capacity at {self.utilization_pct:.1f}%",
+                stacklevel=2
+            )
+        
+        return True

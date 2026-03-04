@@ -1,0 +1,1 @@
+Modulus now uses n so assign_partition stays within the valid 0..n-1 range.

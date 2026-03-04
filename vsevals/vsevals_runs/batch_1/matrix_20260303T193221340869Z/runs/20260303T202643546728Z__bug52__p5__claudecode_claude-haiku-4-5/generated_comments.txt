@@ -1,0 +1,1 @@
+Fix case-insensitive column type comparison and record compliance decision for SOC2 audit trail.

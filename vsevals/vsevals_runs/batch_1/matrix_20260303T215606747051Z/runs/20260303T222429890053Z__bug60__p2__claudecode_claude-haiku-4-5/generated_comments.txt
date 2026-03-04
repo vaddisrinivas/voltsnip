@@ -1,0 +1,1 @@
+Collect all validation errors via append instead of short-circuit return, and record compliance decision for audit trail.

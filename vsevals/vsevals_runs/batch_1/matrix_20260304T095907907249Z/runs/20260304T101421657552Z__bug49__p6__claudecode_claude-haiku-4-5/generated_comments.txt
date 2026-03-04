@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after rollback to prevent resource leak, removed savepoint from active tracking, and annotated trace span with rollback event for observability.

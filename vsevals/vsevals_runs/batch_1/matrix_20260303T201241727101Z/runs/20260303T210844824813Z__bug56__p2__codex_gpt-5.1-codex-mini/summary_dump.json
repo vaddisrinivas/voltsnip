@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T210844824813Z__bug56__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG56",
+  "task_name": "lfu_no_decay_and_metric",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 54268,
+    "prompt_chars": 6068,
+    "output_chars": 833,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4935,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 54250,
+    "model_request_started_at": "2026-03-03T21:08:44.843103Z",
+    "model_request_finished_at": "2026-03-03T21:09:39.093783Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8589,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 56705,
+      "completion_tokens": 6663,
+      "total_tokens": 63368,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0333428
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug56_lfu_decay_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug56_lfu_decay_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug56_lfu_decay_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "While the code correctly implements the time-decayed scoring formula (access_count / (1 + age_hours)), it does NOT emit the metric via orgops.metrics.emit(). Instead, it uses cache.metrics.emit_metric(), which does not satisfy the constraint requirement for 'metric emission via orgops.metrics.emit()'.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug56/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_lfu_score(\\n        self,\\n        access_count: int,\\n        age_hours: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the LFU eviction score for a cache entry.\\n\\n        BUG_56: returns the raw *access_count* without any time-decay\\n        factor.  The correct formula is:\\n\\n            score = access_count / (1 + age_hours)\\n\\n        so that older entries naturally decay and do not hog the cache\\n        forever based on historical popularity alone.\\n        \\\"\\\"\\\"\\n        age_factor = max(age_hours, 0.0)\\n        score = access_count / (1 + age_factor)\\n        from cache.metrics import emit_metric\\n        emit_metric(\\\"cache.eviction.lfu\\\", score)\\n        return float(score)\\n\", \"comments\": \"Apply the correct decay formula and emit the cache.eviction.lfu metric from compute_lfu_score.\"}, \"constraints\": [{\"id\": \"bug56_lfu_decay_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug56/scenario_context/v1\", \"check\": \"Time-decayed LFU scoring AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the scoring to use time decay (access_count / (1 + age_hours)) AND emit a cache.eviction.lfu metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the code correctly implements the time-decayed scoring formula (access_count / (1 + age_hours)), it does NOT emit the metric via orgops.metrics.emit(). Instead, it uses cache.metrics.emit_metric(), which does not satisfy the constraint requirement for 'metric emission via orgops.metrics.emit()'.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

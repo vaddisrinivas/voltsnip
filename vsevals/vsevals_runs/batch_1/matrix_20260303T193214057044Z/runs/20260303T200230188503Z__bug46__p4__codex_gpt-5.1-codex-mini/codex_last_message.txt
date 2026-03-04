@@ -1,0 +1,1 @@
+{"code": "    boundary = now - window_seconds  # BUG_46: keep full precision for the window boundary\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx", "comments": "Use the precise float window boundary instead of truncating to an int to prevent undercounting near sub-second edges."}

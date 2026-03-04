@@ -1,0 +1,1 @@
+Apply selectivity once when computing join cost to avoid double-scaling the estimate.

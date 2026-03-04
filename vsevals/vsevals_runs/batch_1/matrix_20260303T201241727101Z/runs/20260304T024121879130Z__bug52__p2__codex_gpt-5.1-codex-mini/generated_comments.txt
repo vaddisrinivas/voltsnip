@@ -1,0 +1,1 @@
+Normalize types to lowercase and log the schema.validation.passed decision through orgops compliant recording.

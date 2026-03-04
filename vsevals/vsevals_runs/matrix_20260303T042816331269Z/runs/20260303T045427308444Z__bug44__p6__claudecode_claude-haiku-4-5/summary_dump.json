@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T045427308444Z__bug44__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG44",
+  "task_name": "dns_ttl_stale_check_and_metric",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 86338,
+    "prompt_chars": 6002,
+    "output_chars": 1504,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4952,
+    "snippet_injected_chars": 2833,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 86181,
+    "model_request_started_at": "2026-03-03T04:54:27.329348Z",
+    "model_request_finished_at": "2026-03-03T04:55:53.510658Z",
+    "model_request_id": "fb4af31b-448f-4cad-b1ea-d2774a82f8ee",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1514,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 6,
+      "total_tokens": 24,
+      "cached_tokens": 15626,
+      "thinking_tokens": null,
+      "cost_usd": 0.00127408
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug44_stale_check_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug44_stale_check_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code sets is_stale = entry.stale_at <= now (correcting the inverted comparison) and, when is_stale is true, calls orgops.metrics.emit(\"dns.cache.refresh\", entry.ttl_remaining(now)).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\n\\n        BUG_44: the comparison is inverted -- it returns ``True`` when\\n        the entry is still fresh and ``False`` when it is actually stale.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        is_stale = entry.stale_at <= now\\n        if is_stale:\\n            orgops.metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now))\\n        return is_stale\", \"comments\": \"Fixed inverted stale check (entry.stale_at <= now instead of >) and added metric emission for stale entries to track cache refresh churn.\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code sets is_stale = entry.stale_at <= now (correcting the inverted comparison) and, when is_stale is true, calls orgops.metrics.emit(\\\"dns.cache.refresh\\\", entry.ttl_remaining(now)).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.36s\n",
+    "stderr": "",
+    "duration_ms": 4098,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

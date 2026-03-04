@@ -1,0 +1,1 @@
+Corrects the probe limit comparison and reports half-open degradation when probes are blocked.

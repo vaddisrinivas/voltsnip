@@ -1,0 +1,1 @@
+Apply the time-decayed LFU formula and emit the required eviction metric before returning the score.

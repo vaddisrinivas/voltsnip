@@ -1,0 +1,1 @@
+Fix savepoint resource leak by adding RELEASE after ROLLBACK, and trace the rollback event via orgops.tracing.annotate_span for observability; also clean up internal state tracking.

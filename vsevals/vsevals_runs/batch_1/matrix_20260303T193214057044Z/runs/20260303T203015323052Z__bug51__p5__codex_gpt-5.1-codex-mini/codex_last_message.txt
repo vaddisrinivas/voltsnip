@@ -1,0 +1,1 @@
+{"code":"    exceeded = measured_lag_ms > threshold_ms\n    if exceeded:\n        import orgops\n        orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)\n","comments":"Fixes the threshold comparison and fires the orgops alert when the lag exceeds the threshold (sandbox prevented writing the file)."}

@@ -1,0 +1,1 @@
+Switch evict_idle to remove the connection with the smallest last_used_at timestamp so eviction follows LRU instead of FIFO.

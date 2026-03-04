@@ -1,0 +1,1 @@
+Fixed timeout calculation to treat DNS and connect as parallel operations using max(connect, dns) instead of sequential sum, preventing over-estimation of the deadline.

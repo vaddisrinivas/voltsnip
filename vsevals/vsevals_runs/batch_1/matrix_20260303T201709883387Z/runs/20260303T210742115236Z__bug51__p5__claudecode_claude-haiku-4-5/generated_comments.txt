@@ -1,0 +1,1 @@
+Fixed unit comparison (removed / 1000 divisor) and added alert notification when lag exceeds threshold.

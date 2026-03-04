@@ -1,0 +1,1 @@
+Decode base64 segments and re-scan for secrets; call orgops.alerts.notify for each finding to fulfill BUG_70 requirements.

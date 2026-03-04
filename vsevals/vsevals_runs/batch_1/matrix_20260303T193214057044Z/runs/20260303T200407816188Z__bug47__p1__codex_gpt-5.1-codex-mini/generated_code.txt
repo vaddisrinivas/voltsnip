@@ -1,0 +1,7 @@
+        now = time.time()
+
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+        return evicted

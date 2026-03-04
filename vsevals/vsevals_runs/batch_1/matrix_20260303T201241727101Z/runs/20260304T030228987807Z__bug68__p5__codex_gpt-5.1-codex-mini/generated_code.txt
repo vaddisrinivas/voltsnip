@@ -1,0 +1,27 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a recursively redacted copy of *data* and log the scrubbed keys.
+
+        Nested dicts are walked so that every sensitive key is replaced with
+        ``REDACTED_PLACEHOLDER``, and the total number of redactions is recorded
+        via ``orgops.auditing.write_event``.
+        """
+        def _walk(current: dict[str, Any]) -> tuple[dict[str, Any], int]:
+            result: dict[str, Any] = {}
+            count = 0
+            for key, value in current.items():
+                if self.is_sensitive(key):
+                    result[key] = REDACTED_PLACEHOLDER
+                    count += 1
+                elif isinstance(value, dict):
+                    nested_result, nested_count = _walk(value)
+                    result[key] = nested_result
+                    count += nested_count
+                else:
+                    result[key] = value
+            return result, count
+
+        redacted_data, count = _walk(data)
+        from orgops import auditing
+
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return redacted_data

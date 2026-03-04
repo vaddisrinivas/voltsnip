@@ -1,0 +1,10 @@
+        ratio = time_remaining / ttl
+
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            metrics_client = getattr(self, "metrics", None)
+            if metrics_client is not None and hasattr(metrics_client, "increment"):
+                metrics_client.increment("cache.stampede.prevented")
+            return True
+
+        return False

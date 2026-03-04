@@ -1,0 +1,1 @@
+Fixed off-by-one modulus error (% n instead of % (n + 1)) and added cache.partition.skew health degradation reporting per guiding principle.

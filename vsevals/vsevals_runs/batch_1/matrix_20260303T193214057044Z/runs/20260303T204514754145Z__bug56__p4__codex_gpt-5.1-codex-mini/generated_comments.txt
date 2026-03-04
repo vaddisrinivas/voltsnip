@@ -1,0 +1,1 @@
+Apply the intended time-decayed score and emit the cache.eviction.lfu metric with the computed value.

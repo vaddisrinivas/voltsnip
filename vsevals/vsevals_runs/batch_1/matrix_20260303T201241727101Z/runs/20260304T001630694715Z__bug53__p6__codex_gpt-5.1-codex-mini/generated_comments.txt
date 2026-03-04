@@ -1,0 +1,1 @@
+Clamp the timeout to at least 1 ms and annotate the span while keeping the existing return payload.

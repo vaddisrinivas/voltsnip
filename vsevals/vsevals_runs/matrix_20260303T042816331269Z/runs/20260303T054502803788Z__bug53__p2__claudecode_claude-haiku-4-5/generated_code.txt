@@ -1,0 +1,25 @@
+    def acquire_lock(
+        self,
+        key: str,
+        timeout_ms: int,
+        clock_skew_ms: int = 0,
+    ) -> dict[str, Any]:
+        """Acquire a distributed lock on *key* with adjusted timeout.
+
+        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms
+        without clamping.  When clock_skew_ms > timeout_ms the effective
+        timeout goes negative, causing immediate expiry or backend errors.
+        """
+        import orgops.tracing
+        effective_timeout = max(1, timeout_ms - clock_skew_ms)
+        orgops.tracing.annotate_span("lock.timeout.adjusted", effective_timeout)
+        self.store[key] = {
+            "acquired_at": time.monotonic(),
+            "timeout_ms": effective_timeout,
+        }
+        self.held_keys.add(key)
+        return {
+            "key": key,
+            "effective_timeout_ms": effective_timeout,
+            "acquired": True,
+        }

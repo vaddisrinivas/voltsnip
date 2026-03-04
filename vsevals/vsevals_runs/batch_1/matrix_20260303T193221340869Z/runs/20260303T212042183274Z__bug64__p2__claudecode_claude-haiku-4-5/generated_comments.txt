@@ -1,0 +1,1 @@
+Fixed compound timeout calculation (original_ms * (multiplier ** attempt)) and added metric emission for alerting system integration.

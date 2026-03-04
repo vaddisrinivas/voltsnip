@@ -1,0 +1,1 @@
+Switched the audit timestamp to `datetime.now(... timezone.utc)` and updated the entry flag so every record marks UTC consistency.

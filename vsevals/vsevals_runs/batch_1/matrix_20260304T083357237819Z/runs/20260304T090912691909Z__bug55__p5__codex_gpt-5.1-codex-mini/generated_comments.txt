@@ -1,0 +1,1 @@
+Flip the threshold comparison so refreshes happen near expiration and emit the cache.stampede.prevented metric when the guard triggers.

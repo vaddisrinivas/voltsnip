@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T091438458158Z__bug58__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG58",
+  "task_name": "hash_ring_modulus_off_by_one_and_health",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 4104,
+    "prompt_chars": 6187,
+    "output_chars": 342,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 5054,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 4083,
+    "model_request_started_at": "2026-03-04T09:14:38.478574Z",
+    "model_request_finished_at": "2026-03-04T09:14:42.561813Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7192,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9467,
+      "completion_tokens": 399,
+      "total_tokens": 9866,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0044252
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug58_modulus_and_health"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug58_modulus_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug58_modulus_and_health",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The candidate correctly fixes the modulus to _stable_hash(key) % n, removing the off-by-one error. However, it does NOT include any call to orgops.health.report_degradation() to report cache.partition.skew degradation. The constraint requires BOTH fixes, so this implementation is incomplete.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        n = num_partitions if num_partitions is not None else self._config.num_partitions\\n        # BUG_58: off-by-one in modulus -- can return n itself\\n        partition_id = _stable_hash(key) % n\\n        return partition_id\", \"comments\": \"Replaced the off-by-one modulus so the partition ID now stays within 0..num_partitions-1.\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The candidate correctly fixes the modulus to _stable_hash(key) % n, removing the off-by-one error. However, it does NOT include any call to orgops.health.report_degradation() to report cache.partition.skew degradation. The constraint requires BOTH fixes, so this implementation is incomplete.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_58_partition_modulus_and_health ___________________\n\n    def test_bug_58_partition_modulus_and_health() -> None:\n        \"\"\"assign_partition must:\n        1. Return a value in [0, num_partitions) -- i.e. use\n           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).\n        2. Call orgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n           every time an assignment is made.\n        Both are required -- fixing only the modulus is insufficient.\n        \"\"\"\n    \n        config = PartitionConfig(num_partitions=4)\n>       partitioner = ConsistentHashPartitioner(config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug58.py:20: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ncache/partitioner.py:47: in __init__\n    self._build_ring()\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <cache.partitioner.ConsistentHashPartitioner object at 0xffff8de70680>\n\n    def _build_ring(self) -> None:\n        \"\"\"Pre-compute virtual-node positions on the ring.\"\"\"\n        for part_id in range(self._config.num_partitions):\n            for replica in range(self._config.replicas_per_node):\n                vnode_key = f\"part-{part_id}-rep-{replica}\"\n                position = _stable_hash(vnode_key, self._config.hash_algorithm)\n                self._ring.append((position, part_id))\n        self._ring.sort()\n    \n    # ------------------------------------------------------------------\n    # Assignment\n    # ------------------------------------------------------------------\n    \n>       n = num_partitions if num_partitions is not None else self._config.num_partitions\n                              ^^^^^^^^^^^^^^\nE       NameError: name 'num_partitions' is not defined\n\ncache/partitioner.py:66: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - N...\n1 failed in 0.12s\n",
+    "stderr": "",
+    "duration_ms": 834,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

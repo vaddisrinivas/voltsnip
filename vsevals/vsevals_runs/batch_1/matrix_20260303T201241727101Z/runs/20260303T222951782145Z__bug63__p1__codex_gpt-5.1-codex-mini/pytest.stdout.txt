@@ -1,0 +1,82 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_bug_63_dlq_capacity_and_alert ______________________
+
+    def test_bug_63_dlq_capacity_and_alert() -> None:
+        """DeadLetterQueue.enqueue must:
+        1. Reject messages when len(queue) >= max_size (not >), preventing
+           the queue from exceeding its declared capacity.
+        2. Call orgops.alerts.notify("dlq.capacity.warning", utilization_pct=...)
+           when the queue reaches 80%+ of max_size.
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from errors.dead_letter import DeadLetterQueue
+    
+        dlq = DeadLetterQueue(max_size=10)
+    
+        # ---- Requirement 1: exact capacity limit (off-by-one fix) --------
+    
+        # Fill to exactly max_size
+        with patch("orgops.alerts.notify"):
+            for i in range(10):
+                result = dlq.enqueue({"id": i})
+                assert result is True, f"Message {i} should be accepted (queue has room)"
+    
+        assert dlq.size == 10, (
+            f"Queue should hold exactly max_size=10 messages, got {dlq.size}"
+        )
+    
+        # The 11th message MUST be rejected (queue is at capacity)
+        with patch("orgops.alerts.notify"):
+            rejected = dlq.enqueue({"id": "overflow"})
+        assert rejected is False, (
+            "Message at position max_size (11th) must be rejected. "
+            "Bug: `>` allows one extra item; fix requires `>=`."
+        )
+        assert dlq.size == 10, (
+            f"Queue must not exceed max_size=10 after rejection, got {dlq.size}"
+        )
+    
+        # ---- Requirement 2: capacity alert at 80%+ utilization -----------
+    
+        dlq2 = DeadLetterQueue(max_size=10)
+    
+        with patch("orgops.alerts.notify") as mock_notify:
+            # Fill to 7 items (70%) -- no alert expected yet
+            for i in range(7):
+                dlq2.enqueue({"id": i})
+            mock_notify.assert_not_called(), (
+                "No alert expected below 80% utilization"
+            )
+    
+        with patch("orgops.alerts.notify") as mock_notify:
+            # 8th item brings utilization to 80% -- alert MUST fire
+            dlq2.enqueue({"id": 7})
+    
+>           mock_notify.assert_called_once()
+
+tests/unit/test_bug63.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='notify' id='281472854454256'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'notify' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Dead-letter queue utilization warning: 80.0% of max capacity (10)
+Dead-letter queue utilization warning: 90.0% of max capacity (10)
+Dead-letter queue utilization warning: 100.0% of max capacity (10)
+Dead-letter queue utilization warning: 80.0% of max capacity (10)
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug63.py::test_bug_63_dlq_capacity_and_alert - Asserti...
+1 failed in 0.49s

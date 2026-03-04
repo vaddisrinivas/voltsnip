@@ -1,0 +1,10 @@
+        ratio = time_remaining / ttl
+ 
+        if ratio < self.threshold:  # refresh when remaining fraction is below threshold
+            self.refreshes_triggered += 1
+            metric_emitter = globals().get("emit_metric")
+            if metric_emitter:
+                metric_emitter("cache.stampede.prevented", key_name=key_name)
+            return True
+ 
+        return False

@@ -1,0 +1,1 @@
+Replace linear backoff with exponential backoff (2**attempt), cap delay at max_delay, and import metrics module for emission.

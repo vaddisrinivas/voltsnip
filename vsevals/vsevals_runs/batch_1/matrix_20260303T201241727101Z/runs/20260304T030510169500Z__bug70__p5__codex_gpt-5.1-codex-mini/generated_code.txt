@@ -1,0 +1,22 @@
+    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:
+        """Return a list of findings for every secret detected in *text*.
+
+        BUG_70: Only plaintext patterns are checked.  Base64-encoded
+        segments are never decoded and re-scanned, so an encoded
+        ``AKIA...`` key or ``ghp_`` token slips through undetected.
+        """
+        self.findings = []
+        self._scan_plaintext(text)
+
+        decoded_segments: set[str] = set()
+        for match in _BASE64_RE.finditer(text):
+            decoded = self._try_decode_base64(match.group())
+            if decoded and decoded not in decoded_segments:
+                decoded_segments.add(decoded)
+                self._scan_plaintext(decoded)
+
+        from orgops import alerts
+        for finding in self.findings:
+            alerts.notify(finding)
+
+        return list(self.findings)

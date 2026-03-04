@@ -1,0 +1,30 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+
+        BUG_48: versions are compared numerically so "10" sorts after "2".
+        Each migration destined for execution is audit-logged as applied.
+        """
+        import orgops
+
+        def numeric_version(migration: dict[str, Any]) -> int:
+            return int(migration["version"])
+
+        if not self.applied_versions:
+            sorted_candidates = sorted(
+                self.available_migrations,
+                key=numeric_version,
+            )
+        else:
+            max_applied = max(int(v) for v in self.applied_versions)
+            pending = [
+                m
+                for m in self.available_migrations
+                if numeric_version(m) > max_applied
+            ]
+            sorted_candidates = sorted(pending, key=numeric_version)
+
+        for migration in sorted_candidates:
+            version = str(migration["version"])
+            orgops.auditing.write_event("migration.applied", version=version)
+
+        return sorted_candidates

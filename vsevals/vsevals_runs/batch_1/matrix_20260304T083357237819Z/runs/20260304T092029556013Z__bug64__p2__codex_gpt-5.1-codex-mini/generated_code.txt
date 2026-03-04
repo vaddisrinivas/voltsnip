@@ -1,0 +1,21 @@
+        """Compute the escalated timeout for *attempt*, compounding the multiplier and emitting a metric."""
+        multiplier_factor = multiplier ** attempt
+        new_timeout_ms = min(original_ms * multiplier_factor, self.ceiling_ms)
+
+        from orgops import metrics
+
+        metrics.emit("timeout.escalated", new_timeout_ms)
+
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+
+        return {
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+            "attempt": attempt,
+            "capped": new_timeout_ms >= self.ceiling_ms,
+        }

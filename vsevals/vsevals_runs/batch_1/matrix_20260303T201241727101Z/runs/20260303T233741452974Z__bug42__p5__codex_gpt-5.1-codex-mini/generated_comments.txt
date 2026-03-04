@@ -1,0 +1,1 @@
+Limit probes when count is below max and report circuit.half_open degradation once the limit is reached

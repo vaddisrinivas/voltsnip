@@ -1,0 +1,1 @@
+Clamp the modulus to num_partitions so partition IDs stay valid and avoid cache.partition.skew degradation.

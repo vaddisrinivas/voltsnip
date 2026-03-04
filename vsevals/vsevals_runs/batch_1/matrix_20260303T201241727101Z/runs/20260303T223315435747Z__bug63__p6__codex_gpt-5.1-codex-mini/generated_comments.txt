@@ -1,0 +1,1 @@
+Fixes the off-by-one guard and raises the dlq.capacity.warning alert once utilization hits 80%.

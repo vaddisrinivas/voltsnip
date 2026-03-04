@@ -1,0 +1,1 @@
+Fix DNS+connect overlap: use max(ct,dt)+rt for parallel phases, and annotate span for observability platform timeout correlation

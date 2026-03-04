@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1ms using max() to prevent negative timeouts when clock skew exceeds requested timeout, and annotate trace span with lock context.

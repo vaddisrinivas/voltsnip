@@ -1,0 +1,1 @@
+Fixed timeout calculation to compound exponentially with (multiplier ** attempt) instead of always using original multiplier; added timeout.escalated metric emission.

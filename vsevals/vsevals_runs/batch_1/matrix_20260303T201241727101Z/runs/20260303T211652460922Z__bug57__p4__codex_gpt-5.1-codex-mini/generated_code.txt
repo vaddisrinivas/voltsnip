@@ -1,0 +1,20 @@
+        interval_ms = interval_seconds * 1000
+        def _flush_and_audit() -> None:
+            flushed_items = self._do_flush(buffer)
+            orgops.auditing.write_event(
+                "cache.flush.completed",
+                {
+                    "interval_seconds": interval_seconds,
+                    "flushed_items": flushed_items,
+                },
+            )
+        self._timer_handle = _start_timer(
+            interval_ms,
+            callback=_flush_and_audit,
+        )
+        return {
+            "scheduled": True,
+            "interval_seconds": interval_seconds,
+            "timer_interval_ms": self._timer_handle["interval_ms"],
+            "buffer_size": len(buffer),
+        }

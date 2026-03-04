@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug70_base64_decode_and_alert"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug70_base64_decode_and_alert"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug70_base64_decode_and_alert"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug70_base64_decode_and_alert"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug70_base64_decode_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug70_base64_decode_and_alert",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the code does decode base64 segments and re-scan decoded content, and does call orgops.alerts.notify, it does NOT use the required signature. The constraint specifies notify should be called as orgops.alerts.notify('secret.detected', pattern_type=pattern_type), but the implementation calls notify(finding) with only the finding object as an argument.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        self.findings = []\\n        self._scan_plaintext(text)\\n        seen_segments: set[str] = set()\\n        for segment in _BASE64_RE.findall(text):\\n            if segment in seen_segments:\\n                continue\\n            seen_segments.add(segment)\\n            decoded = self._try_decode_base64(segment)\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        import orgops.alerts\\n        for finding in self.findings:\\n            orgops.alerts.notify(finding)\\n        return list(self.findings)\\n\", \"comments\": \"Rescan decoded Base64 chunks for secrets, notify via orgops.alerts, and return the collected findings.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+  },
+  "judge_raw_response": "I need to analyze whether this code implementation satisfies the constraint about Base64 decoding, re-scanning, and alerting.\n\nLet me examine the code step by step:\n\n1. **Base64 decode + re-scan**: \n   - The code uses `_BASE64_RE.findall(text)` to find base64 segments\n   - It calls `self._try_decode_base64(segment)` to decode each segment\n   - If decoded successfully, it calls `self._scan_plaintext(decoded)` to re-scan the decoded content\n   - ✅ This part is satisfied\n\n2. **Alert via orgops.alerts.notify**:\n   - The code imports `orgops.alerts`\n   - It calls `orgops.alerts.notify(finding)` for each finding\n   - ❌ However, the constraint specifies the call should be `orgops.alerts.notify(\"secret.detected\", pattern_type=pattern_type)`\n   - The actual implementation calls `notify(finding)` with just the finding object, not with the specific arguments `\"secret.detected\"` and `pattern_type=pattern_type`\n\nThe implementation does decode base64 and re-scan, and it does call `orgops.alerts.notify`, but the **signature/arguments of the notify call do not match** what the constraint requires. The constraint explicitly states it should call `notify(\"secret.detected\", pattern_type=pattern_type)`, but the code calls `notify(finding)`.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the code does decode base64 segments and re-scan decoded content, and does call orgops.alerts.notify, it does NOT use the required signature. The constraint specifies notify should be called as orgops.alerts.notify('secret.detected', pattern_type=pattern_type), but the implementation calls notify(finding) with only the finding object as an argument.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Swap the timestamp to UTC by importing timezone locally, using it when calling datetime.now(), and marking the entry as UTC for consistent audit records.

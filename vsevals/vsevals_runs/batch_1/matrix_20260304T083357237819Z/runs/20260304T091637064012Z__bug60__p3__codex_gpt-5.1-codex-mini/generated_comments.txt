@@ -1,0 +1,1 @@
+Collects every validation error and records the completed validation decision before returning the list.

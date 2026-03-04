@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < in should_allow_probe to correctly allow probes when count is under the limit.

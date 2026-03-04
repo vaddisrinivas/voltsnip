@@ -1,0 +1,1 @@
+Round the sampling rate to two decimals and emit log.sampling.rate via orgops.metrics after computing it.

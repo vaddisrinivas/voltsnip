@@ -1,0 +1,22 @@
+        """Schedule periodic flushing of *buffer* every *interval_seconds*.
+
+        BUG_57: ensure we convert seconds to milliseconds before starting the timer
+        so the configured interval is honored."""
+        interval_ms = interval_seconds * 1000
+        self._timer_handle = _start_timer(
+            interval_ms,
+            callback=lambda: self._do_flush(buffer),
+        )
+        audit_event = {
+            "event": "write_behind.flush_scheduled",
+            "interval_seconds": interval_seconds,
+            "interval_ms": interval_ms,
+            "buffer_size": len(buffer),
+        }
+        return {
+            "scheduled": True,
+            "interval_seconds": interval_seconds,
+            "timer_interval_ms": self._timer_handle["interval_ms"],
+            "buffer_size": len(buffer),
+            "audit_event": audit_event,
+        }

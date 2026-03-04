@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds  # use the exact float boundary instead of truncating\n    idx = bisect.bisect_left(timestamps, boundary)\n", "comments":"Stop truncating the sliding window boundary so sub-second timestamps stay counted."}

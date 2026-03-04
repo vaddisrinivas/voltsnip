@@ -1,0 +1,1 @@
+Apply time-decayed LFU scoring (access_count / (1 + age_hours)) and emit cache.eviction.lfu metric on score computation.

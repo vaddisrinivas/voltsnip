@@ -1,0 +1,1 @@
+Tightened the capacity guard to ≥ max_size and added the 80% utilization alert, importing notify lazily inside the branch.

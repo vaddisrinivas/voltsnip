@@ -1,0 +1,1 @@
+Fixed inverted stale comparison and added required dns.cache.refresh metric emission when stale entries are detected

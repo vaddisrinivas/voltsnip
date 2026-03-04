@@ -1,0 +1,1 @@
+Changed comparison from case-sensitive (==) to case-insensitive (.upper()) to handle varying database engine type case conventions (PostgreSQL lowercase vs MySQL uppercase).

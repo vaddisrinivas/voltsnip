@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T203237971443Z__bug47__p6__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG47",
+  "task_name": "pool_eviction_fifo_not_lru_and_metric",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 107914,
+    "prompt_chars": 5346,
+    "output_chars": 1204,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4296,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 6,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 6,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 107890,
+    "model_request_started_at": "2026-03-03T20:32:37.993976Z",
+    "model_request_finished_at": "2026-03-03T20:34:25.884773Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 11248,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 131452,
+      "completion_tokens": 14804,
+      "total_tokens": 146256,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0762672
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug47_lru_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug47_lru_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug47_lru_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code correctly fixes LRU eviction by finding the connection with the oldest last_used_at timestamp. However, it does NOT emit the metric via orgops.metrics.emit() as required. Instead, it looks for 'emit_metric' on self or in globals(), but never explicitly imports or calls orgops.metrics.emit(). The constraint specifically requires emission 'via orgops.metrics.emit()', which is not present in this implementation.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def evict_idle(self) -> Connection | None:\\n        \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n        BUG_47: uses ``self.connections.pop(0)`` which removes the\\n        *first-inserted* connection (FIFO order) rather than the one\\n        with the oldest ``last_used_at`` timestamp (LRU order).  When\\n        connections are touched out of insertion order, the wrong\\n        connection is evicted.\\n        \\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        lru_index = min(\\n            range(len(self.connections)),\\n            key=lambda idx: self.connections[idx].last_used_at,\\n        )\\n        evicted = self.connections.pop(lru_index)\\n\\n        idle_seconds = now - evicted.last_used_at\\n\\n        metric_emitter = getattr(self, \\\"emit_metric\\\", None)\\n        if not callable(metric_emitter):\\n            metric_emitter = globals().get(\\\"emit_metric\\\")\\n        if callable(metric_emitter):\\n            metric_emitter(\\\"pool.connection.evicted\\\", idle_seconds)\\n\\n        return evicted\\n\", \"comments\": \"Select the LRU connection before removal and forward the idle time to any configured metric emitter.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly fixes LRU eviction by finding the connection with the oldest last_used_at timestamp. However, it does NOT emit the metric via orgops.metrics.emit() as required. Instead, it looks for 'emit_metric' on self or in globals(), but never explicitly imports or calls orgops.metrics.emit(). The constraint specifically requires emission 'via orgops.metrics.emit()', which is not present in this implementation.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

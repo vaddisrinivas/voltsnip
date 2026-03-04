@@ -1,0 +1,1 @@
+Changed short-circuit return to append errors to list, allowing all validation rules to be checked and all errors collected before returning.

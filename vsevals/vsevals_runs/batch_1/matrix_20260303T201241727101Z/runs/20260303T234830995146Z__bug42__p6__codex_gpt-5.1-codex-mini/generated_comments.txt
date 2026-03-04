@@ -1,0 +1,1 @@
+Enforce the half-open probe limit and report degradation when it is exceeded.

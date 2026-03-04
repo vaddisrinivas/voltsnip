@@ -1,0 +1,1 @@
+Stop accepting messages once the queue is at max size and fire the capacity-warning alert when utilization reaches 80% after enqueuing.

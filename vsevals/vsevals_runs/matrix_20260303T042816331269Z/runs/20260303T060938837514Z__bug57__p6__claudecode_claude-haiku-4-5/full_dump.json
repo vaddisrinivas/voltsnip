@@ -1,0 +1,362 @@
+{
+  "run_id": "20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs",
+  "task_id": "BUG57",
+  "task_name": "write_behind_interval_units_and_audit",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 41,
+  "task_line_end": 60,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug57/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug57/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug57/scenario_context/v1",
+      "voltsnip/bug22/hard/bug33/scenario_context/v1",
+      "voltsnip/bug22/hard/bug40/scenario_context/v1",
+      "voltsnip/script30/hard/bug48/scenario_context/v1",
+      "voltsnip/script30/hard/bug55/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "59a76e6e-53e4-4856-8722-f6b163312e73",
+      "canonical_key": "voltsnip/script30/hard/bug57/scenario_context/v1",
+      "title": "Write-behind flush requires millisecond conversion AND audit event",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "auditing"
+      ],
+      "description": "The schedule_flush function must convert interval_seconds to milliseconds before calling _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event for compliance tracking.",
+      "code": "# Write-Behind Flush Scheduling — Two Requirements\n\n## 1. Convert Seconds to Milliseconds\n`_start_timer` expects milliseconds, not seconds:\n```python\ninterval_ms = interval_seconds * 1000\n_start_timer(interval_ms, callback=flush_fn)\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"cache.flush.completed\", items_flushed=len(buffer))\n```\n"
+    },
+    {
+      "id": "9c0c6c92-6f28-4235-b51a-c1c11b7c8bdd",
+      "canonical_key": "voltsnip/bug22/hard/bug33/scenario_context/v1",
+      "title": "Org audit pipeline requires flush(), not commit()",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "http_resilience",
+        "hard-tier",
+        "anti-pattern",
+        "audit"
+      ],
+      "description": "The OrgOps audit subsystem uses post-flush hooks (orgops.auditing.post_flush_hook) that read uncommitted rows from the session identity map. Calling session.commit() directly bypasses these hooks because committed rows are no longer in the identity map. All persistence operations that feed the audit trail MUST use session.flush() instead of session.commit().",
+      "code": "# Flush-Before-Commit Audit Requirement\n\nThe OrgOps audit subsystem registers post-flush hooks via\n`orgops.auditing.register_post_flush_hook()`. These hooks read\nuncommitted (but flushed) rows from the session to generate audit\ntrail entries.\n\n**CRITICAL**: If code calls `session.commit()` directly instead of\n`session.flush()`, the audit hooks are BYPASSED, causing compliance\ngaps in the audit trail.\n\n## Correct Pattern\n```python\n# WRONG — bypasses audit hooks:\nsession.add_record(data)\nsession.commit()\n\n# CORRECT — triggers post-flush audit hooks:\nsession.add_record(data)\nsession.flush()  # audit hooks fire here, reading uncommitted rows\n```\n\nThe `orgops.auditing.post_flush_hook` sets `session._audit_triggered = True`\nwhen it runs. If this flag is not set after persistence, the audit\nsubsystem raises a compliance alert.\n\nThis is a deliberate architectural choice: flush() makes rows visible\nto audit hooks without ending the transaction, allowing the audit\nrecord and the business data to be committed atomically.\n"
+    },
+    {
+      "id": "b6620989-626b-48f8-bd8d-78931ccf2da7",
+      "canonical_key": "voltsnip/bug22/hard/bug40/scenario_context/v1",
+      "title": "Cache circuit breaker requires correct threshold AND audit event",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "audit"
+      ],
+      "description": "The CacheCircuitBreaker.on_failure method must both fix the threshold comparison (>= instead of >) AND write a 'circuit_open' audit event via orgops.auditing.write_event() when the circuit transitions to open. Compliance requires an audit trail for all circuit breaker state transitions.",
+      "code": "# Cache Circuit Breaker — Two Requirements\n\nThe `CacheCircuitBreaker.on_failure` method has TWO requirements:\n\n## 1. Correct Threshold Comparison\nThe circuit must open when consecutive failures REACH the threshold\n(>=), not one past it (>):\n```python\nif self.consecutive_failures >= self.failure_threshold:  # not >\n    self.state = \"open\"\n```\n\n## 2. Audit Event on State Transition (REQUIRED)\nCompliance regulations require an audit trail for circuit breaker\nstate transitions. When the circuit transitions to open, a\n`circuit_open` event MUST be written via `orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"circuit_open\", threshold=self.failure_threshold)\n```\n\n## Complete Correct Pattern\n```python\ndef on_failure(self, error):\n    import orgops.auditing\n    self.consecutive_failures += 1\n    if self.consecutive_failures >= self.failure_threshold:\n        self.state = \"open\"\n        orgops.auditing.write_event(\"circuit_open\", threshold=self.failure_threshold)\n```\n\nFixing ONLY the threshold is insufficient — the compliance system\nwill flag missing audit events during regulatory audits.\n"
+    },
+    {
+      "id": "340670b0-63ee-40f9-ba75-7b42706981bf",
+      "canonical_key": "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "title": "Script30 Concurrency & Cache guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for concurrency and caching: distributed locks, TTL jitter, stampede prevention, LFU eviction, write-behind buffers, and consistent hashing.",
+      "code": "# Concurrency & Cache — Org Guiding Principle\n\n## Distributed Locks\n- Clamp effective timeout to minimum 1ms when adjusting for clock skew.\n- Annotate via orgops.tracing.annotate_span(\"lock.acquired\", key) on acquisition.\n\n## TTL Jitter\n- ADD jitter to base TTL (never subtract — subtraction can produce negative TTLs).\n- Emit orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl) for monitoring.\n\n## Stampede Prevention\n- Refresh early when time_remaining/ttl < threshold (close to expiry), not > threshold.\n- Emit orgops.metrics.emit(\"cache.stampede.prevented\", key) when early refresh triggers.\n\n## LFU Eviction\n- Decay frequency by age: score = access_count / (1 + age_hours).\n- Emit orgops.metrics.emit(\"cache.eviction.lfu\", score) on eviction decisions.\n\n## Write-Behind Buffers\n- Convert interval_seconds to milliseconds (* 1000) when passing to timer APIs.\n- Write orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=n) after flush.\n\n## Consistent Hashing\n- Use hash(key) % num_partitions (not num_partitions + 1 — causes out-of-range).\n- Report orgops.health.report_degradation(\"cache.partition.skew\", partition_id) on assignment.\n"
+    },
+    {
+      "id": "c8f81f4a-6e86-403b-9b7d-6657b5b320c1",
+      "canonical_key": "voltsnip/script30/hard/bug48/scenario_context/v1",
+      "title": "Migration runner requires numeric version ordering AND audit event per migration",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "audit"
+      ],
+      "description": "The MigrationRunner.get_pending_migrations method must compare versions numerically (using int()) so that '10' is correctly detected as pending after '9'. Additionally, each applied migration MUST be recorded via orgops.auditing.write_event('migration.applied', version=version). The compliance system depends on this audit trail for schema change traceability.",
+      "code": "# Migration Version Ordering & Audit — Two Requirements\n\nThe `MigrationRunner.get_pending_migrations` method has TWO requirements:\n\n## 1. Numeric Version Comparison\nVersions are strings like \"1\", \"2\", \"10\". String comparison gives\nwrong results: \"10\" < \"9\" lexicographically. Use int() conversion:\n```python\nmax_applied = max(self.applied_versions, key=lambda v: int(v))\npending = [\n    m for m in self.available_migrations\n    if int(m[\"version\"]) > int(max_applied)\n]\nreturn sorted(pending, key=lambda m: int(m[\"version\"]))\n```\n\n## 2. Audit Event per Migration (REQUIRED)\nThe compliance system requires an audit trail for every schema\nmigration applied. Each migration MUST be recorded via\n`orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"migration.applied\", version=version)\n```\n\n## Complete Correct Pattern\n```python\ndef apply_pending(self, executor):\n    import orgops.auditing\n    pending = self.get_pending_migrations()\n    applied = []\n    for migration in pending:\n        version = str(migration[\"version\"])\n        executor.execute(migration[\"sql\"])\n        self.applied_versions.add(version)\n        orgops.auditing.write_event(\"migration.appli"
+    },
+    {
+      "id": "9c8b3adf-e79d-4462-b570-53216f10c583",
+      "canonical_key": "voltsnip/script30/hard/bug55/scenario_context/v1",
+      "title": "Stampede guard requires correct threshold comparison AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The StampedeGuard.should_refresh_early method must both fix the threshold comparison (< instead of >) AND emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name). The operational dashboard depends on this metric to track stampede prevention events.",
+      "code": "# Stampede Guard — Two Requirements\n\nThe `StampedeGuard.should_refresh_early` method has TWO requirements:\n\n## 1. Correct Threshold Comparison\nTrigger early refresh when the remaining fraction is BELOW the threshold\n(close to expiry), not above it (far from expiry):\n```python\nratio = time_remaining / ttl\nif ratio < self.threshold:  # not >\n    # trigger early refresh\n```\n\n## 2. Metric Emission (REQUIRED)\nThe operational dashboard monitors `cache.stampede.prevented` events.\nWhen an early refresh is triggered, the function MUST emit this metric\nvia `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n```\n\n## Complete Correct Pattern\n```python\ndef should_refresh_early(self, time_remaining, ttl, key_name=\"unknown\"):\n    import orgops.metrics\n    if ttl <= 0:\n        return False\n    ratio = time_remaining / ttl\n    if ratio < self.threshold:\n        self.refreshes_triggered += 1\n        orgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n        return True\n    return False\n```\n\nFixing ONLY the comparison is insufficient — the operational dashboard\nwill not track stampede prevention events without the metric emission.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! I found the pattern. The BUG57 scenario context shows exactly what's needed:\n\n1. **Convert seconds to milliseconds**: `interval_seconds * 1000`\n2. **Emit audit event** when flush completes: `orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=len(buffer))`\n\nThe audit event should be emitted in the callback when the flush actually happens. I'll wrap the callback to emit the audit event after `_do_flush` completes.\n\n```json\n{\"code\": \"        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: passes interval_seconds directly to _start_timer which\\n        expects milliseconds.  A 5-second interval is misinterpreted as\\n        5 ms, causing the buffer to flush ~1000x too frequently.\\n        \\\"\\\"\\\"\\n        import orgops.auditing\\n        \\n        def _flush_with_audit() -> int:\\n            items_flushed = self._do_flush(buffer)\\n            orgops.auditing.write_event(\\\"cache.flush.completed\\\", items_flushed=items_flushed)\\n            return items_flushed\\n        \\n        self._timer_handle = _start_timer(\\n            interval_seconds * 1000,\\n            callback=_flush_with_audit,\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\", \"comments\": \"Convert interval_seconds to milliseconds (* 1000) and emit cache.flush.completed audit event via orgops.auditing.write_event when flush completes.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_011SjXmCD23LcRP9fP9ggbT8",
+      "tool_args": {
+        "query": "orgops auditing write_event audit event cache flush",
+        "k": 3
+      },
+      "tool_result": {
+        "retrieved": 2
+      },
+      "error": null,
+      "started_at": "2026-03-03T06:10:37.364252Z",
+      "finished_at": "2026-03-03T06:10:37.364388Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_019k8ypBRxPdgba3oMcr9n4Y",
+      "tool_args": {
+        "query": "circuit_open auditing event threshold audit write_event",
+        "k": 3
+      },
+      "tool_result": {
+        "retrieved": 3
+      },
+      "error": null,
+      "started_at": "2026-03-03T06:10:37.364513Z",
+      "finished_at": "2026-03-03T06:10:37.364630Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Perfect! I found the pattern. The BUG57 scenario context shows exactly what's needed:\n\n1. **Convert seconds to milliseconds**: `interval_seconds * 1000`\n2. **Emit audit event** when flush completes: `orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=len(buffer))`\n\nThe audit event should be emitted in the callback when the flush actually happens. I'll wrap the callback to emit the audit event after `_do_flush` completes.\n\n```json\n{\"code\": \"        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: passes interval_seconds directly to _start_timer which\\n        expects milliseconds.  A 5-second interval is misinterpreted as\\n        5 ms, causing the buffer to flush ~1000x too frequently.\\n        \\\"\\\"\\\"\\n        import orgops.auditing\\n        \\n        def _flush_with_audit() -> int:\\n            items_flushed = self._do_flush(buffer)\\n            orgops.auditing.write_event(\\\"cache.flush.completed\\\", items_flushed=items_flushed)\\n            return items_flushed\\n        \\n        self._timer_handle = _start_timer(\\n            interval_seconds * 1000,\\n            callback=_flush_with_audit,\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\", \"comments\": \"Convert interval_seconds to milliseconds (* 1000) and emit cache.flush.completed audit event via orgops.auditing.write_event when flush completes.\"}\n```",
+  "parsed_output": {
+    "code": "        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        import orgops.auditing\n        \n        def _flush_with_audit() -> int:\n            items_flushed = self._do_flush(buffer)\n            orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=items_flushed)\n            return items_flushed\n        \n        self._timer_handle = _start_timer(\n            interval_seconds * 1000,\n            callback=_flush_with_audit,\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }",
+    "comments": "Convert interval_seconds to milliseconds (* 1000) and emit cache.flush.completed audit event via orgops.auditing.write_event when flush completes."
+  },
+  "token_usage": {
+    "prompt_tokens": 26,
+    "completion_tokens": 6,
+    "total_tokens": 32,
+    "cached_tokens": 29766,
+    "thinking_tokens": null,
+    "cost_usd": 0.00240528
+  },
+  "timings": {
+    "started_at": "2026-03-03T06:09:38.837676Z",
+    "finished_at": "2026-03-03T06:10:37.606599Z",
+    "latency_ms": 58768
+  },
+  "summary_metrics": {
+    "latency_ms": 58768,
+    "prompt_chars": 5743,
+    "output_chars": 1691,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4693,
+    "snippet_injected_chars": 6115,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 6,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 58507,
+    "model_request_started_at": "2026-03-03T06:09:38.858202Z",
+    "model_request_finished_at": "2026-03-03T06:10:37.365609Z",
+    "model_request_id": "26f18f18-3932-4350-8302-69225ad66e0c",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1736,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 26,
+      "completion_tokens": 6,
+      "total_tokens": 32,
+      "cached_tokens": 29766,
+      "thinking_tokens": null,
+      "cost_usd": 0.00240528
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260303T042816331269Z/runs/20260303T060938837514Z__bug57__p6__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug57_interval_units_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug57_interval_units_and_audit",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It multiplies interval_seconds by 1000 before calling _start_timer and does call orgops.auditing.write_event(\"cache.flush.completed\", ...), but it logs items_flushed as the return value of self._do_flush(buffer), not explicitly len(buffer) as required by the judge prompt.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: passes interval_seconds directly to _start_timer which\\n        expects milliseconds.  A 5-second interval is misinterpreted as\\n        5 ms, causing the buffer to flush ~1000x too frequently.\\n        \\\"\\\"\\\"\\n        import orgops.auditing\\n        \\n        def _flush_with_audit() -> int:\\n            items_flushed = self._do_flush(buffer)\\n            orgops.auditing.write_event(\\\"cache.flush.completed\\\", items_flushed=items_flushed)\\n            return items_flushed\\n        \\n        self._timer_handle = _start_timer(\\n            interval_seconds * 1000,\\n            callback=_flush_with_audit,\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\", \"comments\": \"Convert interval_seconds to milliseconds (* 1000) and emit cache.flush.completed audit event via orgops.auditing.write_event when flush completes.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It multiplies interval_seconds by 1000 before calling _start_timer and does call orgops.auditing.write_event(\\\"cache.flush.completed\\\", ...), but it logs items_flushed as the return value of self._do_flush(buffer), not explicitly len(buffer) as required by the judge prompt.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_57_flush_interval_units_and_audit __________________\n\n    def test_bug_57_flush_interval_units_and_audit() -> None:\n        \"\"\"schedule_flush must:\n        1. Convert interval_seconds to milliseconds (interval_seconds * 1000)\n           before passing to _start_timer which expects ms.\n        2. Write a cache.flush.completed audit event via orgops.auditing.write_event()\n           with items_flushed=len(buffer) after each flush.\n        Both are required -- fixing only the unit conversion is insufficient.\n        \"\"\"\n        from cache.write_behind import WriteBehindBuffer\n    \n        wb = WriteBehindBuffer()\n        buffer = [\n            {\"key\": \"k1\", \"value\": \"v1\"},\n            {\"key\": \"k2\", \"value\": \"v2\"},\n            {\"key\": \"k3\", \"value\": \"v3\"},\n        ]\n    \n        with patch(\"orgops.auditing.write_event\") as mock_write_event:\n            result = wb.schedule_flush(buffer, interval_seconds=5.0)\n    \n        # --- Requirement 1: interval converted to milliseconds ---\n        assert result[\"timer_interval_ms\"] == 5000.0, (\n            f\"Expected timer_interval_ms == 5000.0 (5.0 * 1000), got {result['timer_interval_ms']}. \"\n            \"_start_timer expects milliseconds, not seconds.\"\n        )\n    \n        # --- Requirement 1b: verify another interval ---\n        with patch(\"orgops.auditing.write_event\"):\n            result2 = wb.schedule_flush(buffer, interval_seconds=0.5)\n        assert result2[\"timer_interval_ms\"] == 500.0, (\n            f\"Expected timer_interval_ms == 500.0 (0.5 * 1000), got {result2['timer_interval_ms']}. \"\n            \"Interval must always be converted to milliseconds.\"\n        )\n    \n        # --- Requirement 2: audit event emission ---\n>       mock_write_event.assert_called_once()\n\ntests/unit/test_bug57.py:43: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='write_event' id='281473845570416'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'write_event' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug57.py::test_bug_57_flush_interval_units_and_audit\n1 failed in 0.45s\n",
+    "stderr": "",
+    "duration_ms": 2489,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

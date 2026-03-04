@@ -1,0 +1,1 @@
+Recurses through nested dicts while counting redactions and logs the compliance event.

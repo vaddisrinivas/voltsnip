@@ -1,0 +1,1 @@
+Fixed BUG_54: changed subtraction to addition to spread expiry forward instead of backward.

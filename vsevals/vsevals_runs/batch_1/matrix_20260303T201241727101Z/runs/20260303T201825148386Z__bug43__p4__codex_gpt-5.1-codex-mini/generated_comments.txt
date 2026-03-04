@@ -1,0 +1,1 @@
+Treat DNS/connect as overlapping, record the new timeout via orgops tracing, and keep read timeout additive.

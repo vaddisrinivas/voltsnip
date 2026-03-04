@@ -1,0 +1,1 @@
+Fix TTL computation by adding jitter and reporting cache.ttl.jittered through the metrics bridge when available.

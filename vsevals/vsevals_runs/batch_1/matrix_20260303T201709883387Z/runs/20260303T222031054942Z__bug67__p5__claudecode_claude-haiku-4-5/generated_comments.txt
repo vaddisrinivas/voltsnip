@@ -1,0 +1,1 @@
+Fixed int() truncation to round(..., 2) for proper decimal precision and added metric emission for operational monitoring.

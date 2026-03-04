@@ -1,0 +1,100 @@
+{
+  "run_id": "20260304T004119127601Z__bug64__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG64",
+  "task_name": "timeout_escalation_no_compound_and_metric",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 24130,
+    "prompt_chars": 6395,
+    "output_chars": 1648,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5345,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 24107,
+    "model_request_started_at": "2026-03-04T00:41:19.150234Z",
+    "model_request_finished_at": "2026-03-04T00:41:43.257334Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7814,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 62220,
+      "completion_tokens": 3099,
+      "total_tokens": 65319,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0298464
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug64_compound_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug64_compound_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly fixes the timeout escalation bug by using compounded multiplication 'original_ms * (multiplier ** attempt)' instead of the buggy 'original_ms * multiplier'. Additionally, it emits a 'timeout.escalated' metric via 'orgops.metrics.emit()' that includes the computed 'new_timeout_ms' value along with attempt, original_ms, and capped status. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug64/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\\n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n        capped = new_timeout_ms >= self.ceiling_ms\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        from orgops import metrics\\n\\n        metrics.emit(\\n            \\\"timeout.escalated\\\",\\n            {\\n                \\\"attempt\\\": attempt,\\n                \\\"original_ms\\\": original_ms,\\n                \\\"new_timeout_ms\\\": new_timeout_ms,\\n                \\\"capped\\\": capped,\\n            },\\n        )\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": capped,\\n        }\\n\", \"comments\": \"Use the compounded multiplier per attempt, cache the capped flag, and emit a timeout.escalated metric before returning.\"}, \"constraints\": [{\"id\": \"bug64_compound_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug64/scenario_context/v1\", \"check\": \"Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly fixes the timeout escalation bug by using compounded multiplication 'original_ms * (multiplier ** attempt)' instead of the buggy 'original_ms * multiplier'. Additionally, it emits a 'timeout.escalated' metric via 'orgops.metrics.emit()' that includes the computed 'new_timeout_ms' value along with attempt, original_ms, and capped status. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": null,
+  "error": null
+}

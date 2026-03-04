@@ -1,0 +1,1 @@
+Fixed numeric version comparison by converting versions to integers for sorting and max() calculations instead of lexicographic string comparison.

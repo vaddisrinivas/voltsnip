@@ -1,0 +1,1 @@
+Collects all validation errors and records the required compliance decision before returning the error list.

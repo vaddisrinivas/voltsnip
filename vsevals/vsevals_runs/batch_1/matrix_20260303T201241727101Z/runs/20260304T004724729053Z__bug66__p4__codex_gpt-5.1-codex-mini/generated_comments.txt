@@ -1,0 +1,1 @@
+Copy both IDs into the child context and annotate the trace span via orgops.tracing before logging the propagation.

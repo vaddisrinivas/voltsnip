@@ -1,0 +1,1 @@
+Fix inverted stale comparison (≤ not >) and emit dns.cache.refresh metric when entry is stale.

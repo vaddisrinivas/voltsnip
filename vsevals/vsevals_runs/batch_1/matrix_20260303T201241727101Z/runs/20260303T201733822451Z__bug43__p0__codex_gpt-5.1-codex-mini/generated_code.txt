@@ -1,0 +1,3 @@
+        # BUG_43: treat DNS and connect as parallel (max) rather than sequential
+        total_timeout = max(ct, dt) + rt
+        return total_timeout

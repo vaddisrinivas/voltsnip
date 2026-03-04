@@ -1,0 +1,28 @@
+    def calculate_effective_timeout(
+        self,
+        connect_timeout: Optional[float] = None,
+        dns_timeout: Optional[float] = None,
+        read_timeout: Optional[float] = None,
+    ) -> float:
+        """Return the effective timeout for a single request.
+
+        BUG_43: DNS resolution and the TCP connect happen in parallel, so
+        the first phase is max(connect, dns) — not the sum.  The current
+        implementation adds all three timeouts sequentially, over-estimating
+        the real deadline and delaying failure detection.
+        """
+        import orgops
+        
+        ct = connect_timeout if connect_timeout is not None else self.connect_timeout
+        dt = dns_timeout if dns_timeout is not None else self.dns_timeout
+        rt = read_timeout if read_timeout is not None else self.read_timeout
+
+        # BUG_43: DNS and connect happen in parallel, so use max(connect, dns) + read
+        total_timeout = max(ct, dt) + rt
+        orgops.tracing.annotate_span("effective_timeout", {
+            "connect": ct,
+            "dns": dt,
+            "read": rt,
+            "total": total_timeout,
+        })
+        return total_timeout

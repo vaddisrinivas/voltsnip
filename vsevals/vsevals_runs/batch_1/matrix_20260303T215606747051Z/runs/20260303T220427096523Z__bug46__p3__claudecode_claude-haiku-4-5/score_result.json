@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug46_boundary_and_quota"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug46_boundary_and_quota",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code sets boundary = now - window_seconds without int() truncation and calls orgops.ratelimit.check_quota(\"request.sliding_window\", count) using the computed count.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    count = len(timestamps) - idx\\n    import orgops.ratelimit\\n    orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)\\n    return count\", \"comments\": \"Use exact float boundary instead of int() truncation, and report quota via orgops.ratelimit.check_quota().\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code sets boundary = now - window_seconds without int() truncation and calls orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) using the computed count.\"}]}",
+  "passed": true
+}

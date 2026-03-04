@@ -1,0 +1,1 @@
+Added base64 decoding loop to find and re-scan decoded segments for encoded secrets.

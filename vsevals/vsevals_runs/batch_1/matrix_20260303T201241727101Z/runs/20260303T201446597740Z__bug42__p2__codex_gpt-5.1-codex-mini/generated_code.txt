@@ -1,0 +1,8 @@
+        from orgops import health
+
+        if self.probe_count < self.max_probes:
+            self.probe_count += 1
+            return True
+
+        health.report_degradation("circuit.half_open")
+        return False

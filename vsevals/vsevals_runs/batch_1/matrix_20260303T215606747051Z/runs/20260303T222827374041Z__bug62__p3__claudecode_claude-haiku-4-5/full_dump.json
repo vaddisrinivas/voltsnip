@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs",
+  "task_id": "BUG62",
+  "task_name": "fallback_context_loss_and_trace",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 34,
+  "task_line_end": 63,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug62/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug62/scenario_context/v1\nTitle: Fallback chain requires context propagation AND tracing annotation\nCode:\n```\n# Fallback Chain — Two Requirements\n\n## 1. Context Propagation\n```python\nresult = fb(self.context)\n```\nEvery fallback callable must receive the request context dict\n(request_id, headers, deadline) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\n## 2. Tracing Annotation (REQUIRED)\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"fallback.activated\", index)\n```\nCall for EACH activated fallback. `index` is the 0-based position\nin the fallbacks list.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug62/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG62\nTask Name: fallback_context_loss_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix execute_with_fallback to pass context to each fallback callable and annotate each activated fallback via orgops.tracing.annotate_span.\n\nTarget File: errors/fallback_chain.py\n\nTarget Lines:\n34-63 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-63 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug62.py -k bug_62\n\nContext Code:\n```python\ndef execute_with_fallback(self) -> Any:\n    \"\"\"Try *primary_fn*, then each fallback in order.\n\n    BUG_62: Fallbacks are invoked as ``fb()`` without passing\n    *context*, so the downstream handler loses the request ID,\n    headers, and deadline.  The correct call is ``fb(self.context)``.\n\n    Additionally, each activated fallback must be annotated via\n    ``orgops.tracing.annotate_span(\"fallback.activated\", index)``\n    where *index* is the 0-based position in the fallbacks list.\n    Neither the context propagation nor the tracing annotation is\n    present in the buggy implementation.\n    \"\"\"\n    try:\n        return self.primary_fn(self.context)\n    except Exception:\n        pass\n\n    for _idx, fb in enumerate(self.fallbacks):\n        try:\n            # BUG_62: context not passed — should be fb(self.context)\n            # BUG_62: missing orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n            return fb()\n        except Exception:\n            continue\n\n    raise RuntimeError(\n        \"All fallbacks exhausted: primary and \"\n        f\"{len(self.fallbacks)} fallback(s) failed\"\n    )\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Fallback chain executor for graceful degradation.\n\nExecutes a primary callable; on failure, iterates through an ordered list\nof fallback callables.  Each fallback receives the same *context* dict\n(request ID, headers, deadline, etc.) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable, Sequence\n\n\n@dataclass\nclass FallbackChain:\n    \"\"\"Ordered fallback executor that propagates request context.\n\n    Parameters\n    ----------\n    primary_fn:\n        The preferred callable.  Signature: ``(context) -> result``.\n    fallbacks:\n        Ordered sequence of fallback callables with the same signature.\n    context:\n        Shared request context dict (request_id, headers, deadline, ...).\n    \"\"\"\n\n    primary_fn: Callable[..., Any]\n    fallbacks: Sequence[Callable[..., Any]] = field(default_factory=list)\n    context: dict[str, Any] = field(default_factory=dict)\n\n    # ---- public API -------------------------------------------------\n\n    def execute_with_fallback(self) -> Any:\n        \"\"\"Try *primary_fn*, then each fallback in order.\n\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\n        *context*, so the downstream handler loses the request ID,\n        headers, and deadline.  The correct call is ``fb(self.context)``.\n\n        Additionally, each activated fallback must be annotated via\n        ``orgops.tracing.annotate_span(\"fallback.activated\", index)``\n        where *index* is the 0-based position in the fallbacks list.\n        Neither the context propagation nor the tracing annotation is\n        present in the buggy implementation.\n        \"\"\"\n        try:\n            return self.primary_fn(self.context)\n        except Exception:\n            pass\n\n        for _idx, fb in enumerate(self.fallbacks):\n            try:\n                # BUG_62: context not passed — should be fb(self.context)\n                # BUG_62: missing orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n                return fb()\n            except Exception:\n                continue\n\n        raise RuntimeError(\n            \"All fallbacks exhausted: primary and \"\n            f\"{len(self.fallbacks)} fallback(s) failed\"\n        )\n\n    # ---- helpers ----------------------------------------------------\n\n    def add_fallback(self, fn: Callable[..., Any]) -> None:\n        \"\"\"Append a fallback callable (must accept a context dict).\"\"\"\n        if not callable(fn):\n            raise TypeError(f\"Expected callable, got {type(fn).__name__}\")\n        # Sequence is immutable in the type hint but we allow list at runtime\n        self.fallbacks = list(self.fallbacks) + [fn]  # type: ignore[assignment]\n\n    @property\n    def chain_length(self) -> int:\n        \"\"\"Total number of callables (primary + fallbacks).\"\"\"\n        return 1 + len(self.fallbacks)\n```\n\nExpected Output:\nPass context dict to each fallback callable AND emit fallback.activated tracing span annotation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug62/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "9931ef62-4e64-49d6-b134-0b102fa9f38f",
+      "canonical_key": "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "title": "Script30 Error Contracts guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for error contracts: HTTP status classification, validation gates, retry budgets, fallback chains, dead letter queues, and timeout escalation.",
+      "code": "# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n"
+    },
+    {
+      "id": "7fb29c4c-40a8-4beb-befe-853b6f1e0149",
+      "canonical_key": "voltsnip/script30/hard/bug62/scenario_context/v1",
+      "title": "Fallback chain requires context propagation AND tracing annotation",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "tracing"
+      ],
+      "description": "The execute_with_fallback method must pass context to each fallback callable AND annotate each activated fallback via orgops.tracing.annotate_span for distributed tracing.",
+      "code": "# Fallback Chain — Two Requirements\n\n## 1. Context Propagation\n```python\nresult = fb(self.context)\n```\nEvery fallback callable must receive the request context dict\n(request_id, headers, deadline) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\n## 2. Tracing Annotation (REQUIRED)\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"fallback.activated\", index)\n```\nCall for EACH activated fallback. `index` is the 0-based position\nin the fallbacks list.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug62/scenario_context/v1\nTitle: Fallback chain requires context propagation AND tracing annotation\nCode:\n```\n# Fallback Chain — Two Requirements\n\n## 1. Context Propagation\n```python\nresult = fb(self.context)\n```\nEvery fallback callable must receive the request context dict\n(request_id, headers, deadline) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\n## 2. Tracing Annotation (REQUIRED)\n```python\nimport orgops.tracing\norgops.tracing.annotate_span(\"fallback.activated\", index)\n```\nCall for EACH activated fallback. `index` is the 0-based position\nin the fallbacks list.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug62/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG62\nTask Name: fallback_context_loss_and_trace\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix execute_with_fallback to pass context to each fallback callable and annotate each activated fallback via orgops.tracing.annotate_span.\n\nTarget File: errors/fallback_chain.py\n\nTarget Lines:\n34-63 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-63 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug62.py -k bug_62\n\nContext Code:\n```python\ndef execute_with_fallback(self) -> Any:\n    \"\"\"Try *primary_fn*, then each fallback in order.\n\n    BUG_62: Fallbacks are invoked as ``fb()`` without passing\n    *context*, so the downstream handler loses the request ID,\n    headers, and deadline.  The correct call is ``fb(self.context)``.\n\n    Additionally, each activated fallback must be annotated via\n    ``orgops.tracing.annotate_span(\"fallback.activated\", index)``\n    where *index* is the 0-based position in the fallbacks list.\n    Neither the context propagation nor the tracing annotation is\n    present in the buggy implementation.\n    \"\"\"\n    try:\n        return self.primary_fn(self.context)\n    except Exception:\n        pass\n\n    for _idx, fb in enumerate(self.fallbacks):\n        try:\n            # BUG_62: context not passed — should be fb(self.context)\n            # BUG_62: missing orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n            return fb()\n        except Exception:\n            continue\n\n    raise RuntimeError(\n        \"All fallbacks exhausted: primary and \"\n        f\"{len(self.fallbacks)} fallback(s) failed\"\n    )\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Fallback chain executor for graceful degradation.\n\nExecutes a primary callable; on failure, iterates through an ordered list\nof fallback callables.  Each fallback receives the same *context* dict\n(request ID, headers, deadline, etc.) so downstream observers can\ncorrelate the fallback attempt with the original request.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable, Sequence\n\n\n@dataclass\nclass FallbackChain:\n    \"\"\"Ordered fallback executor that propagates request context.\n\n    Parameters\n    ----------\n    primary_fn:\n        The preferred callable.  Signature: ``(context) -> result``.\n    fallbacks:\n        Ordered sequence of fallback callables with the same signature.\n    context:\n        Shared request context dict (request_id, headers, deadline, ...).\n    \"\"\"\n\n    primary_fn: Callable[..., Any]\n    fallbacks: Sequence[Callable[..., Any]] = field(default_factory=list)\n    context: dict[str, Any] = field(default_factory=dict)\n\n    # ---- public API -------------------------------------------------\n\n    def execute_with_fallback(self) -> Any:\n        \"\"\"Try *primary_fn*, then each fallback in order.\n\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\n        *context*, so the downstream handler loses the request ID,\n        headers, and deadline.  The correct call is ``fb(self.context)``.\n\n        Additionally, each activated fallback must be annotated via\n        ``orgops.tracing.annotate_span(\"fallback.activated\", index)``\n        where *index* is the 0-based position in the fallbacks list.\n        Neither the context propagation nor the tracing annotation is\n        present in the buggy implementation.\n        \"\"\"\n        try:\n            return self.primary_fn(self.context)\n        except Exception:\n            pass\n\n        for _idx, fb in enumerate(self.fallbacks):\n            try:\n                # BUG_62: context not passed — should be fb(self.context)\n                # BUG_62: missing orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n                return fb()\n            except Exception:\n                continue\n\n        raise RuntimeError(\n            \"All fallbacks exhausted: primary and \"\n            f\"{len(self.fallbacks)} fallback(s) failed\"\n        )\n\n    # ---- helpers ----------------------------------------------------\n\n    def add_fallback(self, fn: Callable[..., Any]) -> None:\n        \"\"\"Append a fallback callable (must accept a context dict).\"\"\"\n        if not callable(fn):\n            raise TypeError(f\"Expected callable, got {type(fn).__name__}\")\n        # Sequence is immutable in the type hint but we allow list at runtime\n        self.fallbacks = list(self.fallbacks) + [fn]  # type: ignore[assignment]\n\n    @property\n    def chain_length(self) -> int:\n        \"\"\"Total number of callables (primary + fallbacks).\"\"\"\n        return 1 + len(self.fallbacks)\n```\n\nExpected Output:\nPass context dict to each fallback callable AND emit fallback.activated tracing span annotation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"    def execute_with_fallback(self) -> Any:\\n        \\\"\\\"\\\"Try *primary_fn*, then each fallback in order.\\n\\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\\n        *context*, so the downstream handler loses the request ID,\\n        headers, and deadline.  The correct call is ``fb(self.context)``.\\n\\n        Additionally, each activated fallback must be annotated via\\n        ``orgops.tracing.annotate_span(\\\"fallback.activated\\\", index)``\\n        where *index* is the 0-based position in the fallbacks list.\\n        Neither the context propagation nor the tracing annotation is\\n        present in the buggy implementation.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\",\n  \"comments\": \"Pass context dict to each fallback callable and annotate each activated fallback with orgops.tracing.annotate_span.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"    def execute_with_fallback(self) -> Any:\\n        \\\"\\\"\\\"Try *primary_fn*, then each fallback in order.\\n\\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\\n        *context*, so the downstream handler loses the request ID,\\n        headers, and deadline.  The correct call is ``fb(self.context)``.\\n\\n        Additionally, each activated fallback must be annotated via\\n        ``orgops.tracing.annotate_span(\\\"fallback.activated\\\", index)``\\n        where *index* is the 0-based position in the fallbacks list.\\n        Neither the context propagation nor the tracing annotation is\\n        present in the buggy implementation.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\",\n  \"comments\": \"Pass context dict to each fallback callable and annotate each activated fallback with orgops.tracing.annotate_span.\"\n}\n```",
+  "parsed_output": {
+    "code": "    def execute_with_fallback(self) -> Any:\n        \"\"\"Try *primary_fn*, then each fallback in order.\n\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\n        *context*, so the downstream handler loses the request ID,\n        headers, and deadline.  The correct call is ``fb(self.context)``.\n\n        Additionally, each activated fallback must be annotated via\n        ``orgops.tracing.annotate_span(\"fallback.activated\", index)``\n        where *index* is the 0-based position in the fallbacks list.\n        Neither the context propagation nor the tracing annotation is\n        present in the buggy implementation.\n        \"\"\"\n        import orgops.tracing\n        \n        try:\n            return self.primary_fn(self.context)\n        except Exception:\n            pass\n\n        for _idx, fb in enumerate(self.fallbacks):\n            try:\n                orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n                return fb(self.context)\n            except Exception:\n                continue\n\n        raise RuntimeError(\n            \"All fallbacks exhausted: primary and \"\n            f\"{len(self.fallbacks)} fallback(s) failed\"\n        )",
+    "comments": "Pass context dict to each fallback callable and annotate each activated fallback with orgops.tracing.annotate_span."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 4,
+    "total_tokens": 14,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2.4e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:28:27.374232Z",
+    "finished_at": "2026-03-03T22:29:12.174978Z",
+    "latency_ms": 44800
+  },
+  "summary_metrics": {
+    "latency_ms": 44800,
+    "prompt_chars": 8588,
+    "output_chars": 1377,
+    "prompt_system_chars": 3363,
+    "prompt_user_chars": 5225,
+    "snippet_injected_chars": 1695,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 41,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 44740,
+    "model_request_started_at": "2026-03-03T22:28:27.433878Z",
+    "model_request_finished_at": "2026-03-03T22:29:12.174916Z",
+    "model_request_id": "ffec1af5-4cc7-4d6c-8e47-2b4896101ccb",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1486,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 4,
+      "total_tokens": 14,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.4e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222827374041Z__bug62__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug62_context_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug62_context_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "In the fallback loop it enumerates fallbacks with 0-based _idx, calls orgops.tracing.annotate_span(\"fallback.activated\", _idx) before invoking the fallback, and invokes each fallback as fb(self.context), thereby propagating context.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug62/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def execute_with_fallback(self) -> Any:\\n        \\\"\\\"\\\"Try *primary_fn*, then each fallback in order.\\n\\n        BUG_62: Fallbacks are invoked as ``fb()`` without passing\\n        *context*, so the downstream handler loses the request ID,\\n        headers, and deadline.  The correct call is ``fb(self.context)``.\\n\\n        Additionally, each activated fallback must be annotated via\\n        ``orgops.tracing.annotate_span(\\\"fallback.activated\\\", index)``\\n        where *index* is the 0-based position in the fallbacks list.\\n        Neither the context propagation nor the tracing annotation is\\n        present in the buggy implementation.\\n        \\\"\\\"\\\"\\n        import orgops.tracing\\n        \\n        try:\\n            return self.primary_fn(self.context)\\n        except Exception:\\n            pass\\n\\n        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\\n\\n        raise RuntimeError(\\n            \\\"All fallbacks exhausted: primary and \\\"\\n            f\\\"{len(self.fallbacks)} fallback(s) failed\\\"\\n        )\", \"comments\": \"Pass context dict to each fallback callable and annotate each activated fallback with orgops.tracing.annotate_span.\"}, \"constraints\": [{\"id\": \"bug62_context_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug62/scenario_context/v1\", \"check\": \"Context propagation to fallbacks AND tracing annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both pass context to each fallback callable (fb(self.context) instead of fb()) AND call orgops.tracing.annotate_span(\\\"fallback.activated\\\", index) for each activated fallback where index is 0-based?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"In the fallback loop it enumerates fallbacks with 0-based _idx, calls orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx) before invoking the fallback, and invokes each fallback as fb(self.context), thereby propagating context.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.31s\n",
+    "stderr": "",
+    "duration_ms": 3150,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

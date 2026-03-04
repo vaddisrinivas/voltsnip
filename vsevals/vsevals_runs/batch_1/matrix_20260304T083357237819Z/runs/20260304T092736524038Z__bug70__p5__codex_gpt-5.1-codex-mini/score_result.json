@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug70_base64_decode_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug70_base64_decode_and_alert",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) It decodes base64-encoded segments using _BASE64_RE.finditer() and _try_decode_base64(), then re-scans the decoded content with _scan_plaintext(decoded); (2) It imports orgops and calls orgops.alerts.notify(finding) for each finding in the results. While the notify call passes the finding object directly rather than using the specific signature shown in the example, it does invoke orgops.alerts.notify for each detected secret, fulfilling the core requirement.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        self.findings = []\\n        self._scan_plaintext(text)\\n        for segment in _BASE64_RE.finditer(text):\\n            decoded = self._try_decode_base64(segment.group())\\n            if decoded is None:\\n                continue\\n            self._scan_plaintext(decoded)\\n        results = list(self.findings)\\n        import orgops\\n        for finding in results:\\n            orgops.alerts.notify(finding)\\n        return results\", \"comments\": \"Decode and re-scan base64 fragments and fire orgops.alerts.notify for each finding before returning the results.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It decodes base64-encoded segments using _BASE64_RE.finditer() and _try_decode_base64(), then re-scans the decoded content with _scan_plaintext(decoded); (2) It imports orgops and calls orgops.alerts.notify(finding) for each finding in the results. While the notify call passes the finding object directly rather than using the specific signature shown in the example, it does invoke orgops.alerts.notify for each detected secret, fulfilling the core requirement.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

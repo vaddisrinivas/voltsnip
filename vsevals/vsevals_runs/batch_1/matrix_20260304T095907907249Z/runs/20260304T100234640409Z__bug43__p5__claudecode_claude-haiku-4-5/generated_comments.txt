@@ -1,0 +1,1 @@
+Fixed calculate_effective_timeout to treat DNS and connect as parallel (max) not sequential (sum), and added span annotation for observability.

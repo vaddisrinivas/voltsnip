@@ -1,0 +1,1 @@
+Fixed compound timeout calculation to use exponential formula original_ms * (multiplier ** attempt) and added required metric emission for timeout.escalated.

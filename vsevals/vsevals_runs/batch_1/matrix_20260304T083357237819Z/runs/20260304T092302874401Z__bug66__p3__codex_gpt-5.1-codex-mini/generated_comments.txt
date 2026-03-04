@@ -1,0 +1,1 @@
+Copy both IDs, annotate the trace span, and note the correlation_id fix in the bug comment.

@@ -1,0 +1,1 @@
+Apply exponential backoff (2**attempt) with max_delay cap and emit retry metric.

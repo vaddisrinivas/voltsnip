@@ -1,0 +1,1 @@
+Recursively rebuilds the dict while counting redactions and logs the audit event.

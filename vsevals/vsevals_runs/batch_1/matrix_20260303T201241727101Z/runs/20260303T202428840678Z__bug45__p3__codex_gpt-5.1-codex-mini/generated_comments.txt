@@ -1,0 +1,1 @@
+Loop now covers every adjacent pair and compliance decision is recorded before returning the summary.

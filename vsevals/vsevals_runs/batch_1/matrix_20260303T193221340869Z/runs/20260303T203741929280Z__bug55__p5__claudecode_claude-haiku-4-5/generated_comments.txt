@@ -1,0 +1,1 @@
+Fix inverted threshold comparison from > to < and emit cache.stampede.prevented metric when early refresh triggers.

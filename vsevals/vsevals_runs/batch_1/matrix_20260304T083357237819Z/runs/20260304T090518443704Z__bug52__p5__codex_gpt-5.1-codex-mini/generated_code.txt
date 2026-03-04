@@ -1,0 +1,5 @@
+    # BUG_52: case-sensitive comparison causes false mismatches
+    match = expected_type.upper() == actual_type.upper()
+    import orgops.compliance
+    orgops.compliance.record_decision("schema.validation.passed", match)
+    return match

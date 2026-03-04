@@ -1,0 +1,1 @@
+Apply selectivity just once and emit the optional query.plan.estimated_cost metric when a metrics sink is attached.

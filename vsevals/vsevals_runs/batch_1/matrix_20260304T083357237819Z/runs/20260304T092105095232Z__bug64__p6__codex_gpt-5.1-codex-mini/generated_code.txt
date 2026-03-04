@@ -1,0 +1,28 @@
+        capped = min(original_ms * (multiplier ** attempt), self.ceiling_ms)
+        new_timeout_ms = min(capped, self.ceiling_ms)
+
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+
+        from orgops.metrics import emit
+
+        emit(
+            "timeout.escalated",
+            {
+                "original_ms": original_ms,
+                "new_timeout_ms": new_timeout_ms,
+                "attempt": attempt,
+                "capped": new_timeout_ms >= self.ceiling_ms,
+            },
+        )
+
+        return {
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+            "attempt": attempt,
+            "capped": new_timeout_ms >= self.ceiling_ms,
+        }

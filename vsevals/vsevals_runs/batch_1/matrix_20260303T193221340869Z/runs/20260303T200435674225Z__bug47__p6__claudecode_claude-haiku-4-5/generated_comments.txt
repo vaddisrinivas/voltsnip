@@ -1,0 +1,1 @@
+Fixed evict_idle to use LRU eviction (min last_used_at instead of FIFO pop(0)) and emit pool.connection.evicted metric for operational monitoring.

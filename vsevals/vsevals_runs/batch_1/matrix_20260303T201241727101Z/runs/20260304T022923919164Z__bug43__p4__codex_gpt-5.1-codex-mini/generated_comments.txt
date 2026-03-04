@@ -1,0 +1,1 @@
+Treats DNS/connect as overlapping (max) plus read and annotates the resulting timeout via orgops.

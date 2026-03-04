@@ -1,0 +1,1 @@
+Fixed off-by-one capacity check (> to >=) and added capacity-warning alert at 80% utilization.

@@ -1,0 +1,14 @@
+        self.findings = []
+        self._scan_plaintext(text)
+        seen_segments: set[str] = set()
+        for base_match in _BASE64_RE.finditer(text):
+            segment = base_match.group()
+            if segment in seen_segments:
+                continue
+            seen_segments.add(segment)
+            decoded = self._try_decode_base64(segment)
+            if decoded:
+                self._scan_plaintext(decoded)
+        for finding in self.findings:
+            orgops.alerts.notify(finding)
+        return list(self.findings)

@@ -1,0 +1,1 @@
+Changed base_ttl - jitter to base_ttl + jitter so jitter spreads expiry forward instead of reducing it.

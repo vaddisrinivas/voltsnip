@@ -1,0 +1,1 @@
+Now compares lag in the same units and notifies orgops.alerts when the threshold is exceeded.

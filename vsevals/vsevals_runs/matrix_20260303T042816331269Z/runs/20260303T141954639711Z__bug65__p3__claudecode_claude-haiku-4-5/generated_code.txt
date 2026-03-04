@@ -1,0 +1,17 @@
+def sanitize_email(self, text: str) -> str:
+    """Replace all email addresses with ``[REDACTED_EMAIL]``.
+
+    BUG_65: the regex ``[\\w.]+@[\\w.]+`` does not include ``+``
+    in the local-part character class, so plus-addressed emails
+    like ``user+tag@domain.com`` are **not** redacted.
+    Should be ``[\\w.+]+@[\\w.]+``.
+    """
+    import orgops.compliance
+    email_re = re.compile(r"[\w.+]+@[\w.]+")
+    count = len(email_re.findall(text))
+    result = email_re.sub(_REDACTED_EMAIL, text)
+    orgops.compliance.record_decision("pii.sanitized", field_count=count)
+    self._history.append(
+        SanitizationResult(text=result, emails_redacted=count)
+    )
+    return result

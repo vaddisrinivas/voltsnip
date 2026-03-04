@@ -1,0 +1,1 @@
+Fixed off-by-one error: changed hash modulus from (n + 1) to n so partition_id stays in valid range [0, num_partitions).

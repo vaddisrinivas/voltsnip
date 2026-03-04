@@ -1,0 +1,1 @@
+Treats DNS+connect as overlapping by using their max before adding the read timeout.

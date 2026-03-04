@@ -1,0 +1,13 @@
+        now = time.time()
+
+        lru_index = min(
+            range(len(self.connections)),
+            key=lambda idx: self.connections[idx].last_used_at,
+        )
+        evicted = self.connections.pop(lru_index)
+
+        idle_seconds = now - evicted.last_used_at
+        metrics_client = getattr(self, "metrics", None)
+        if metrics_client is not None:
+            metrics_client.emit("pool.connection.evicted", idle_seconds=idle_seconds)
+        return evicted

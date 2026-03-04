@@ -1,0 +1,1 @@
+Reverse the stale comparison so refresh triggers only when now >= stale_at and emit the dns.cache.refresh metric for those entries.

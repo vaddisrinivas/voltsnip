@@ -1,0 +1,1 @@
+Pass context to each fallback callable and annotate activated fallbacks via orgops.tracing.annotate_span with 0-based index.

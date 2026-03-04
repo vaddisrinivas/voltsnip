@@ -1,0 +1,1 @@
+Use UTC instead of local time for cross-region audit consistency.

@@ -1,0 +1,1 @@
+Fixes BUG_50 by applying selectivity once and emitting the required metric before recording the history.

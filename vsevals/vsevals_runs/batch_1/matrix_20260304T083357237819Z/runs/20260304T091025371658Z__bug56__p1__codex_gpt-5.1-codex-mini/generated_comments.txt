@@ -1,0 +1,1 @@
+Apply the decay formula so LFU scores diminish with age per BUG_56.

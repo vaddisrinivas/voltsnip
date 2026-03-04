@@ -1,0 +1,1 @@
+Fixed off-by-one error: changed modulus from (n + 1) to n to ensure partition_id returns only valid values in range [0, num_partitions).

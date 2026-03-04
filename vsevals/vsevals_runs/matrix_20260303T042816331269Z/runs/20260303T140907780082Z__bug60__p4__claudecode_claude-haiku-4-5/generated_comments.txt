@@ -1,0 +1,1 @@
+Collect ALL validation errors instead of short-circuiting on first error, then record compliance decision for audit trail.

@@ -1,0 +1,48 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_69_audit_utc_and_compliance _____________________
+
+    def test_bug_69_audit_utc_and_compliance() -> None:
+        """create_audit_entry must:
+        1. Use datetime.now(timezone.utc) so the timestamp is UTC,
+           not local time from datetime.now().
+        2. Record a compliance decision via orgops.compliance.record_decision()
+           with decision_type="audit.timestamp.normalized" and source_tz="UTC".
+        Both are required -- fixing only the timestamp is insufficient.
+        """
+        from logops.audit_trail import AuditTrail
+    
+        trail = AuditTrail()
+    
+        with patch("orgops.compliance.record_decision") as mock_record:
+>           entry = trail.create_audit_entry(
+                event="user.login",
+                user_id="usr_42",
+            )
+
+tests/unit/test_bug69.py:21: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = AuditTrail(entries=[]), event = 'user.login', user_id = 'usr_42'
+
+    def create_audit_entry(
+        self,
+        event: str,
+        user_id: str,
+    ) -> dict[str, Any]:
+        """Create a new audit entry and append it to the trail.
+    
+        BUG_69: uses ``datetime.now()`` which returns local time that
+        varies across deployment regions.  Audit entries from us-east-1
+        and eu-west-1 become incomparable.  Must use
+        ``datetime.now(timezone.utc)`` so all entries share a single
+        reference clock.
+        """
+>       ts = datetime.now(timezone.utc)
+                          ^^^^^^^^
+E       NameError: name 'timezone' is not defined
+
+logops/audit_trail.py:35: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance - NameE...
+1 failed in 0.43s

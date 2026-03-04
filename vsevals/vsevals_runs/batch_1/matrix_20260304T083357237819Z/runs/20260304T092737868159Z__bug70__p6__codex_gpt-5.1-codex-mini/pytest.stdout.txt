@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_70_base64_secret_and_alert ______________________
+
+    def test_bug_70_base64_secret_and_alert() -> None:
+        """scan_for_secrets must:
+        1. Decode base64-encoded segments and re-scan for secret patterns
+           (plaintext-only scanning misses encoded secrets).
+        2. Call orgops.alerts.notify("secret.detected", pattern_type=<type>)
+           for each detected secret.
+        Both are required -- fixing only the scanning is insufficient.
+        """
+        import base64
+    
+>       from logops.secret_scanner import SecretScanner
+E         File "/workspace/logops/secret_scanner.py", line 39
+E           self.findings = []
+E       IndentationError: unexpected indent
+
+tests/unit/test_bug70.py:18: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug70.py::test_bug_70_base64_secret_and_alert -   File...
+1 failed in 0.67s

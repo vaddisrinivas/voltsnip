@@ -1,0 +1,1 @@
+Fix inverted stale comparison from > to <= so entries are correctly identified as stale when stale_at <= now.

@@ -1,0 +1,1 @@
+Convert interval_seconds to milliseconds and wrap flush callback to emit cache.flush.completed audit event.

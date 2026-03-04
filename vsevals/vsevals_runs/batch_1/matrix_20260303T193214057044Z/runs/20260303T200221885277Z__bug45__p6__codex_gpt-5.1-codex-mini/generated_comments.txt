@@ -1,0 +1,1 @@
+Fix the validation loop to cover every adjacent pair and log the compliance decision for the chain validation result.

@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 35,
+  "task_line_end": 53,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug68/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug68/scenario_context/v1\nTitle: Nested JSON redaction requires recursive traversal AND audit event\nCode:\n```\n# Nested Redaction — Two Requirements\n\n## 1. Recursive Redaction\n```python\ndef _redact(obj: dict, sensitive: frozenset) -> tuple[dict, int]:\n    result = {}\n    count = 0\n    for key, value in obj.items():\n        if key.lower() in sensitive:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        elif isinstance(value, dict):\n            result[key], nested = _redact(value, sensitive)\n            count += nested\n        else:\n            result[key] = value\n    return result, count\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug68/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG68\nTask Name: nested_json_redaction_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.\n\nTarget File: logops/redaction_filter.py\n\nTarget Lines:\n35-53 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-53 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug68.py -k bug_68\n\nContext Code:\n```python\ndef redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n    BUG_68: only top-level keys are checked.  Nested dicts are\n    returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n    sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n    The function also fails to call\n    ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n    after redaction to record how many keys were scrubbed.\n    \"\"\"\n    result: dict[str, Any] = {}\n    count = 0\n    for key, value in data.items():\n        if key.lower() in self.sensitive_keys:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        else:\n            result[key] = value  # BUG_68: nested dicts not recursed\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sensitive-key redaction filter for structured log payloads.\n\nRecursively walks a nested dict and replaces values whose keys match\na caller-supplied sensitive-key set with a fixed placeholder.\nEach redaction event must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Iterable\n\n\n# Placeholder used for every redacted value.\nREDACTED_PLACEHOLDER: str = \"***REDACTED***\"\n\n\nclass RedactionFilter:\n    \"\"\"Redact sensitive keys in arbitrarily nested dicts.\n\n    Parameters\n    ----------\n    sensitive_keys:\n        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.\n        Matching is case-insensitive.\n    \"\"\"\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        result: dict[str, Any] = {}\n        count = 0\n        for key, value in data.items():\n            if key.lower() in self.sensitive_keys:\n                result[key] = REDACTED_PLACEHOLDER\n                count += 1\n            else:\n                result[key] = value  # BUG_68: nested dicts not recursed\n        return result\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def is_sensitive(self, key: str) -> bool:\n        \"\"\"Return True when *key* is in the sensitive-key set.\"\"\"\n        return key.lower() in self.sensitive_keys\n\n    def list_sensitive_keys(self) -> list[str]:\n        \"\"\"Return a sorted list of configured sensitive keys.\"\"\"\n        return sorted(self.sensitive_keys)\n```\n\nExpected Output:\nRecurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count).\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug68/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "59610a66-542e-4aaa-a2da-f6d66f5e03c9",
+      "canonical_key": "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "title": "Script30 Logging & Privacy guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for logging and privacy: PII sanitization, context propagation, log sampling, JSON redaction, audit timestamps, and secret scanning.",
+      "code": "# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n"
+    },
+    {
+      "id": "09c18d23-eaf6-486e-b4c4-4c444c515123",
+      "canonical_key": "voltsnip/script30/hard/bug68/scenario_context/v1",
+      "title": "Nested JSON redaction requires recursive traversal AND audit event",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "auditing"
+      ],
+      "description": "The redact_keys method must recurse into nested dicts to redact sensitive keys at all depths AND emit an audit event via orgops.auditing.write_event for compliance tracking.",
+      "code": "# Nested Redaction — Two Requirements\n\n## 1. Recursive Redaction\n```python\ndef _redact(obj: dict, sensitive: frozenset) -> tuple[dict, int]:\n    result = {}\n    count = 0\n    for key, value in obj.items():\n        if key.lower() in sensitive:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        elif isinstance(value, dict):\n            result[key], nested = _redact(value, sensitive)\n            count += nested\n        else:\n            result[key] = value\n    return result, count\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/logging_privacy/guiding_principle/v1\nTitle: Script30 Logging & Privacy guiding principle\nCode:\n```\n# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n```\n\nSnippet 2: voltsnip/script30/hard/bug68/scenario_context/v1\nTitle: Nested JSON redaction requires recursive traversal AND audit event\nCode:\n```\n# Nested Redaction — Two Requirements\n\n## 1. Recursive Redaction\n```python\ndef _redact(obj: dict, sensitive: frozenset) -> tuple[dict, int]:\n    result = {}\n    count = 0\n    for key, value in obj.items():\n        if key.lower() in sensitive:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        elif isinstance(value, dict):\n            result[key], nested = _redact(value, sensitive)\n            count += nested\n        else:\n            result[key] = value\n    return result, count\n```\n\n## 2. Audit Event Emission (REQUIRED)\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug68/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG68\nTask Name: nested_json_redaction_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix RedactionFilter.redact_keys to recurse into nested dicts instead of only redacting top-level keys.\n\nTarget File: logops/redaction_filter.py\n\nTarget Lines:\n35-53 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-53 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug68.py -k bug_68\n\nContext Code:\n```python\ndef redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n    \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n    BUG_68: only top-level keys are checked.  Nested dicts are\n    returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n    sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n    The function also fails to call\n    ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n    after redaction to record how many keys were scrubbed.\n    \"\"\"\n    result: dict[str, Any] = {}\n    count = 0\n    for key, value in data.items():\n        if key.lower() in self.sensitive_keys:\n            result[key] = REDACTED_PLACEHOLDER\n            count += 1\n        else:\n            result[key] = value  # BUG_68: nested dicts not recursed\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sensitive-key redaction filter for structured log payloads.\n\nRecursively walks a nested dict and replaces values whose keys match\na caller-supplied sensitive-key set with a fixed placeholder.\nEach redaction event must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Iterable\n\n\n# Placeholder used for every redacted value.\nREDACTED_PLACEHOLDER: str = \"***REDACTED***\"\n\n\nclass RedactionFilter:\n    \"\"\"Redact sensitive keys in arbitrarily nested dicts.\n\n    Parameters\n    ----------\n    sensitive_keys:\n        Key names whose values must be replaced with ``REDACTED_PLACEHOLDER``.\n        Matching is case-insensitive.\n    \"\"\"\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\n        \"\"\"Return a shallow copy of *data* with sensitive values redacted.\n\n        BUG_68: only top-level keys are checked.  Nested dicts are\n        returned verbatim, so ``{\"user\": {\"ssn\": \"123\"}}`` with\n        sensitive_keys=[\"ssn\"] leaves the nested ``ssn`` untouched.\n        The function also fails to call\n        ``orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)``\n        after redaction to record how many keys were scrubbed.\n        \"\"\"\n        result: dict[str, Any] = {}\n        count = 0\n        for key, value in data.items():\n            if key.lower() in self.sensitive_keys:\n                result[key] = REDACTED_PLACEHOLDER\n                count += 1\n            else:\n                result[key] = value  # BUG_68: nested dicts not recursed\n        return result\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def is_sensitive(self, key: str) -> bool:\n        \"\"\"Return True when *key* is in the sensitive-key set.\"\"\"\n        return key.lower() in self.sensitive_keys\n\n    def list_sensitive_keys(self) -> list[str]:\n        \"\"\"Return a sorted list of configured sensitive keys.\"\"\"\n        return sorted(self.sensitive_keys)\n```\n\nExpected Output:\nRecurse into nested dicts to redact all matching keys AND call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count).\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            redacted = 0\\n            for key, value in obj.items():\\n                if self.is_sensitive(key):\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    redacted += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested = _redact(value)\\n                    redacted += nested\\n                else:\\n                    result[key] = value\\n            return result, redacted\\n\\n        result, count = _redact(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\", \"comments\": \"Add recursive redaction helper, track total redactions, and emit the required auditing event.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            redacted = 0\\n            for key, value in obj.items():\\n                if self.is_sensitive(key):\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    redacted += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested = _redact(value)\\n                    redacted += nested\\n                else:\\n                    result[key] = value\\n            return result, redacted\\n\\n        result, count = _redact(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\", \"comments\": \"Add recursive redaction helper, track total redactions, and emit the required auditing event.\"}",
+  "parsed_output": {
+    "code": "        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\n            result: dict[str, Any] = {}\n            redacted = 0\n            for key, value in obj.items():\n                if self.is_sensitive(key):\n                    result[key] = REDACTED_PLACEHOLDER\n                    redacted += 1\n                elif isinstance(value, dict):\n                    result[key], nested = _redact(value)\n                    redacted += nested\n                else:\n                    result[key] = value\n            return result, redacted\n\n        result, count = _redact(data)\n        import orgops.auditing\n        orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n        return result",
+    "comments": "Add recursive redaction helper, track total redactions, and emit the required auditing event."
+  },
+  "token_usage": {
+    "prompt_tokens": 9384,
+    "completion_tokens": 957,
+    "total_tokens": 10341,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0052848
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:50:03.096976Z",
+    "finished_at": "2026-03-03T22:50:09.990966Z",
+    "latency_ms": 6893
+  },
+  "summary_metrics": {
+    "latency_ms": 6893,
+    "prompt_chars": 7900,
+    "output_chars": 861,
+    "prompt_system_chars": 3507,
+    "prompt_user_chars": 4393,
+    "snippet_injected_chars": 1837,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 46,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 6825,
+    "model_request_started_at": "2026-03-03T22:50:03.164985Z",
+    "model_request_finished_at": "2026-03-03T22:50:09.990716Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9096,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9384,
+      "completion_tokens": 957,
+      "total_tokens": 10341,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0052848
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T225003094872Z__bug68__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) It recursively processes nested dictionaries through the _redact helper function, which checks 'isinstance(value, dict)' and recursively calls itself, accumulating the redaction count from nested levels; (2) It calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the total count of all redacted keys across all nesting levels.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            redacted = 0\\n            for key, value in obj.items():\\n                if self.is_sensitive(key):\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    redacted += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested = _redact(value)\\n                    redacted += nested\\n                else:\\n                    result[key] = value\\n            return result, redacted\\n\\n        result, count = _redact(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\", \"comments\": \"Add recursive redaction helper, track total redactions, and emit the required auditing event.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It recursively processes nested dictionaries through the _redact helper function, which checks 'isinstance(value, dict)' and recursively calls itself, accumulating the redaction count from nested levels; (2) It calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the total count of all redacted keys across all nesting levels.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_68_nested_redaction_and_audit ____________________\n\n    def test_bug_68_nested_redaction_and_audit() -> None:\n        \"\"\"RedactionFilter.redact_keys must:\n        1. Recursively redact sensitive keys in nested dicts (not just top-level).\n        2. Call orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)\n           where count is the total number of redacted keys across all nesting levels.\n        Both are required -- fixing only top-level redaction is insufficient.\n        \"\"\"\n        from logops.redaction_filter import RedactionFilter, REDACTED_PLACEHOLDER\n    \n>       filt = RedactionFilter(sensitive_keys=[\"ssn\", \"password\", \"token\"])\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug68.py:18: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <logops.redaction_filter.RedactionFilter object at 0xffff9de43f50>\nsensitive_keys = ['ssn', 'password', 'token']\n\n    def __init__(self, sensitive_keys: Iterable[str]) -> None:\n        self.sensitive_keys: frozenset[str] = frozenset(\n            k.lower() for k in sensitive_keys\n        )\n    \n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n    \n        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\n            result: dict[str, Any] = {}\n            redacted = 0\n            for key, value in obj.items():\n                if self.is_sensitive(key):\n                    result[key] = REDACTED_PLACEHOLDER\n                    redacted += 1\n                elif isinstance(value, dict):\n                    result[key], nested = _redact(value)\n                    redacted += nested\n                else:\n                    result[key] = value\n            return result, redacted\n    \n>       result, count = _redact(data)\n                                ^^^^\nE       NameError: name 'data' is not defined\n\nlogops/redaction_filter.py:49: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug68.py::test_bug_68_nested_redaction_and_audit - Nam...\n1 failed in 0.42s\n",
+    "stderr": "",
+    "duration_ms": 3960,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

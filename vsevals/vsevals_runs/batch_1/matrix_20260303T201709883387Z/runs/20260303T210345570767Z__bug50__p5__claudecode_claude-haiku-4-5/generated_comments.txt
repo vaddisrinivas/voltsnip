@@ -1,0 +1,1 @@
+Fixed double selectivity application (removed duplicate * selectivity multiplication) and added orgops.metrics.emit() for optimizer telemetry.

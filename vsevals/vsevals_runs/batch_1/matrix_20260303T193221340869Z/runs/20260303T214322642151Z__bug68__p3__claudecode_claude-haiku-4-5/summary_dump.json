@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T214322642151Z__bug68__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 47844,
+    "prompt_chars": 7900,
+    "output_chars": 1241,
+    "prompt_system_chars": 3507,
+    "prompt_user_chars": 4393,
+    "snippet_injected_chars": 1837,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 46,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 47778,
+    "model_request_started_at": "2026-03-03T21:43:22.710507Z",
+    "model_request_finished_at": "2026-03-03T21:44:10.488997Z",
+    "model_request_id": "04a98642-fff7-48ca-a465-65ae3b7428db",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1828,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The helper _redact recursively processes nested dict values and redacts keys whose lowercase form is in self.sensitive_keys at any depth, accumulating a total count. After traversal it calls orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count) using that total count.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a dict with sensitive values recursively redacted.\\n\\n        Recursively walks nested dicts and redacts values whose keys\\n        match the sensitive-key set. Records the redaction event in\\n        the org compliance audit log.\\n        \\\"\\\"\\\"\\n        import orgops.auditing\\n\\n        def _redact(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            result: dict[str, Any] = {}\\n            count = 0\\n            for key, value in obj.items():\\n                if key.lower() in self.sensitive_keys:\\n                    result[key] = REDACTED_PLACEHOLDER\\n                    count += 1\\n                elif isinstance(value, dict):\\n                    result[key], nested = _redact(value)\\n                    count += nested\\n                else:\\n                    result[key] = value\\n            return result, count\\n\\n        result, count = _redact(data)\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\", \"comments\": \"Implement recursive traversal into nested dicts and emit audit event to record total redaction count for compliance.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The helper _redact recursively processes nested dict values and redacts keys whose lowercase form is in self.sensitive_keys at any depth, accumulating a total count. After traversal it calls orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) using that total count.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.31s\n",
+    "stderr": "",
+    "duration_ms": 2188,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

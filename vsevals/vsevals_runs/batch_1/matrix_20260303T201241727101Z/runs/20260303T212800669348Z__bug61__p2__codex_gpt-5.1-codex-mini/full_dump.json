@@ -1,0 +1,210 @@
+{
+  "run_id": "20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG61",
+  "task_name": "retry_budget_no_reset_and_metric",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 37,
+  "task_line_end": 50,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug61/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug61/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug61/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG61\nTask Name: retry_budget_no_reset_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix record_outcome to replenish remaining on success and emit retry.budget.consumed metric.\n\nTarget File: errors/retry_budget.py\n\nTarget Lines:\n37-50 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-50 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug61.py -k bug_61\n\nContext Code:\n```python\ndef record_outcome(self, success: bool) -> None:\n    \"\"\"Record the result of an operation and adjust the budget.\n\n    BUG_61: On failure the budget is correctly decremented, but on\n    success the budget is *not* replenished.  The fix must increment\n    ``self.remaining = min(self.remaining + 1, self.max_budget)``\n    when *success* is True.  Additionally, a metric must be emitted\n    via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n    after every call regardless of outcome.\n    \"\"\"\n    if not success:\n        self.remaining = max(self.remaining - 1, 0)\n    # BUG_61: missing success branch — should replenish on success\n    # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Retry budget tracker for transient failure recovery.\n\nThis module provides a :class:`RetryBudget` that maintains a finite pool of\nretry tokens.  Each failed operation consumes a token; each *successful*\noperation replenishes one (up to the original maximum).  Every outcome must\nalso emit a metric so the org alerting pipeline can track consumption in\nreal time.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\n\n\n@dataclass\nclass RetryBudget:\n    \"\"\"Sliding retry budget with per-outcome metric emission.\n\n    Parameters\n    ----------\n    max_budget:\n        Maximum number of retry tokens available.\n    remaining:\n        Current number of tokens (starts equal to *max_budget*).\n    \"\"\"\n\n    max_budget: int = 10\n    remaining: int | None = None\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if not success:\n            self.remaining = max(self.remaining - 1, 0)\n        # BUG_61: missing success branch — should replenish on success\n        # BUG_61: missing orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def exhausted(self) -> bool:\n        \"\"\"Return True when no retry tokens remain.\"\"\"\n        return self.remaining <= 0\n\n    @property\n    def utilisation(self) -> float:\n        \"\"\"Fraction of the budget that has been consumed (0.0 .. 1.0).\"\"\"\n        if self.max_budget == 0:\n            return 1.0\n        return 1.0 - (self.remaining / self.max_budget)\n```\n\nExpected Output:\nReplenish remaining on success via min(remaining + 1, max_budget) AND emit retry.budget.consumed metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenish the budget on success and emit the retry.budget.consumed metric after every outcome.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenish the budget on success and emit the retry.budget.consumed metric after every outcome.\"}",
+  "parsed_output": {
+    "code": "    def record_outcome(self, success: bool) -> None:\n        \"\"\"Record the result of an operation and adjust the budget.\n\n        BUG_61: On failure the budget is correctly decremented, but on\n        success the budget is *not* replenished.  The fix must increment\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\n        when *success* is True.  Additionally, a metric must be emitted\n        via ``orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)``\n        after every call regardless of outcome.\n        \"\"\"\n        if success:\n            self.remaining = min(self.remaining + 1, self.max_budget)\n        else:\n            self.remaining = max(self.remaining - 1, 0)\n        orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)\n",
+    "comments": "Replenish the budget on success and emit the retry.budget.consumed metric after every outcome."
+  },
+  "token_usage": {
+    "prompt_tokens": 9014,
+    "completion_tokens": 721,
+    "total_tokens": 9735,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0047592
+  },
+  "timings": {
+    "started_at": "2026-03-03T21:28:00.669520Z",
+    "finished_at": "2026-03-03T21:28:06.782167Z",
+    "latency_ms": 6112
+  },
+  "summary_metrics": {
+    "latency_ms": 6112,
+    "prompt_chars": 5340,
+    "output_chars": 921,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4207,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 6088,
+    "model_request_started_at": "2026-03-03T21:28:00.692729Z",
+    "model_request_finished_at": "2026-03-03T21:28:06.781708Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7528,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9014,
+      "completion_tokens": 721,
+      "total_tokens": 9735,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0047592
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T212800669348Z__bug61__p2__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug61_replenish_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug61_replenish_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly replenishes the budget on success using `self.remaining = min(self.remaining + 1, self.max_budget)` and emits the `retry.budget.consumed` metric via `orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)` after every call (outside the if/else block, ensuring it runs regardless of success or failure).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenish the budget on success and emit the retry.budget.consumed metric after every outcome.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly replenishes the budget on success using `self.remaining = min(self.remaining + 1, self.max_budget)` and emits the `retry.budget.consumed` metric via `orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)` after every call (outside the if/else block, ensuring it runs regardless of success or failure).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": null,
+  "error": null
+}

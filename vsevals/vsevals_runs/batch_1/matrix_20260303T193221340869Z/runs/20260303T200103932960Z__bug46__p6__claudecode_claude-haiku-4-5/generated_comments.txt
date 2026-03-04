@@ -1,0 +1,1 @@
+Remove int() truncation and use exact float arithmetic for window boundary to preserve sub-second precision in sliding window count.

@@ -1,0 +1,1 @@
+Use an exact float boundary to avoid truncation when counting timestamps in the sliding window.

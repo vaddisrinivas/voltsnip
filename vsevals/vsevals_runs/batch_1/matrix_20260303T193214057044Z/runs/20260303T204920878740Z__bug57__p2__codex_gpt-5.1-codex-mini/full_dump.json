@@ -1,0 +1,259 @@
+{
+  "run_id": "20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs",
+  "task_id": "BUG57",
+  "task_name": "write_behind_interval_units_and_audit",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 41,
+  "task_line_end": 60,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug57/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug57/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug57/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG57\nTask Name: write_behind_interval_units_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix schedule_flush so the timer receives milliseconds and a flush audit event is emitted.\n\nTarget File: cache/write_behind.py\n\nTarget Lines:\n41-60 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 41-60 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug57.py -k bug_57\n\nContext Code:\n```python\ndef schedule_flush(\n    self,\n    buffer: list[dict[str, Any]],\n    interval_seconds: float,\n) -> dict[str, Any]:\n    \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n    BUG_57: passes interval_seconds directly to _start_timer which\n    expects milliseconds.  A 5-second interval is misinterpreted as\n    5 ms, causing the buffer to flush ~1000x too frequently.\n    \"\"\"\n    self._timer_handle = _start_timer(\n        interval_seconds,  # BUG_57: should be interval_seconds * 1000\n        callback=lambda: self._do_flush(buffer),\n    )\n    return {\n        \"scheduled\": True,\n        \"interval_seconds\": interval_seconds,\n        \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n        \"buffer_size\": len(buffer),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Write-behind buffer with periodic flush scheduling.\n\nThis module provides a write-behind cache buffer that accumulates writes\nand flushes them to a backing store on a configurable interval.  Callers\nuse `schedule_flush` to start periodic flushing of buffered items.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any, Callable\n\n\ndef _start_timer(interval_ms: float, callback: Callable[[], None]) -> dict[str, Any]:\n    \"\"\"Start a periodic timer that invokes *callback* every *interval_ms* ms.\n\n    Returns a handle dict with the scheduled interval for inspection.\n    This is a thin wrapper around the platform timer (simulated here).\n    \"\"\"\n    return {\n        \"interval_ms\": interval_ms,\n        \"callback\": callback,\n        \"started_at\": time.monotonic(),\n    }\n\n\n@dataclass\nclass WriteBehindBuffer:\n    \"\"\"Accumulates writes and flushes them periodically to a backing store.\"\"\"\n\n    store: Any = field(default_factory=dict)\n    buffer: list[dict[str, Any]] = field(default_factory=list)\n    flush_count: int = 0\n    _timer_handle: dict[str, Any] | None = field(default=None, repr=False)\n\n    def put(self, key: str, value: Any) -> None:\n        \"\"\"Buffer a write for later flushing.\"\"\"\n        self.buffer.append({\"key\": key, \"value\": value, \"ts\": time.monotonic()})\n\n    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: passes interval_seconds directly to _start_timer which\n        expects milliseconds.  A 5-second interval is misinterpreted as\n        5 ms, causing the buffer to flush ~1000x too frequently.\n        \"\"\"\n        self._timer_handle = _start_timer(\n            interval_seconds,  # BUG_57: should be interval_seconds * 1000\n            callback=lambda: self._do_flush(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n\n    def _do_flush(self, buffer: list[dict[str, Any]]) -> int:\n        \"\"\"Flush all buffered items to the backing store.\n\n        Returns the number of items flushed.\n        \"\"\"\n        items_flushed = len(buffer)\n        for item in buffer:\n            self.store[item[\"key\"]] = item[\"value\"]\n        self.flush_count += items_flushed\n        buffer.clear()\n        return items_flushed\n\n    def get(self, key: str) -> Any:\n        \"\"\"Read a value from the backing store (post-flush).\"\"\"\n        return self.store.get(key)\n\n    @property\n    def pending(self) -> int:\n        \"\"\"Return the number of items waiting to be flushed.\"\"\"\n        return len(self.buffer)\n```\n\nExpected Output:\nConvert interval_seconds to milliseconds (* 1000) AND write cache.flush.completed audit event via orgops.auditing.write_event.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: convert seconds to milliseconds before passing to _start_timer so\\n        that a 5-second interval isn't misinterpreted as 5 ms.\\n        \\\"\\\"\\\"\\n        interval_ms = interval_seconds * 1000\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=lambda: self._do_flush(buffer),\\n        )\\n        from orgops import auditing\\n\\n        auditing.write_event(\\n            \\\"cache.flush.completed\\\",\\n            interval_seconds=interval_seconds,\\n            timer_interval_ms=interval_ms,\\n            buffer_size=len(buffer),\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n\",\"comments\":\"Convert the scheduled interval to milliseconds and emit the required audit event after starting the timer.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__mcp__default__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp__default"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-03T20:50:00.487352Z",
+      "finished_at": "2026-03-03T20:50:00.487353Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__mcp__voltsnip__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp__voltsnip"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-03T20:50:00.487460Z",
+      "finished_at": "2026-03-03T20:50:00.487461Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: convert seconds to milliseconds before passing to _start_timer so\\n        that a 5-second interval isn't misinterpreted as 5 ms.\\n        \\\"\\\"\\\"\\n        interval_ms = interval_seconds * 1000\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=lambda: self._do_flush(buffer),\\n        )\\n        from orgops import auditing\\n\\n        auditing.write_event(\\n            \\\"cache.flush.completed\\\",\\n            interval_seconds=interval_seconds,\\n            timer_interval_ms=interval_ms,\\n            buffer_size=len(buffer),\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n\",\"comments\":\"Convert the scheduled interval to milliseconds and emit the required audit event after starting the timer.\"}",
+  "parsed_output": {
+    "code": "    def schedule_flush(\n        self,\n        buffer: list[dict[str, Any]],\n        interval_seconds: float,\n    ) -> dict[str, Any]:\n        \"\"\"Schedule periodic flushing of *buffer* every *interval_seconds*.\n\n        BUG_57: convert seconds to milliseconds before passing to _start_timer so\n        that a 5-second interval isn't misinterpreted as 5 ms.\n        \"\"\"\n        interval_ms = interval_seconds * 1000\n        self._timer_handle = _start_timer(\n            interval_ms,\n            callback=lambda: self._do_flush(buffer),\n        )\n        from orgops import auditing\n\n        auditing.write_event(\n            \"cache.flush.completed\",\n            interval_seconds=interval_seconds,\n            timer_interval_ms=interval_ms,\n            buffer_size=len(buffer),\n        )\n        return {\n            \"scheduled\": True,\n            \"interval_seconds\": interval_seconds,\n            \"timer_interval_ms\": self._timer_handle[\"interval_ms\"],\n            \"buffer_size\": len(buffer),\n        }\n",
+    "comments": "Convert the scheduled interval to milliseconds and emit the required audit event after starting the timer."
+  },
+  "token_usage": {
+    "prompt_tokens": 116724,
+    "completion_tokens": 4128,
+    "total_tokens": 120852,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0532944
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:49:20.878887Z",
+    "finished_at": "2026-03-03T20:50:00.781499Z",
+    "latency_ms": 39902
+  },
+  "summary_metrics": {
+    "latency_ms": 39902,
+    "prompt_chars": 5838,
+    "output_chars": 1180,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4705,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 39883,
+    "model_request_started_at": "2026-03-03T20:49:20.897904Z",
+    "model_request_finished_at": "2026-03-03T20:50:00.781238Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 11311,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 116724,
+      "completion_tokens": 4128,
+      "total_tokens": 120852,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0532944
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193214057044Z/runs/20260303T204920878740Z__bug57__p2__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug57_interval_units_and_audit"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug57_interval_units_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug57_interval_units_and_audit",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) and calls orgops.auditing.write_event() with event 'cache.flush.completed'. However, it passes buffer_size=len(buffer) instead of the required items_flushed=len(buffer). The parameter name does not match the constraint specification.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: convert seconds to milliseconds before passing to _start_timer so\\n        that a 5-second interval isn't misinterpreted as 5 ms.\\n        \\\"\\\"\\\"\\n        interval_ms = interval_seconds * 1000\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=lambda: self._do_flush(buffer),\\n        )\\n        from orgops import auditing\\n\\n        auditing.write_event(\\n            \\\"cache.flush.completed\\\",\\n            interval_seconds=interval_seconds,\\n            timer_interval_ms=interval_ms,\\n            buffer_size=len(buffer),\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n\", \"comments\": \"Convert the scheduled interval to milliseconds and emit the required audit event after starting the timer.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) and calls orgops.auditing.write_event() with event 'cache.flush.completed'. However, it passes buffer_size=len(buffer) instead of the required items_flushed=len(buffer). The parameter name does not match the constraint specification.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_57_flush_interval_units_and_audit __________________\n\n    def test_bug_57_flush_interval_units_and_audit() -> None:\n        \"\"\"schedule_flush must:\n        1. Convert interval_seconds to milliseconds (interval_seconds * 1000)\n           before passing to _start_timer which expects ms.\n        2. Write a cache.flush.completed audit event via orgops.auditing.write_event()\n           with items_flushed=len(buffer) after each flush.\n        Both are required -- fixing only the unit conversion is insufficient.\n        \"\"\"\n>       from cache.write_behind import WriteBehindBuffer\nE         File \"/workspace/cache/write_behind.py\", line 40\nE           def schedule_flush(\nE                             ^\nE       SyntaxError: '(' was never closed\n\ntests/unit/test_bug57.py:16: SyntaxError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug57.py::test_bug_57_flush_interval_units_and_audit\n1 failed in 0.44s\n",
+    "stderr": "",
+    "duration_ms": 3119,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

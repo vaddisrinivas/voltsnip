@@ -1,0 +1,1 @@
+Collect all validation errors instead of short-circuiting on first error, then record compliance decision with error count.

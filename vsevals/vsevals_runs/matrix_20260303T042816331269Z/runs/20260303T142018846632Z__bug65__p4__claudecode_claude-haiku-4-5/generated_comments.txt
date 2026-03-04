@@ -1,0 +1,1 @@
+Fixed email regex to include + in local-part character class and added orgops.compliance.record_decision call for SOC2 audit trail.

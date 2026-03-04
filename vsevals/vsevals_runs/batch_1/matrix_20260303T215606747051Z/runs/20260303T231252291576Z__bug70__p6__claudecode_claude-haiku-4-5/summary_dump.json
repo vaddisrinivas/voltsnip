@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T231252291576Z__bug70__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG70",
+  "task_name": "base64_secret_miss_and_alert",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 33949,
+    "prompt_chars": 5184,
+    "output_chars": 1376,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4134,
+    "snippet_injected_chars": 3860,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 33797,
+    "model_request_started_at": "2026-03-03T23:12:52.314768Z",
+    "model_request_finished_at": "2026-03-03T23:13:26.112218Z",
+    "model_request_id": "5f7f5a58-0314-4df5-8963-a1eb039829c8",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1610,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 6,
+      "total_tokens": 24,
+      "cached_tokens": 8542,
+      "thinking_tokens": null,
+      "cost_usd": 0.00070736
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug70_base64_decode_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug70_base64_decode_and_alert",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code iterates over base64-like segments, attempts to decode each via _try_decode_base64, and if successful calls _scan_plaintext(decoded), then loops over self.findings and calls orgops.alerts.notify(\"secret.detected\", pattern_type=f[\"pattern_type\"]) for each finding.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        import orgops.alerts\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        for segment in _BASE64_RE.findall(text):\\n            decoded = self._try_decode_base64(segment)\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        for f in self.findings:\\n            orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=f[\\\"pattern_type\\\"])\\n        return list(self.findings)\", \"comments\": \"Decode base64 segments and re-scan for secrets; alert on each finding via orgops.alerts.notify.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code iterates over base64-like segments, attempts to decode each via _try_decode_base64, and if successful calls _scan_plaintext(decoded), then loops over self.findings and calls orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=f[\\\"pattern_type\\\"]) for each finding.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.24s\n",
+    "stderr": "",
+    "duration_ms": 1955,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Convert interval_seconds to milliseconds for _start_timer timer and add audit_event to response dict.

@@ -1,0 +1,1 @@
+Fixed compounding timeout calculation from original_ms * multiplier to original_ms * (multiplier ** attempt), and added metric emission for timeout.escalated events.

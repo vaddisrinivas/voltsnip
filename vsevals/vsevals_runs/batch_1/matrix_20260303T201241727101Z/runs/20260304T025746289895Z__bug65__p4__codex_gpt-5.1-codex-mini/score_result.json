@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug65_email_plus_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug65_email_plus_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation fixes the email regex by changing the pattern from [\\w.]+ to [\\w.+]+ in the local-part, which now includes the '+' character to catch plus-addressed emails like user+tag@domain.com. Additionally, it calls orgops.compliance.record_decision('pii.sanitized', {'method': 'sanitize_email', 'emails_redacted': count}) where count represents the number of emails redacted, satisfying both requirements of the constraint.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: _EMAIL_RE misses plus-addressed emails, so use a broader pattern\\n        sanitized_pattern = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = sanitized_pattern.sub(_REDACTED_EMAIL, text)\\n        count = len(sanitized_pattern.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops import compliance as _compliance\\n        _compliance.record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"method\\\": \\\"sanitize_email\\\", \\\"emails_redacted\\\": count},\\n        )\\n        return result\", \"comments\": \"Broaden the email regex to catch plus-addressed users and log the pii.sanitized compliance decision each time.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation fixes the email regex by changing the pattern from [\\\\w.]+ to [\\\\w.+]+ in the local-part, which now includes the '+' character to catch plus-addressed emails like user+tag@domain.com. Additionally, it calls orgops.compliance.record_decision('pii.sanitized', {'method': 'sanitize_email', 'emails_redacted': count}) where count represents the number of emails redacted, satisfying both requirements of the constraint.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

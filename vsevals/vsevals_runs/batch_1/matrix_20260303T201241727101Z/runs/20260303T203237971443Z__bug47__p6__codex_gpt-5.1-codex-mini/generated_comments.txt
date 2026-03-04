@@ -1,0 +1,1 @@
+Select the LRU connection before removal and forward the idle time to any configured metric emitter.

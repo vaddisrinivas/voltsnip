@@ -1,0 +1,1 @@
+Fixed compound timeout calculation (multiplier ** attempt instead of * multiplier) and added orgops.metrics.emit for escalation monitoring.

@@ -1,0 +1,1 @@
+Changed from FIFO (pop(0)) to LRU (min last_used_at), remove from list, and emit pool.connection.evicted metric.

@@ -1,0 +1,1 @@
+Fixed interval unit conversion from seconds to milliseconds and added cache.flush.completed audit event emission.

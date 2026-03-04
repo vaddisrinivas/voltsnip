@@ -1,0 +1,1 @@
+Fixed exponential backoff (2**attempt), capped at max_delay, and added retry.backoff.applied metric emission.

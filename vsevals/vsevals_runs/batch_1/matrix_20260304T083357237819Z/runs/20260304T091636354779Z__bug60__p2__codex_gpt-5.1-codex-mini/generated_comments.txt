@@ -1,0 +1,1 @@
+append each validation failure to errors and return the full list so short-circuiting stops.

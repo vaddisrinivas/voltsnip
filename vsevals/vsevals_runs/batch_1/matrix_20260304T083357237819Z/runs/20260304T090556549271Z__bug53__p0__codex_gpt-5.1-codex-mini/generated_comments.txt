@@ -1,0 +1,1 @@
+Clamp the skew-adjusted timeout at zero so clocks that run ahead can’t produce a negative lease duration.

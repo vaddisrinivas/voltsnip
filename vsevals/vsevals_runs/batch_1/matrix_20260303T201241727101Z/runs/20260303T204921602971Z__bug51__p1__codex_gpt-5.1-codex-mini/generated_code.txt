@@ -1,0 +1,13 @@
+def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:
+    """Check whether replication lag is within the acceptable threshold.
+
+    BUG_51: the threshold comparison is wrong — it previously converted
+    threshold_ms to seconds while measured_lag_ms remained in
+    milliseconds, so the check almost never triggered.
+    """
+    exceeded = measured_lag_ms > threshold_ms
+    return {
+        "measured_lag_ms": measured_lag_ms,
+        "threshold_ms": threshold_ms,
+        "exceeded": exceeded,
+    }

@@ -1,0 +1,1 @@
+{"code": "        if success:\n            self.remaining = min(self.remaining + 1, self.max_budget)\n        else:\n            self.remaining = max(self.remaining - 1, 0)\n        orgops.metrics.emit(\"retry.budget.consumed\", self.remaining)", "comments": "Replenish remaining token count on success, decrement on failure, and emit retry budget metric after every outcome."}

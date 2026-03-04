@@ -1,0 +1,1 @@
+Recurse into nested dicts to redact all matching keys and call auditing.write_event to log each redaction with the count of keys redacted at that level.

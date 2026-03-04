@@ -1,0 +1,1 @@
+Fixed jitter to be added (not subtracted) to base_ttl and emit cache.ttl.jittered metric for operational monitoring.

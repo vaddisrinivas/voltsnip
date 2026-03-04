@@ -1,0 +1,9 @@
+    if 400 <= status_code < 500:
+        category = "client_error"
+    elif 500 <= status_code < 600:
+        category = "server_error"
+    else:
+        category = "unknown"
+    import orgops.metrics
+    orgops.metrics.emit("error.mapped", status_code)
+    return category

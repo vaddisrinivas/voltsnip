@@ -1,0 +1,9 @@
+        from orgops.alerts import notify
+
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+        if self.utilization_pct >= 80.0:
+            notify("dlq.capacity.warning")
+        return True

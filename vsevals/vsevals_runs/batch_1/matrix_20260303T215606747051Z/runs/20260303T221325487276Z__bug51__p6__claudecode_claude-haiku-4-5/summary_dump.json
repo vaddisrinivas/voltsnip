@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T221325487276Z__bug51__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 29026,
+    "prompt_chars": 4178,
+    "output_chars": 1139,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3128,
+    "snippet_injected_chars": 3329,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 28889,
+    "model_request_started_at": "2026-03-03T22:13:25.508409Z",
+    "model_request_finished_at": "2026-03-03T22:13:54.397567Z",
+    "model_request_id": "680d559c-34d3-4bff-8ac8-ad24f0bda0c7",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2069,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 2,
+      "total_tokens": 20,
+      "cached_tokens": 8263,
+      "thinking_tokens": null,
+      "cost_usd": 0.00066904
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code compares measured_lag_ms directly to threshold_ms (no /1000 bug present), but it does not implement a fix from an incorrect /1000 conversion because none exists here; additionally, while it does call orgops.alerts.notify when exceeded is true, the candidate does not demonstrate removing a /1000 conversion as described in the constraint.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    import orgops.alerts\\n    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms)\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\", \"comments\": \"Fix unit comparison (compare ms directly without /1000 conversion) and add orgops.alerts.notify when threshold exceeded.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code compares measured_lag_ms directly to threshold_ms (no /1000 bug present), but it does not implement a fix from an incorrect /1000 conversion because none exists here; additionally, while it does call orgops.alerts.notify when exceeded is true, the candidate does not demonstrate removing a /1000 conversion as described in the constraint.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.32s\n",
+    "stderr": "",
+    "duration_ms": 2476,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

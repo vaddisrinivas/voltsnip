@@ -1,0 +1,1 @@
+Use round(..., 2) so the sampling rate keeps two-decimal precision before storing and returning it.

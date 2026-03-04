@@ -1,0 +1,1 @@
+Changed evict_idle to use LRU eviction (minimum last_used_at) instead of FIFO (pop(0)) order.

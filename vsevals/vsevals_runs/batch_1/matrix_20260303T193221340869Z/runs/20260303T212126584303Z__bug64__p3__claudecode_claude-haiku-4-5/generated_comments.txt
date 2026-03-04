@@ -1,0 +1,1 @@
+Changed timeout calculation to compound exponentially using (multiplier ** attempt) and added orgops.metrics.emit() to emit the required timeout.escalated metric for monitoring escalation storms.

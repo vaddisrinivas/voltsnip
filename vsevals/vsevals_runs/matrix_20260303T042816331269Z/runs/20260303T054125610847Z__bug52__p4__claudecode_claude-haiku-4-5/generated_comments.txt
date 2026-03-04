@@ -1,0 +1,1 @@
+Fixed case-sensitive type comparison to case-insensitive (.upper()) and added required SOC2 compliance decision recording via orgops.compliance.record_decision for audit trail.

@@ -1,0 +1,1 @@
+Changed comparison to case-insensitive using .upper() for cross-engine database type compatibility

@@ -1,0 +1,1 @@
+Fixed compound timeout calculation: changed from original_ms * multiplier to original_ms * (multiplier ** attempt) to enable exponential backoff per attempt.

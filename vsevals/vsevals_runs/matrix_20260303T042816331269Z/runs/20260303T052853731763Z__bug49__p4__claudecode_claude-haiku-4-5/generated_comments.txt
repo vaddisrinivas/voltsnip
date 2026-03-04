@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after rollback to free server resources, and annotate trace span for observability.

@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_51_replication_lag_and_alert _____________________
+
+    def test_bug_51_replication_lag_and_alert() -> None:
+        """check_replication_health must:
+        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)
+        2. Call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when exceeded
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+>       from data.replication_lag import check_replication_health
+E         File "/workspace/data/replication_lag.py", line 42
+E           return {
+E           ^
+E       SyntaxError: 'return' outside function
+
+tests/unit/test_bug51.py:13: SyntaxError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert -   Fi...
+1 failed in 0.10s

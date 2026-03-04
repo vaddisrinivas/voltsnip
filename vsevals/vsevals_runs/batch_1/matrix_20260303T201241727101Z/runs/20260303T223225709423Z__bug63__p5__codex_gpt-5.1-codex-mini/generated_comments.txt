@@ -1,0 +1,1 @@
+Guard capacity with >= and trigger the 80% dlq.capacity.warning alert when utilization reaches the threshold.

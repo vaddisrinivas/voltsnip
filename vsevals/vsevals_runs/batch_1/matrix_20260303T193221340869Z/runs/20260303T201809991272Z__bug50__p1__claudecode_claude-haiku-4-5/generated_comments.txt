@@ -1,0 +1,1 @@
+Removed duplicate selectivity multiplication to apply it exactly once in the join cost formula.

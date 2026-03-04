@@ -1,0 +1,1 @@
+Fixes the off-by-one modulus and reports a degradation event for the selected partition.

@@ -1,0 +1,1 @@
+Order comparisons convert version strings to ints so pending detection and sorting use numeric semantics.

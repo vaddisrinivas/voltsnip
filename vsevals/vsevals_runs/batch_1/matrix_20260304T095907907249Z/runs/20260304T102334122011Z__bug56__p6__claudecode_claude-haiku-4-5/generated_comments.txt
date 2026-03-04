@@ -1,0 +1,1 @@
+Apply time-decay formula to LFU score calculation: access_count divided by (1 + age_hours) so older entries naturally decay and do not monopolize the cache.

@@ -1,0 +1,1 @@
+Use the correct "<" probe comparison and report half-open degradation via orgops.health when a probe is allowed.

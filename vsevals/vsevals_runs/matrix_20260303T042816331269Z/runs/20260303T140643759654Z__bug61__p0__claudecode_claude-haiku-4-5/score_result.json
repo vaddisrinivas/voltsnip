@@ -1,0 +1,38 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "no code produced"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 0,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 0,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 0,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [],
+  "constraint_scoring_used": false,
+  "constraint_checks_passed": null,
+  "constraint_checks_total": null,
+  "constraint_pass_threshold": null,
+  "constraint_results": [],
+  "judge_payload": null,
+  "judge_raw_response": null,
+  "passed": false
+}

@@ -1,0 +1,1 @@
+Each fallback now receives the shared context and an activated span is traced before invocation.

@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_49_savepoint_release_and_trace ____________________
+
+    def test_bug_49_savepoint_release_and_trace() -> None:
+        """rollback_to_savepoint must:
+        1. Execute ROLLBACK TO SAVEPOINT <id>.
+        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.
+        3. Annotate the trace span via orgops.tracing.annotate_span(
+               "txn.savepoint.rolled_back", savepoint_id).
+        All three are required -- rolling back without releasing leaks the
+        savepoint, and omitting the trace annotation breaks observability.
+        """
+>       from data.txn_manager import TransactionManager
+E         File "/workspace/data/txn_manager.py", line 38
+E           from __future__ import annotations
+E           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       SyntaxError: from __future__ imports must occur at the beginning of the file
+
+tests/unit/test_bug49.py:17: SyntaxError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace -   ...
+1 failed in 0.35s

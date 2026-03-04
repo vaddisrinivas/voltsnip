@@ -1,0 +1,1 @@
+Fixed email regex to include '+' in local-part character class for plus-addressed emails.

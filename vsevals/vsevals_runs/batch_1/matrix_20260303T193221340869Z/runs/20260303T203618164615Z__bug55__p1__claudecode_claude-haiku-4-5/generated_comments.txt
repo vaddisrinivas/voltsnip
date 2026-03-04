@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < so early refresh triggers when entry is close to expiry (low ratio) not far from it (high ratio).

@@ -1,0 +1,1 @@
+Split 4xx status codes to client_error and 5xx to server_error instead of lumping both as server_error.

@@ -1,0 +1,204 @@
+{
+  "run_id": "20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG70",
+  "task_name": "base64_secret_miss_and_alert",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 39,
+  "task_line_end": 49,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug70/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug70/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG70\nTask Name: base64_secret_miss_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix scan_for_secrets so it decodes base64 segments and re-scans for encoded secrets.\n\nTarget File: logops/secret_scanner.py\n\nTarget Lines:\n39-49 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 39-49 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug70.py -k bug_70\n\nContext Code:\n```python\ndef scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n    \"\"\"Return a list of findings for every secret detected in *text*.\n\n    BUG_70: Only plaintext patterns are checked.  Base64-encoded\n    segments are never decoded and re-scanned, so an encoded\n    ``AKIA...`` key or ``ghp_`` token slips through undetected.\n    \"\"\"\n    self.findings = []\n    self._scan_plaintext(text)\n    # BUG_70: base64 segments are not decoded — encoded secrets are missed\n    return list(self.findings)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Secret scanner for detecting credentials and tokens in text.\n\nThis module scans arbitrary text for known secret patterns such as\nAWS access keys and GitHub personal access tokens.  Callers use\n``scan_for_secrets`` to obtain a list of findings.\n\"\"\"\nfrom __future__ import annotations\n\nimport base64\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n# --- well-known patterns ---------------------------------------------------\nPATTERNS: dict[str, re.Pattern[str]] = {\n    \"aws_access_key\": re.compile(r\"AKIA[A-Z0-9]{16}\"),\n    \"github_token\": re.compile(r\"ghp_[a-zA-Z0-9]{36}\"),\n}\n\n# Matches Base64-encoded segments (>= 20 chars, standard alphabet + padding)\n_BASE64_RE = re.compile(r\"[A-Za-z0-9+/]{20,}={0,2}\")\n\n\n@dataclass\nclass SecretScanner:\n    \"\"\"Scan text for known secret patterns.\n\n    Each finding is returned as a dict with *pattern_type* and *match*.\n    \"\"\"\n\n    patterns: dict[str, re.Pattern[str]] = field(default_factory=lambda: dict(PATTERNS))\n    findings: list[dict[str, Any]] = field(default_factory=list)\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n        \"\"\"Return a list of findings for every secret detected in *text*.\n\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\n        segments are never decoded and re-scanned, so an encoded\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\n        \"\"\"\n        self.findings = []\n        self._scan_plaintext(text)\n        # BUG_70: base64 segments are not decoded — encoded secrets are missed\n        return list(self.findings)\n\n    # ------------------------------------------------------------------\n    # Internal helpers\n    # ------------------------------------------------------------------\n\n    def _scan_plaintext(self, text: str) -> None:\n        \"\"\"Match each pattern against *text* and record findings.\"\"\"\n        for pattern_type, regex in self.patterns.items():\n            for m in regex.finditer(text):\n                self.findings.append(\n                    {\"pattern_type\": pattern_type, \"match\": m.group()}\n                )\n\n    def _try_decode_base64(self, segment: str) -> str | None:\n        \"\"\"Attempt to base64-decode *segment*.  Return decoded text or None.\"\"\"\n        try:\n            decoded = base64.b64decode(segment, validate=True).decode(\"utf-8\")\n        except Exception:\n            return None\n        return decoded\n```\n\nExpected Output:\nDecode base64 segments and re-scan for secrets AND call orgops.alerts.notify for each finding.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug70/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/logging_privacy/guiding_principle/v1\n- voltsnip/script30/hard/bug70/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG70\nTask Name: base64_secret_miss_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix scan_for_secrets so it decodes base64 segments and re-scans for encoded secrets.\n\nTarget File: logops/secret_scanner.py\n\nTarget Lines:\n39-49 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 39-49 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug70.py -k bug_70\n\nContext Code:\n```python\ndef scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n    \"\"\"Return a list of findings for every secret detected in *text*.\n\n    BUG_70: Only plaintext patterns are checked.  Base64-encoded\n    segments are never decoded and re-scanned, so an encoded\n    ``AKIA...`` key or ``ghp_`` token slips through undetected.\n    \"\"\"\n    self.findings = []\n    self._scan_plaintext(text)\n    # BUG_70: base64 segments are not decoded — encoded secrets are missed\n    return list(self.findings)\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Secret scanner for detecting credentials and tokens in text.\n\nThis module scans arbitrary text for known secret patterns such as\nAWS access keys and GitHub personal access tokens.  Callers use\n``scan_for_secrets`` to obtain a list of findings.\n\"\"\"\nfrom __future__ import annotations\n\nimport base64\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n# --- well-known patterns ---------------------------------------------------\nPATTERNS: dict[str, re.Pattern[str]] = {\n    \"aws_access_key\": re.compile(r\"AKIA[A-Z0-9]{16}\"),\n    \"github_token\": re.compile(r\"ghp_[a-zA-Z0-9]{36}\"),\n}\n\n# Matches Base64-encoded segments (>= 20 chars, standard alphabet + padding)\n_BASE64_RE = re.compile(r\"[A-Za-z0-9+/]{20,}={0,2}\")\n\n\n@dataclass\nclass SecretScanner:\n    \"\"\"Scan text for known secret patterns.\n\n    Each finding is returned as a dict with *pattern_type* and *match*.\n    \"\"\"\n\n    patterns: dict[str, re.Pattern[str]] = field(default_factory=lambda: dict(PATTERNS))\n    findings: list[dict[str, Any]] = field(default_factory=list)\n\n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n\n    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n        \"\"\"Return a list of findings for every secret detected in *text*.\n\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\n        segments are never decoded and re-scanned, so an encoded\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\n        \"\"\"\n        self.findings = []\n        self._scan_plaintext(text)\n        # BUG_70: base64 segments are not decoded — encoded secrets are missed\n        return list(self.findings)\n\n    # ------------------------------------------------------------------\n    # Internal helpers\n    # ------------------------------------------------------------------\n\n    def _scan_plaintext(self, text: str) -> None:\n        \"\"\"Match each pattern against *text* and record findings.\"\"\"\n        for pattern_type, regex in self.patterns.items():\n            for m in regex.finditer(text):\n                self.findings.append(\n                    {\"pattern_type\": pattern_type, \"match\": m.group()}\n                )\n\n    def _try_decode_base64(self, segment: str) -> str | None:\n        \"\"\"Attempt to base64-decode *segment*.  Return decoded text or None.\"\"\"\n        try:\n            decoded = base64.b64decode(segment, validate=True).decode(\"utf-8\")\n        except Exception:\n            return None\n        return decoded\n```\n\nExpected Output:\nDecode base64 segments and re-scan for secrets AND call orgops.alerts.notify for each finding.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        # Decode base64 segments and re-scan for encoded secrets\\n        for segment in _BASE64_RE.finditer(text):\\n            decoded = self._try_decode_base64(segment.group())\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        # Alert on each finding\\n        for finding in self.findings:\\n            orgops.alerts.notify(finding)\\n        return list(self.findings)\", \"comments\": \"Scan base64-encoded segments for secrets and alert on all findings.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        # Decode base64 segments and re-scan for encoded secrets\\n        for segment in _BASE64_RE.finditer(text):\\n            decoded = self._try_decode_base64(segment.group())\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        # Alert on each finding\\n        for finding in self.findings:\\n            orgops.alerts.notify(finding)\\n        return list(self.findings)\", \"comments\": \"Scan base64-encoded segments for secrets and alert on all findings.\"}\n```",
+  "parsed_output": {
+    "code": "    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n        \"\"\"Return a list of findings for every secret detected in *text*.\n\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\n        segments are never decoded and re-scanned, so an encoded\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\n        \"\"\"\n        self.findings = []\n        self._scan_plaintext(text)\n        # Decode base64 segments and re-scan for encoded secrets\n        for segment in _BASE64_RE.finditer(text):\n            decoded = self._try_decode_base64(segment.group())\n            if decoded:\n                self._scan_plaintext(decoded)\n        # Alert on each finding\n        for finding in self.findings:\n            orgops.alerts.notify(finding)\n        return list(self.findings)",
+    "comments": "Scan base64-encoded segments for secrets and alert on all findings."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:48:26.693635Z",
+    "finished_at": "2026-03-04T10:49:09.110239Z",
+    "latency_ms": 42416
+  },
+  "summary_metrics": {
+    "latency_ms": 42416,
+    "prompt_chars": 5565,
+    "output_chars": 942,
+    "prompt_system_chars": 1361,
+    "prompt_user_chars": 4204,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 2338,
+    "voltsnip_retry_count": 4,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 6,
+    "model_request_latency_ms": 40056,
+    "model_request_started_at": "2026-03-04T10:48:29.053110Z",
+    "model_request_finished_at": "2026-03-04T10:49:09.110115Z",
+    "model_request_id": "236a87ae-9b6b-418e-9508-569e4c376a18",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2460,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T104826693451Z__bug70__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug70_base64_decode_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug70_base64_decode_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug70_base64_decode_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "It does decode candidate Base64 segments and re-scan the decoded content via self._scan_plaintext(decoded), and it does call orgops.alerts.notify for each finding. However, it does not call orgops.alerts.notify(\"secret.detected\", pattern_type=pattern_type); it calls orgops.alerts.notify(finding) without the required event name and pattern_type argument.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n        # Decode base64 segments and re-scan for encoded secrets\\n        for segment in _BASE64_RE.finditer(text):\\n            decoded = self._try_decode_base64(segment.group())\\n            if decoded:\\n                self._scan_plaintext(decoded)\\n        # Alert on each finding\\n        for finding in self.findings:\\n            orgops.alerts.notify(finding)\\n        return list(self.findings)\", \"comments\": \"Scan base64-encoded segments for secrets and alert on all findings.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It does decode candidate Base64 segments and re-scan the decoded content via self._scan_plaintext(decoded), and it does call orgops.alerts.notify for each finding. However, it does not call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type); it calls orgops.alerts.notify(finding) without the required event name and pattern_type argument.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_70_base64_secret_and_alert ______________________\n\n    def test_bug_70_base64_secret_and_alert() -> None:\n        \"\"\"scan_for_secrets must:\n        1. Decode base64-encoded segments and re-scan for secret patterns\n           (plaintext-only scanning misses encoded secrets).\n        2. Call orgops.alerts.notify(\"secret.detected\", pattern_type=<type>)\n           for each detected secret.\n        Both are required -- fixing only the scanning is insufficient.\n        \"\"\"\n        import base64\n    \n        from logops.secret_scanner import SecretScanner\n    \n        scanner = SecretScanner()\n    \n        # ---------- Requirement 1: base64-encoded secrets detected ----------\n    \n        # Encode a known AWS key into base64\n        aws_key = \"AKIAIOSFODNN7EXAMPLE\"\n        b64_aws = base64.b64encode(aws_key.encode()).decode()\n        text_with_encoded = f\"config blob: {b64_aws} end\"\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n>           findings = scanner.scan_for_secrets(text_with_encoded)\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug70.py:30: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = SecretScanner(patterns={'aws_access_key': re.compile('AKIA[A-Z0-9]{16}'), 'github_token': re.compile('ghp_[a-zA-Z0-9]{36}')}, findings=[{'pattern_type': 'aws_access_key', 'match': 'AKIAIOSFODNN7EXAMPLE'}])\ntext = 'config blob: QUtJQUlPU0ZPRE5ON0VYQU1QTEU= end'\n\n    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\n        \"\"\"Return a list of findings for every secret detected in *text*.\n    \n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\n        segments are never decoded and re-scanned, so an encoded\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\n        \"\"\"\n        self.findings = []\n        self._scan_plaintext(text)\n        # Decode base64 segments and re-scan for encoded secrets\n        for segment in _BASE64_RE.finditer(text):\n            decoded = self._try_decode_base64(segment.group())\n            if decoded:\n                self._scan_plaintext(decoded)\n        # Alert on each finding\n        for finding in self.findings:\n>           orgops.alerts.notify(finding)\n            ^^^^^^\nE           NameError: name 'orgops' is not defined\n\nlogops/secret_scanner.py:55: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug70.py::test_bug_70_base64_secret_and_alert - NameEr...\n1 failed in 0.33s\n",
+    "stderr": "",
+    "duration_ms": 1903,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

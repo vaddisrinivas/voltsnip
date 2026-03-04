@@ -1,0 +1,1 @@
+Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance.

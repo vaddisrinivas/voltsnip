@@ -1,0 +1,13 @@
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        oldest_idx = min(
+            range(len(self.connections)),
+            key=lambda idx: self.connections[idx].last_used_at,
+        )
+        evicted = self.connections.pop(oldest_idx)
+
+        idle_seconds = now - evicted.last_used_at
+        return evicted

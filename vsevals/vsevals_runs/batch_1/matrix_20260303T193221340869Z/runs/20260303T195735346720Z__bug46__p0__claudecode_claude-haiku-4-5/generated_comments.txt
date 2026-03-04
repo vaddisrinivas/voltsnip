@@ -1,0 +1,1 @@
+Use float arithmetic instead of int() truncation for window boundary.

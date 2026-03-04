@@ -1,0 +1,1 @@
+Rollback now tags the trace span and releases the savepoint after executing ROLLBACK TO SAVEPOINT.

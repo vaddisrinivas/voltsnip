@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T201935200779Z__bug50__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG50",
+  "task_name": "join_cost_double_selectivity_and_metric",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 59936,
+    "prompt_chars": 5828,
+    "output_chars": 1004,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4778,
+    "snippet_injected_chars": 2711,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 59791,
+    "model_request_started_at": "2026-03-03T20:19:35.223424Z",
+    "model_request_finished_at": "2026-03-03T20:20:35.015437Z",
+    "model_request_id": "39302daf-ad08-4324-b06f-44fde4872541",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1215,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 6,
+      "total_tokens": 24,
+      "cached_tokens": 8587,
+      "thinking_tokens": null,
+      "cost_usd": 0.00071096
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug50_selectivity_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug50_selectivity_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The cost is computed as left_rows * right_rows * selectivity (selectivity applied once), and it emits orgops.metrics.emit(\"query.plan.estimated_cost\", cost).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug50/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def estimate_join_cost(\\n        self,\\n        left_rows: int,\\n        right_rows: int,\\n        selectivity: float,\\n    ) -> float:\\n        \\\"\\\"\\\"Estimate the output cardinality for a join operation.\\n\\n        The formula is:  left_rows * right_rows * selectivity\\n\\n        BUG_50: selectivity is applied twice, inflating the cost estimate\\n        and causing the optimizer to reject valid hash-join plans.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        cost = left_rows * right_rows * selectivity\\n        orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost)\\n        self._history.append(\\n            JoinStats(\\n                left_rows=left_rows,\\n                right_rows=right_rows,\\n                selectivity=selectivity,\\n                estimated_cost=cost,\\n            )\\n        )\\n        return cost\", \"comments\": \"Fixed double selectivity bug (removed duplicate multiplication) and added metric emission for query plan cost telemetry.\"}, \"constraints\": [{\"id\": \"bug50_selectivity_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug50/scenario_context/v1\", \"check\": \"Single selectivity application AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the join cost formula to apply selectivity exactly once (left_rows * right_rows * selectivity, not selectivity * selectivity) AND emit a query.plan.estimated_cost metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The cost is computed as left_rows * right_rows * selectivity (selectivity applied once), and it emits orgops.metrics.emit(\\\"query.plan.estimated_cost\\\", cost).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.37s\n",
+    "stderr": "",
+    "duration_ms": 3806,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

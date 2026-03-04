@@ -1,0 +1,1 @@
+Fixes BUG_55 by triggering early refreshes only when the remaining ratio drops below the threshold.

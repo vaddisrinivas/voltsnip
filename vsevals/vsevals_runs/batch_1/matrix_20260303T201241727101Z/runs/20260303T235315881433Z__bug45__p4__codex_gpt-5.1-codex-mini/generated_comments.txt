@@ -1,0 +1,1 @@
+Fix the validation loop so every adjacent pair is checked and report the tls.chain.validated compliance decision when possible.

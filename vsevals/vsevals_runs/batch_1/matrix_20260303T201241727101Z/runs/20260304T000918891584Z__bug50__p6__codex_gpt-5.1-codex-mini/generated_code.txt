@@ -1,0 +1,14 @@
+        # BUG_50: selectivity should apply only once per join estimate
+        cost = left_rows * right_rows * selectivity
+        metric_emitter = getattr(self, "emit_metric", None)
+        if metric_emitter is not None:
+            metric_emitter("query.plan.estimated_cost", cost)
+        self._history.append(
+            JoinStats(
+                left_rows=left_rows,
+                right_rows=right_rows,
+                selectivity=selectivity,
+                estimated_cost=cost,
+            )
+        )
+        return cost

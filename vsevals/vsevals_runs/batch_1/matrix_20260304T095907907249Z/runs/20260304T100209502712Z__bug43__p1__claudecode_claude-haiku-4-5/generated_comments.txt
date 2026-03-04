@@ -1,0 +1,1 @@
+Changed DNS and connect timeouts from sequential sum to parallel max, since both happen concurrently; then add read timeout sequentially.

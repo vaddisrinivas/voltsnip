@@ -1,0 +1,1 @@
+Use modulo n so hash-derived partition IDs stay within the valid range.

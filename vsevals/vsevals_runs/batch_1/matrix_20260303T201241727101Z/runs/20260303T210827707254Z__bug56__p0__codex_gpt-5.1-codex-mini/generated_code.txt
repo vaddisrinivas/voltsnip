@@ -1,0 +1,2 @@
+        score = access_count / (1 + age_hours)
+        return float(score)

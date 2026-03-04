@@ -1,0 +1,13 @@
+def assign_partition(self, key: str, num_partitions: int | None = None) -> int:
+    """Return the partition ID for *key*.
+
+    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can
+    return ``num_partitions`` itself -- an out-of-range value
+    (valid range is ``0 .. num_partitions - 1``).  The fix must
+    use ``hash(key) % num_partitions`` instead.
+    """
+    import orgops.health
+    n = num_partitions if num_partitions is not None else self._config.num_partitions
+    partition_id = _stable_hash(key) % n
+    orgops.health.report_degradation("cache.partition.skew", partition_id)
+    return partition_id

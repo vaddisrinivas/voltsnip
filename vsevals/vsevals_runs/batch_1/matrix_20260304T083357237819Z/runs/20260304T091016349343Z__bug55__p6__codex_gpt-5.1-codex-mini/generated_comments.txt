@@ -1,0 +1,1 @@
+Use the low-ratio comparison so refreshes happen near expiry and record the cache.stampede.prevented metric when triggered.

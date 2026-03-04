@@ -1,0 +1,1 @@
+Child context now includes both request_id and correlation_id so async traces keep alignment.

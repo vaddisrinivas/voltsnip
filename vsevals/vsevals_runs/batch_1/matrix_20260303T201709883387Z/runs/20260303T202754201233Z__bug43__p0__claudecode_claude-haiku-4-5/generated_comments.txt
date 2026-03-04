@@ -1,0 +1,1 @@
+Changed DNS and connect timeout calculation from sequential sum (ct + dt + rt) to parallel max (max(ct, dt) + rt) since DNS resolution and TCP connect happen concurrently.

@@ -1,0 +1,60 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_48_migration_version_and_audit ____________________
+
+    def test_bug_48_migration_version_and_audit() -> None:
+        """MigrationRunner must:
+        1. Compare versions numerically so "10" sorts after "9" (not before "2").
+        2. Call orgops.auditing.write_event("migration.applied", version=version)
+           for each migration applied.
+        Both are required -- fixing only the ordering is insufficient.
+        """
+        from data.migration_runner import MigrationRunner
+    
+        applied_versions = {"1", "2", "3", "9"}
+        available_migrations = [
+            {"version": "1", "sql": "CREATE TABLE a;"},
+            {"version": "2", "sql": "CREATE TABLE b;"},
+            {"version": "3", "sql": "CREATE TABLE c;"},
+            {"version": "9", "sql": "CREATE TABLE i;"},
+            {"version": "10", "sql": "CREATE TABLE j;"},
+            {"version": "11", "sql": "CREATE TABLE k;"},
+            {"version": "20", "sql": "CREATE TABLE t;"},
+        ]
+    
+        runner = MigrationRunner(applied_versions, available_migrations)
+    
+        # ── 1. Numeric ordering: versions 10, 11, 20 are pending ────────
+>       pending = runner.get_pending_migrations()
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug48.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <data.migration_runner.MigrationRunner object at 0xffff8128d7f0>
+
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+    
+        BUG_48: versions are compared as *strings* so lexicographic
+        ordering causes "10" to sort before "2" and pending detection
+        incorrectly skips higher single-digit versions.
+        """
+        int_version = lambda m: int(m["version"])
+        sorted_available = sorted(self.available_migrations, key=int_version)
+        if not self.applied_versions:
+            pending = sorted_available
+        else:
+            max_applied = max(int(v) for v in self.applied_versions)
+            pending = [m for m in sorted_available if int_version(m) > max_applied]
+        orgops = __import__("orgops")
+        for migration in pending:
+            version = int_version(migration)
+>           orgops.auditing.write_event("migration.applied", version=version)
+            ^^^^^^^^^^^^^^^
+E           AttributeError: module 'orgops' has no attribute 'auditing'
+
+data/migration_runner.py:53: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - At...
+1 failed in 0.10s

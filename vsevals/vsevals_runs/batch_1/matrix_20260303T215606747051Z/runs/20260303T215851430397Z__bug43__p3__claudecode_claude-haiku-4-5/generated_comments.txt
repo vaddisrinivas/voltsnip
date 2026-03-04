@@ -1,0 +1,1 @@
+Fixed BUG_43: DNS and connect now treated as parallel (max) instead of sequential (sum), plus added required trace annotation for observability.

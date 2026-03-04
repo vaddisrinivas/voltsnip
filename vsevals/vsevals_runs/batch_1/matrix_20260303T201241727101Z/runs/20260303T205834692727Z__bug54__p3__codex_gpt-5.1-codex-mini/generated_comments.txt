@@ -1,0 +1,1 @@
+Additive jitter now increases the TTL and emits the required cache.ttl.jittered metric.

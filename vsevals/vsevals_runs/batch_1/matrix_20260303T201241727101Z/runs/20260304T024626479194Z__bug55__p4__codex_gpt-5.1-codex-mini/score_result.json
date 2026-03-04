@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug55_threshold_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug55_threshold_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug55_threshold_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the threshold comparison is correctly fixed to use < operator, the metric emission uses cache.metrics.increment() instead of orgops.metrics.emit(), and does not include the key_name parameter as required.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        if ratio < self.threshold:  # refresh when the entry is close to expiry\\n            from cache.metrics import metrics\\n\\n            self.refreshes_triggered += 1\\n            metrics.increment(\\\"cache.stampede.prevented\\\")\\n            return True\\n\\n        return False\\n\", \"comments\": \"Fixed the ratio comparison to refresh only when near expiry and emitted the cache.stampede.prevented metric when an early refresh is triggered.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+  },
+  "judge_raw_response": "I'll evaluate whether this implementation meets the specified constraint.\n\n**Analyzing the constraint:**\nThe constraint requires TWO things:\n1. Fix threshold comparison to `<` (not `>`) so early refresh triggers when `time_remaining/ttl` is below the threshold\n2. Emit a `cache.stampede.prevented` metric via `orgops.metrics.emit()` with the `key_name`\n\n**Analyzing the candidate code:**\n\n1. **Threshold comparison fix:** ✓\n   - The code uses `if ratio < self.threshold:` which correctly triggers when the ratio is below the threshold (close to expiry)\n   - This is the correct fix according to the comment\n\n2. **Metric emission:** ✗\n   - The code does emit a metric: `metrics.increment(\"cache.stampede.prevented\")`\n   - However, it uses `metrics.increment()` from `cache.metrics`, NOT `orgops.metrics.emit()`\n   - Additionally, it does NOT include the `key_name` parameter in the metric call\n\n**Verdict:**\nThe implementation satisfies the first requirement (correct threshold comparison) but fails the second requirement (it doesn't use `orgops.metrics.emit()` with `key_name`, instead using `cache.metrics.increment()` without the key).\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the threshold comparison is correctly fixed to use < operator, the metric emission uses cache.metrics.increment() instead of orgops.metrics.emit(), and does not include the key_name parameter as required.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

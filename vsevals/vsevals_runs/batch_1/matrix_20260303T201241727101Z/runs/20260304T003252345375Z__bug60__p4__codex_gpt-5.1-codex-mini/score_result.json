@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug60_all_errors_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug60_all_errors_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug60_all_errors_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug60_all_errors_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug60_all_errors_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug60_all_errors_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation collects all validation errors correctly by iterating through all rules and appending errors to a list. However, it does NOT record a compliance decision via orgops.compliance.record_decision. While there is a comment mentioning 'validation.completed compliance decision', there is no actual function call to orgops.compliance.record_decision(decision='validation.completed', error_count=len(errors)) or similar. The constraint explicitly requires BOTH collecting all errors AND recording the compliance decision, so this fails the requirement.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    # validation.completed compliance decision: the validation run always finishes before returning\\n    return errors\", \"comments\": \"Accumulates all validation failures so the operation can declare validation.completed before returning the full error list.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation collects all validation errors correctly by iterating through all rules and appending errors to a list. However, it does NOT record a compliance decision via orgops.compliance.record_decision. While there is a comment mentioning 'validation.completed compliance decision', there is no actual function call to orgops.compliance.record_decision(decision='validation.completed', error_count=len(errors)) or similar. The constraint explicitly requires BOTH collecting all errors AND recording the compliance decision, so this fails the requirement.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

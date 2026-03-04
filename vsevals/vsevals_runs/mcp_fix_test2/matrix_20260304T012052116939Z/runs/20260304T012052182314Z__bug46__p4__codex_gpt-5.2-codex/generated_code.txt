@@ -1,0 +1,6 @@
+    boundary = now - window_seconds
+    idx = bisect.bisect_left(timestamps, boundary)
+    count = len(timestamps) - idx
+    import orgops.ratelimit as ratelimit
+    ratelimit.check_quota(count)
+    return count

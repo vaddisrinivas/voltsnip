@@ -1,0 +1,1 @@
+Convert version comparisons from string-based (lexicographic) to int-based (numeric) to fix ordering of migrations like 2, 10, 20.

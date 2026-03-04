@@ -1,0 +1,1 @@
+Corrected the stale-time comparison so entries are marked stale only once `now` reaches or exceeds `stale_at`.

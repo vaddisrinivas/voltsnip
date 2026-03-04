@@ -1,0 +1,1 @@
+Ensure rollback calls release_savepoint and annotate_span after executing ROLLBACK TO SAVEPOINT to close the savepoint and trace the event.

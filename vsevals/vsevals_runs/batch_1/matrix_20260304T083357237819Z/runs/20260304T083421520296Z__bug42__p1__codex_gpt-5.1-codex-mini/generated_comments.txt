@@ -1,0 +1,1 @@
+Fix half-open probe limit so new probes are allowed while the probe count is still below the configured maximum.

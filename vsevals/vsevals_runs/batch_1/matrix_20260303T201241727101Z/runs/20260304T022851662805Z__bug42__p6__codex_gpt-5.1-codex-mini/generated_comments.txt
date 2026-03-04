@@ -1,0 +1,1 @@
+Fix the probe limit comparison and report a half-open degradation whenever probes are denied.

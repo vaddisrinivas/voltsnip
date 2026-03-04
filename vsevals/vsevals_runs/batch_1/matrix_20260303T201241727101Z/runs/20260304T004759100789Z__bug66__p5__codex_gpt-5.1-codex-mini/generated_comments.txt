@@ -1,0 +1,1 @@
+Ensure the child context now copies both IDs, annotates the tracing span, and logs the expanded key set.

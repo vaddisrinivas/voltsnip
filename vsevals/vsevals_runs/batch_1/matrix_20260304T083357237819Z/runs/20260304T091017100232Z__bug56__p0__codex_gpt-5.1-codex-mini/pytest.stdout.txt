@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_bug_56_lfu_decay_and_metric _______________________
+
+    def test_bug_56_lfu_decay_and_metric() -> None:
+        """compute_lfu_score must:
+        1. Apply time decay: score = access_count / (1 + age_hours)
+           (NOT raw access_count).
+        2. Emit a 'cache.eviction.lfu' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+    
+        policy = LFUEvictionPolicy()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            # access_count=100, age_hours=9 => 100 / (1 + 9) = 10.0
+>           result = policy.compute_lfu_score(100, age_hours=9.0)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'LFUEvictionPolicy' object has no attribute 'compute_lfu_score'
+
+tests/unit/test_bug56.py:22: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug56.py::test_bug_56_lfu_decay_and_metric - Attribute...
+1 failed in 0.11s

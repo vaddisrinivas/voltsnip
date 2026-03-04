@@ -1,0 +1,1 @@
+Remove duplicate selectivity multiplication to apply it exactly once, matching the documented formula.

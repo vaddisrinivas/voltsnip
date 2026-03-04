@@ -1,0 +1,393 @@
+{
+  "run_id": "20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG52",
+  "task_name": "schema_type_case_sensitive_and_compliance",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 35,
+  "task_line_end": 44,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug52/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug52/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug52/scenario_context/v1",
+      "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+      "voltsnip/bug22/category/error_contracts/oracle_playbook/v2",
+      "voltsnip/bug22/task/bug08/example_contract_keys/v2",
+      "voltsnip/bug22/task/bug12/example_redaction_literal/v2",
+      "voltsnip/script30/hard/bug59/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "76845901-620c-4efd-b803-2f5019487e73",
+      "canonical_key": "voltsnip/script30/hard/bug52/scenario_context/v1",
+      "title": "Schema type validation requires case-insensitive comparison AND compliance decision",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "compliance"
+      ],
+      "description": "The validate_column_type function must compare types case-insensitively AND record a compliance decision via orgops.compliance.record_decision for the SOC2 audit trail.",
+      "code": "# Schema Type Validation — Two Requirements\n\n## 1. Case-Insensitive Comparison\nDatabase engines return column types in varying cases (PostgreSQL\nuses lowercase, MySQL uses uppercase).  The comparison must be\ncase-insensitive:\n```python\nreturn expected_type.upper() == actual_type.upper()\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe SOC2 audit system requires a compliance decision record whenever\na schema validation passes.  Use `orgops.compliance.record_decision`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n```\n\n## Complete Correct Pattern\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    import orgops.compliance\n    matched = expected_type.upper() == actual_type.upper()\n    if matched:\n        orgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n    return matched\n```\n\nFixing ONLY the comparison is insufficient — the SOC2 audit trail\nwill not capture schema validation events without the compliance\ndecision recording.  Both fixes are required for production correctness.\n"
+    },
+    {
+      "id": "0cf138f4-d75b-473f-bc75-50719aff6528",
+      "canonical_key": "voltsnip/bug22/category/error_contracts/guiding_principle/v1",
+      "title": "BUG22 error_contracts guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "error_contracts",
+        "guiding-principle",
+        "errors"
+      ],
+      "description": "Org-level guiding principle for error response contracts: schema keys, status mapping, and safe serialization.",
+      "code": "# Error Contracts — Org Guiding Principle\n\n## Schema Keys\n- Every error response MUST include: code (str), message (str), details (any), trace_id (str|None).\n- Never expose raw exception text, stack traces, or internal identifiers in message.\n- Use canonical camelCase keys in public API responses; never mix legacy underscore aliases.\n\n## Status Code Mapping\n- Timeout errors → 504 Gateway Timeout.\n- Validation errors → 422 Unprocessable Entity.\n- Auth failures → 401 or 403 (never 500).\n- Unknown/unexpected → 500 Internal Server Error.\n\n## Serialization Safety\n- All error detail values must be JSON-serializable (str, int, float, bool, None, list, dict).\n- Never place raw Python exception objects in details; convert to str first.\n"
+    },
+    {
+      "id": "31ac8616-9eac-4c25-83cc-176f6b84daa9",
+      "canonical_key": "voltsnip/bug22/category/error_contracts/oracle_playbook/v2",
+      "title": "BUG22 error_contracts oracle playbook",
+      "language": "text",
+      "tags": [
+        "eval-bug22",
+        "error_contracts",
+        "oracle-playbook",
+        "api-contracts"
+      ],
+      "description": "Generic oracle-aligned checklist for error contract tasks: stable keys, safe messages, serializable details, and deterministic status mapping.",
+      "code": "# Error contracts oracle playbook\\n\\nRequired outcomes:\\n- Keep serialized schema keys stable and canonical (code, message, details, trace_id).\\n- Avoid legacy or alias keys that break clients (for example error_code).\\n- Ensure details payload is JSON serializable.\\n- Map known exception classes to deterministic HTTP status classes.\\n- Prevent raw exception secrets from leaking into public message fields.\\n\\nFailure modes to avoid:\\n- Missing trace_id key in output.\\n- Emitting inconsistent key names across paths.\\n- Embedding unserializable objects in details.\\n- Exposing raw exception text containing credentials.\\n"
+    },
+    {
+      "id": "a7258077-45d3-4df2-a5ec-4d7be2efe797",
+      "canonical_key": "voltsnip/bug22/task/bug08/example_contract_keys/v2",
+      "title": "BUG08 error schema key contract example",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "bug08",
+        "error_contracts",
+        "schema"
+      ],
+      "description": "Reference snippet showing canonical ErrorSchema serialization keys expected by BUG08.",
+      "code": "def to_dict(self):\\n    # Canonical contract keys only\\n    return {\\n        \"code\": self.code,\\n        \"message\": self.message,\\n        \"details\": self.details,\\n        \"trace_id\": self.trace_id,\\n    }\\n"
+    },
+    {
+      "id": "58c1eeda-6546-4dca-b860-56d9959b6299",
+      "canonical_key": "voltsnip/bug22/task/bug12/example_redaction_literal/v2",
+      "title": "BUG12 redaction literal example",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "bug12",
+        "logging_privacy",
+        "redaction"
+      ],
+      "description": "Reference snippet showing exact redaction literal behavior expected by BUG12.",
+      "code": "REDACTED = \"***REDACTED***\"\\nSENSITIVE = {\"password\", \"token\", \"api_key\", \"authorization\", \"secret\"}\\n\\ndef redact_fields(fields):\\n    out = {}\\n    for k, v in fields.items():\\n        out[k] = REDACTED if k.lower() in SENSITIVE else v\\n    return out\\n"
+    },
+    {
+      "id": "8ef62040-7e62-4819-9459-66b5a5b66f1a",
+      "canonical_key": "voltsnip/script30/hard/bug59/scenario_context/v1",
+      "title": "HTTP error classification requires 4xx/5xx split AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The classify_http_error function must return 'client_error' for 400-499 and 'server_error' for 500-599 AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# HTTP Error Classification — Two Requirements\n\n## 1. Split 4xx / 5xx\n```python\nif 400 <= status_code < 500:\n    category = \"client_error\"\nelif 500 <= status_code < 600:\n    category = \"server_error\"\nelse:\n    category = \"unknown\"\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"error.mapped\", status_code)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"    # BUG_52: case-sensitive comparison causes false mismatches\\n    match = expected_type.upper() == actual_type.upper()\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match)\\n    return match\\n\", \"comments\":\"Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "case insensitive string comparison schema validation"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:05:53.855667Z",
+      "finished_at": "2026-03-04T09:05:53.855669Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "schema validation case insensitive comparison"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:05:53.855770Z",
+      "finished_at": "2026-03-04T09:05:53.855771Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "case insensitive string compare"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:05:53.855788Z",
+      "finished_at": "2026-03-04T09:05:53.855789Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 4,
+      "tool_name": "mcp__default__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "default",
+        "uri": "/var/folders/kj/vs2s56dd2sb2d8vymk714fyc0000gn/T/vsevals_codex_wd_01ky6eo2/.mcp/resources"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:05:53.855805Z",
+      "finished_at": "2026-03-04T09:05:53.855806Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 5,
+      "tool_name": "mcp__codex__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {},
+      "tool_result": {
+        "raw": "{\"content\": [{\"type\": \"text\", \"text\": \"{\\\"resources\\\":[]}\"}], \"structured_content\": null}"
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:05:53.855843Z",
+      "finished_at": "2026-03-04T09:05:53.855844Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"    # BUG_52: case-sensitive comparison causes false mismatches\\n    match = expected_type.upper() == actual_type.upper()\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match)\\n    return match\\n\", \"comments\":\"Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance.\"}",
+  "parsed_output": {
+    "code": "    # BUG_52: case-sensitive comparison causes false mismatches\n    match = expected_type.upper() == actual_type.upper()\n    import orgops.compliance\n    orgops.compliance.record_decision(\"schema.validation.passed\", match)\n    return match\n",
+    "comments": "Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance."
+  },
+  "token_usage": {
+    "prompt_tokens": 78779,
+    "completion_tokens": 3028,
+    "total_tokens": 81807,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0363564
+  },
+  "timings": {
+    "started_at": "2026-03-04T09:05:18.443926Z",
+    "finished_at": "2026-03-04T09:05:54.639427Z",
+    "latency_ms": 36195
+  },
+  "summary_metrics": {
+    "latency_ms": 36195,
+    "prompt_chars": 5604,
+    "output_chars": 380,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4554,
+    "snippet_injected_chars": 3323,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 6,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 3,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 35786,
+    "model_request_started_at": "2026-03-04T09:05:18.465159Z",
+    "model_request_finished_at": "2026-03-04T09:05:54.251749Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5842,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 78779,
+      "completion_tokens": 3028,
+      "total_tokens": 81807,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0363564
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug52_case_insensitive_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug52_case_insensitive_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) uses case-insensitive comparison via expected_type.upper() == actual_type.upper(), and (2) records a compliance decision via orgops.compliance.record_decision(\"schema.validation.passed\", match).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    # BUG_52: case-sensitive comparison causes false mismatches\\n    match = expected_type.upper() == actual_type.upper()\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match)\\n    return match\\n\", \"comments\": \"Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance.\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) uses case-insensitive comparison via expected_type.upper() == actual_type.upper(), and (2) records a compliance decision via orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 2,
+    "passed": false,
+    "stdout": "\n==================================== ERRORS ====================================\n__________________ ERROR collecting tests/unit/test_bug52.py ___________________\nImportError while importing test module '/workspace/tests/unit/test_bug52.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/unit/test_bug52.py:5: in <module>\n    from data.schema_validator import validate_column_type\nE   ImportError: cannot import name 'validate_column_type' from 'data.schema_validator' (/workspace/data/schema_validator.py)\n=========================== short test summary info ============================\nERROR tests/unit/test_bug52.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.14s\n",
+    "stderr": "",
+    "duration_ms": 808,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

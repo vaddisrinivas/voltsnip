@@ -1,0 +1,1 @@
+Changed short-circuit return to accumulate all validation errors by appending to the errors list instead of returning immediately on first error.

@@ -1,0 +1,1 @@
+Fixed exponential backoff calculation with max_delay capping and metrics emission.

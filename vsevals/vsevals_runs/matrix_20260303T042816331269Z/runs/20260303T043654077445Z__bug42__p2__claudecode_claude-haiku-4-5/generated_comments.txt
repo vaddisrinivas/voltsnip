@@ -1,0 +1,1 @@
+Fixed comparison from > to <; report circuit degradation when probe limit exceeded in half-open state.

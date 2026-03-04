@@ -1,0 +1,3 @@
+        score = access_count / (1.0 + age_hours)
+        metrics.increment("cache.eviction.lfu")
+        return float(score)

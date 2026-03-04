@@ -1,0 +1,1 @@
+Use a UTC timestamp for audit entries and log the compliance decision after appending the entry.

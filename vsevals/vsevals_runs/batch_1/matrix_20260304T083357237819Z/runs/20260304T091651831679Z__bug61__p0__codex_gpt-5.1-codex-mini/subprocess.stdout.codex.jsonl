@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb822-c323-7293-94be-d8f897151d86"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Providing code snippet for outcome handling**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Ensure record_outcome replenishes the budget on success and always emits the retry.budget.consumed metric.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":8719,"cached_input_tokens":5888,"output_tokens":260}}

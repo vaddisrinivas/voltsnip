@@ -1,0 +1,22 @@
+        # BUG_66: include correlation_id so tracing stays intact
+        from orgops.tracing import annotate_span
+
+        child = {
+            "request_id": parent_context["request_id"],
+            "correlation_id": parent_context.get("correlation_id"),
+        }
+
+        annotate_span(
+            "context_propagation",
+            {
+                "request_id": child["request_id"],
+                "correlation_id": child["correlation_id"],
+            },
+        )
+
+        self.propagation_log.append({
+            "parent_request_id": parent_context.get("request_id"),
+            "parent_correlation_id": parent_context.get("correlation_id"),
+            "child_keys": list(child.keys()),
+        })
+        return child

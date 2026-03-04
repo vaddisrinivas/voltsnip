@@ -1,0 +1,199 @@
+{
+  "run_id": "20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs",
+  "task_id": "BUG46",
+  "task_name": "sliding_window_truncation_and_quota",
+  "variant_id": "P1",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 37,
+  "task_line_end": 40,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug46/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG46\nTask Name: sliding_window_truncation_and_quota\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sliding_window_count so the boundary uses exact float arithmetic instead of int() truncation.\n\nTarget File: net/rate_limiter.py\n\nTarget Lines:\n37-40 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-40 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug46.py -k bug_46\n\nContext Code:\n```python\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sliding-window rate limiter for per-client request throttling.\n\nUses a sorted list of request timestamps to count requests within\na sliding window and enforce rate limits.\n\"\"\"\nfrom __future__ import annotations\n\nimport bisect\nimport time\nfrom typing import Any\n\n\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n\n    Parameters\n    ----------\n    timestamps : list[float]\n        Sorted list of UNIX timestamps for past requests.\n    window_seconds : float\n        The sliding window width in seconds.\n    now : float\n        Current time as a UNIX timestamp.\n\n    Returns\n    -------\n    int\n        Number of timestamps within the window.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n\n\nclass SlidingWindowLimiter:\n    \"\"\"Per-client sliding-window rate limiter.\n\n    Maintains a list of request timestamps for each client key and\n    rejects requests when the count within the window exceeds the\n    configured limit.\n\n    Parameters\n    ----------\n    max_requests : int\n        Maximum number of requests allowed within the window.\n    window_seconds : float\n        Width of the sliding window in seconds.\n    time_fn : callable, optional\n        Clock function for testability. Defaults to ``time.time``.\n    \"\"\"\n\n    def __init__(\n        self,\n        max_requests: int = 100,\n        window_seconds: float = 60.0,\n        time_fn: Any | None = None,\n    ) -> None:\n        self.max_requests = max_requests\n        self.window_seconds = window_seconds\n        self.time_fn = time_fn or time.time\n        self._buckets: dict[str, list[float]] = {}\n\n    def allow(self, client_key: str) -> bool:\n        \"\"\"Return True if the request is within the rate limit.\n\n        Records the current timestamp and prunes expired entries.\n        \"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.setdefault(client_key, [])\n\n        # Prune timestamps outside the window\n        boundary = int(now - self.window_seconds)  # BUG_46: same truncation bug\n        prune_idx = bisect.bisect_left(bucket, boundary)\n        self._buckets[client_key] = bucket = bucket[prune_idx:]\n\n        count = sliding_window_count(bucket, self.window_seconds, now)\n\n        if count >= self.max_requests:\n            return False\n\n        bisect.insort(bucket, now)\n        return True\n\n    def current_count(self, client_key: str) -> int:\n        \"\"\"Return the current request count in the window for a client.\"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.get(client_key, [])\n        return sliding_window_count(bucket, self.window_seconds, now)\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG46\nTask Name: sliding_window_truncation_and_quota\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sliding_window_count so the boundary uses exact float arithmetic instead of int() truncation.\n\nTarget File: net/rate_limiter.py\n\nTarget Lines:\n37-40 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 37-40 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug46.py -k bug_46\n\nContext Code:\n```python\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Sliding-window rate limiter for per-client request throttling.\n\nUses a sorted list of request timestamps to count requests within\na sliding window and enforce rate limits.\n\"\"\"\nfrom __future__ import annotations\n\nimport bisect\nimport time\nfrom typing import Any\n\n\ndef sliding_window_count(\n    timestamps: list[float],\n    window_seconds: float,\n    now: float,\n) -> int:\n    \"\"\"Count how many timestamps fall within [now - window_seconds, now].\n\n    BUG_46: the window boundary is truncated to an integer, causing\n    requests near sub-second bucket boundaries to be undercounted.\n\n    Parameters\n    ----------\n    timestamps : list[float]\n        Sorted list of UNIX timestamps for past requests.\n    window_seconds : float\n        The sliding window width in seconds.\n    now : float\n        Current time as a UNIX timestamp.\n\n    Returns\n    -------\n    int\n        Number of timestamps within the window.\n    \"\"\"\n    boundary = int(now - window_seconds)  # BUG_46: truncates to integer, loses sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n\n\nclass SlidingWindowLimiter:\n    \"\"\"Per-client sliding-window rate limiter.\n\n    Maintains a list of request timestamps for each client key and\n    rejects requests when the count within the window exceeds the\n    configured limit.\n\n    Parameters\n    ----------\n    max_requests : int\n        Maximum number of requests allowed within the window.\n    window_seconds : float\n        Width of the sliding window in seconds.\n    time_fn : callable, optional\n        Clock function for testability. Defaults to ``time.time``.\n    \"\"\"\n\n    def __init__(\n        self,\n        max_requests: int = 100,\n        window_seconds: float = 60.0,\n        time_fn: Any | None = None,\n    ) -> None:\n        self.max_requests = max_requests\n        self.window_seconds = window_seconds\n        self.time_fn = time_fn or time.time\n        self._buckets: dict[str, list[float]] = {}\n\n    def allow(self, client_key: str) -> bool:\n        \"\"\"Return True if the request is within the rate limit.\n\n        Records the current timestamp and prunes expired entries.\n        \"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.setdefault(client_key, [])\n\n        # Prune timestamps outside the window\n        boundary = int(now - self.window_seconds)  # BUG_46: same truncation bug\n        prune_idx = bisect.bisect_left(bucket, boundary)\n        self._buckets[client_key] = bucket = bucket[prune_idx:]\n\n        count = sliding_window_count(bucket, self.window_seconds, now)\n\n        if count >= self.max_requests:\n            return False\n\n        bisect.insort(bucket, now)\n        return True\n\n    def current_count(self, client_key: str) -> int:\n        \"\"\"Return the current request count in the window for a client.\"\"\"\n        now = self.time_fn()\n        bucket = self._buckets.get(client_key, [])\n        return sliding_window_count(bucket, self.window_seconds, now)\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\\n\", \"comments\": \"Remove int() truncation to preserve sub-second precision in sliding window boundary calculation.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\\n\", \"comments\": \"Remove int() truncation to preserve sub-second precision in sliding window boundary calculation.\"}\n```",
+  "parsed_output": {
+    "code": "    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx\n",
+    "comments": "Remove int() truncation to preserve sub-second precision in sliding window boundary calculation."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T19:58:28.308210Z",
+    "finished_at": "2026-03-03T19:58:56.309093Z",
+    "latency_ms": 28000
+  },
+  "summary_metrics": {
+    "latency_ms": 28000,
+    "prompt_chars": 5796,
+    "output_chars": 259,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4746,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 28000,
+    "model_request_started_at": "2026-03-03T19:58:28.308805Z",
+    "model_request_finished_at": "2026-03-03T19:58:56.308971Z",
+    "model_request_id": "12e442eb-1c62-423c-b1e5-2ab4dff9f894",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1217,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T193221340869Z/runs/20260303T195828308044Z__bug46__p1__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug46_boundary_and_quota"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug46_boundary_and_quota"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug46_boundary_and_quota",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code removes int() truncation by using `boundary = now - window_seconds`, but it does not call `orgops.ratelimit.check_quota(\"request.sliding_window\", count)` (or any quota check) with the computed count.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug46/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    boundary = now - window_seconds\\n    idx = bisect.bisect_left(timestamps, boundary)\\n    return len(timestamps) - idx\\n\", \"comments\": \"Remove int() truncation to preserve sub-second precision in sliding window boundary calculation.\"}, \"constraints\": [{\"id\": \"bug46_boundary_and_quota\", \"voltsnip_key\": \"voltsnip/script30/hard/bug46/scenario_context/v1\", \"check\": \"Exact float boundary (no int() truncation) AND quota check via orgops.ratelimit.check_quota.\", \"judge_prompt\": \"Does the implementation both remove the int() truncation on the window boundary (using exact float subtraction now - window_seconds) AND call orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count) with the computed count?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code removes int() truncation by using `boundary = now - window_seconds`, but it does not call `orgops.ratelimit.check_quota(\\\"request.sliding_window\\\", count)` (or any quota check) with the computed count.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_46_sliding_window_and_quota _____________________\n\n    def test_bug_46_sliding_window_and_quota() -> None:\n        \"\"\"sliding_window_count must:\n        1. Use exact float boundary (now - window_seconds), NOT int() truncation\n        2. Report the window count to orgops.ratelimit.check_quota(\"request.sliding_window\", count)\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n    \n        from net.rate_limiter import sliding_window_count\n    \n        # Scenario: now=1000.9, window=10.0 => exact boundary = 990.9\n        # int() truncation would give boundary = 990, including timestamps\n        # in [990.0, 990.9) that should be OUTSIDE the window.\n        timestamps = [989.5, 990.0, 990.5, 990.8, 991.0, 995.0, 1000.5]\n    \n        now = 1000.9\n        window_seconds = 10.0\n    \n        # Exact boundary = 990.9.  Timestamps >= 990.9: [991.0, 995.0, 1000.5] => 3\n        # Truncated boundary = 990 => [990.0, 990.5, 990.8, 991.0, 995.0, 1000.5] => 6\n        with patch(\"orgops.ratelimit.check_quota\") as mock_quota:\n            count = sliding_window_count(timestamps, window_seconds, now)\n    \n        assert count == 3, (\n            f\"Expected 3 timestamps in [990.9, 1000.9] but got {count}; \"\n            \"boundary must use exact float arithmetic, not int() truncation\"\n        )\n    \n        # Must also call orgops.ratelimit.check_quota with the computed count\n>       mock_quota.assert_called_once()\n\ntests/unit/test_bug46.py:35: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='check_quota' id='281473377542144'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'check_quota' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug46.py::test_bug_46_sliding_window_and_quota - Asser...\n1 failed in 1.77s\n",
+    "stderr": "",
+    "duration_ms": 4561,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

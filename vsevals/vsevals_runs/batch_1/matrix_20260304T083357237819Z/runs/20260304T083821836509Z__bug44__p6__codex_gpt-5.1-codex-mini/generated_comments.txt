@@ -1,0 +1,1 @@
+Corrects the stale comparison and emits dns.cache.refresh once for each stale entry so metrics track refreshes.

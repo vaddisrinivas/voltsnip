@@ -1,0 +1,1 @@
+Corrected the early-refresh trigger to fire when the remaining TTL ratio drops below the threshold instead of above it.

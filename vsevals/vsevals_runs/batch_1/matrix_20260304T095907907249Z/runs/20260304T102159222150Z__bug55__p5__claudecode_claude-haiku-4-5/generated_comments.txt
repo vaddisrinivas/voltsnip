@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < for correct early refresh detection when TTL is low, and added cache.stampede.prevented metric emission.

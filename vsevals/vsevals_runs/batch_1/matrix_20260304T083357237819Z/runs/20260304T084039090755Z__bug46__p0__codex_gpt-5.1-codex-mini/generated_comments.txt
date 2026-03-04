@@ -1,0 +1,1 @@
+Use the precise floating-point window boundary so sliding counts do not drop sub-second timestamps.

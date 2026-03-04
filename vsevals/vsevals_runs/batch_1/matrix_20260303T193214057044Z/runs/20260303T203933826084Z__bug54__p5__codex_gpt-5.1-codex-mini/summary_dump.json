@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T203933826084Z__bug54__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG54",
+  "task_name": "ttl_jitter_subtraction_and_metric",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 36431,
+    "prompt_chars": 5960,
+    "output_chars": 1213,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4910,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 36413,
+    "model_request_started_at": "2026-03-03T20:39:33.845413Z",
+    "model_request_finished_at": "2026-03-03T20:40:10.258847Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5052,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 162731,
+      "completion_tokens": 2300,
+      "total_tokens": 165031,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0687724
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug54_jitter_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug54_jitter_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code fixes the jitter to be additive with 'effective_ttl = base_ttl + jitter' and emits the required metric via 'orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl)'. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter  # BUG_54: jitter should push expiry forward\\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"cache.ttl.jittered\\\", effective_ttl)\\n    return effective_ttl\\n\", \"comments\": \"Switches to additive jitter, emits the required cache.ttl.jittered metric, and keeps the TTL positive.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The code fixes the jitter to be additive with 'effective_ttl = base_ttl + jitter' and emits the required metric via 'orgops.metrics.emit(\\\"cache.ttl.jittered\\\", effective_ttl)'. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.30s\n",
+    "stderr": "",
+    "duration_ms": 2902,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

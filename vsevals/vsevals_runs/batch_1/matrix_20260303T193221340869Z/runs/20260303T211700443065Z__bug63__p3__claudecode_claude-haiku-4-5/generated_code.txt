@@ -1,0 +1,21 @@
+        """Attempt to add *message* to the dead-letter queue.
+
+        Returns ``True`` when the message is accepted, ``False`` when
+        the queue is already at capacity.
+
+        BUG_63: the capacity guard uses ``>=`` instead of ``>``,
+        ensuring queue never exceeds max_size. The function also fires
+        the capacity-warning alert when utilization reaches 80%.
+        """
+        # Fixed: now uses >= so queue never exceeds max_size
+        if len(self.queue) >= self.max_size:
+            return False
+
+        # Alert if utilization is 80%+
+        import orgops.alerts
+        utilization = (len(self.queue) / self.max_size) * 100.0
+        if utilization >= 80.0:
+            orgops.alerts.notify("dlq.capacity.warning", utilization_pct=utilization)
+
+        self.queue.append(message)
+        return True

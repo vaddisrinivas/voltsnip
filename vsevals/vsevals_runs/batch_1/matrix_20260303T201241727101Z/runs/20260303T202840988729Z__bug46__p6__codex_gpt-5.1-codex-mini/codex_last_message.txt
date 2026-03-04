@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx","comments":"Keep the sliding-window boundary as the precise float difference so sub-second timestamps are counted correctly."}

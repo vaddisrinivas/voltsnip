@@ -1,0 +1,1 @@
+Use the precise float boundary instead of truncating to an int so sub-second timestamps count correctly.

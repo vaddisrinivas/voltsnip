@@ -1,0 +1,1 @@
+Now copies both IDs into the child context and annotates the span with the correlation_id.

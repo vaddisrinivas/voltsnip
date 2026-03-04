@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T024626479194Z__bug55__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 63728,
+    "prompt_chars": 5032,
+    "output_chars": 986,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3982,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 5,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 63708,
+    "model_request_started_at": "2026-03-04T02:46:26.499271Z",
+    "model_request_finished_at": "2026-03-04T02:47:30.208029Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7634,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 104616,
+      "completion_tokens": 8208,
+      "total_tokens": 112824,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0549792
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug55_threshold_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug55_threshold_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug55_threshold_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "While the threshold comparison is correctly fixed to use < operator, the metric emission uses cache.metrics.increment() instead of orgops.metrics.emit(), and does not include the key_name parameter as required.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        if ratio < self.threshold:  # refresh when the entry is close to expiry\\n            from cache.metrics import metrics\\n\\n            self.refreshes_triggered += 1\\n            metrics.increment(\\\"cache.stampede.prevented\\\")\\n            return True\\n\\n        return False\\n\", \"comments\": \"Fixed the ratio comparison to refresh only when near expiry and emitted the cache.stampede.prevented metric when an early refresh is triggered.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+    },
+    "judge_raw_response": "I'll evaluate whether this implementation meets the specified constraint.\n\n**Analyzing the constraint:**\nThe constraint requires TWO things:\n1. Fix threshold comparison to `<` (not `>`) so early refresh triggers when `time_remaining/ttl` is below the threshold\n2. Emit a `cache.stampede.prevented` metric via `orgops.metrics.emit()` with the `key_name`\n\n**Analyzing the candidate code:**\n\n1. **Threshold comparison fix:** ✓\n   - The code uses `if ratio < self.threshold:` which correctly triggers when the ratio is below the threshold (close to expiry)\n   - This is the correct fix according to the comment\n\n2. **Metric emission:** ✗\n   - The code does emit a metric: `metrics.increment(\"cache.stampede.prevented\")`\n   - However, it uses `metrics.increment()` from `cache.metrics`, NOT `orgops.metrics.emit()`\n   - Additionally, it does NOT include the `key_name` parameter in the metric call\n\n**Verdict:**\nThe implementation satisfies the first requirement (correct threshold comparison) but fails the second requirement (it doesn't use `orgops.metrics.emit()` with `key_name`, instead using `cache.metrics.increment()` without the key).\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the threshold comparison is correctly fixed to use < operator, the metric emission uses cache.metrics.increment() instead of orgops.metrics.emit(), and does not include the key_name parameter as required.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_55_stampede_threshold_and_metric ___________________\n\n    def test_bug_55_stampede_threshold_and_metric() -> None:\n        \"\"\"StampedeGuard.should_refresh_early must:\n        1. Trigger early refresh when time_remaining/ttl < threshold (CLOSE to expiry),\n           not when the ratio is > threshold (FAR from expiry).\n        2. Emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name)\n           when an early refresh is triggered.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n    \n        guard = StampedeGuard(threshold=0.2)\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # --- Case A: 1s remaining of 10s TTL => ratio 0.1 < 0.2 => SHOULD refresh ---\n>           result_close = guard.should_refresh_early(\n                time_remaining=1.0, ttl=10.0, key_name=\"users\",\n            )\n\ntests/unit/test_bug55.py:23: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <cache.stampede_guard.StampedeGuard object at 0xffffbb961850>\ntime_remaining = 1.0, ttl = 10.0, key_name = 'users'\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n    \n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n    \n        ratio = time_remaining / ttl\n    \n        if ratio < self.threshold:  # refresh when the entry is close to expiry\n>           from cache.metrics import metrics\nE           ModuleNotFoundError: No module named 'cache.metrics'\n\ncache/stampede_guard.py:52: ModuleNotFoundError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug55.py::test_bug_55_stampede_threshold_and_metric - ...\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 731,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

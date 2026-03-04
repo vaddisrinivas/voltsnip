@@ -1,0 +1,199 @@
+{
+  "run_id": "20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P1",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 65,
+  "task_line_end": 79,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug65/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG65\nTask Name: email_plus_addressing_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sanitize_email so plus-addressed emails are redacted.\n\nTarget File: logops/sanitizer.py\n\nTarget Lines:\n65-79 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-79 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug65.py -k bug_65\n\nContext Code:\n```python\ndef sanitize_email(self, text: str) -> str:\n    \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n    BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n    in the local-part character class, so plus-addressed emails\n    like ``user+tag@domain.com`` are **not** redacted.\n    Should be ``[\\\\w.+]+@[\\\\w.]+``.\n    \"\"\"\n    # BUG_65: _EMAIL_RE misses plus-addressed emails\n    result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n    count = len(_EMAIL_RE.findall(text))\n    self._history.append(\n        SanitizationResult(text=result, emails_redacted=count)\n    )\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"PII sanitizer for structured log fields.\n\nThis module provides text sanitization for log payloads before they are\npersisted or forwarded to external aggregators.  It redacts emails,\nphone numbers, and US SSNs so that PII never reaches long-term storage.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n# ---------------------------------------------------------------------------\n# Redaction patterns\n# ---------------------------------------------------------------------------\n\n# BUG_65: missing '+' in the local-part character class -- plus-addressed\n# emails like user+tag@domain.com slip through unredacted.\n_EMAIL_RE = re.compile(r\"[\\w.]+@[\\w.]+\")  # BUG_65: misses plus-addressing\n\n_PHONE_RE = re.compile(\n    r\"\\+?1?[-.\\s]?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\"\n)\n\n_SSN_RE = re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\")\n\n_REDACTED_EMAIL = \"[REDACTED_EMAIL]\"\n_REDACTED_PHONE = \"[REDACTED_PHONE]\"\n_REDACTED_SSN = \"[REDACTED_SSN]\"\n\n\n@dataclass\nclass SanitizationResult:\n    \"\"\"Outcome of a single sanitize pass.\"\"\"\n\n    text: str\n    emails_redacted: int = 0\n    phones_redacted: int = 0\n    ssns_redacted: int = 0\n\n    @property\n    def total_redacted(self) -> int:\n        return self.emails_redacted + self.phones_redacted + self.ssns_redacted\n\n\n@dataclass\nclass PiiSanitizer:\n    \"\"\"Redacts PII tokens from free-form text.\n\n    Intended for pre-persist log sanitization so that PII never\n    reaches the log aggregator or downstream analytics pipelines.\n    \"\"\"\n\n    redact_emails: bool = True\n    redact_phones: bool = True\n    redact_ssns: bool = True\n    _history: list[SanitizationResult] = field(\n        default_factory=list, repr=False\n    )\n\n    # ------------------------------------------------------------------ #\n    #  Public API                                                         #\n    # ------------------------------------------------------------------ #\n\n    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        count = len(_EMAIL_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result\n\n    def sanitize_phone(self, text: str) -> str:\n        \"\"\"Replace US phone numbers with ``[REDACTED_PHONE]``.\"\"\"\n        result = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        count = len(_PHONE_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, phones_redacted=count)\n        )\n        return result\n\n    def sanitize_ssn(self, text: str) -> str:\n        \"\"\"Replace US SSNs (xxx-xx-xxxx) with ``[REDACTED_SSN]``.\"\"\"\n        result = _SSN_RE.sub(_REDACTED_SSN, text)\n        count = len(_SSN_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, ssns_redacted=count)\n        )\n        return result\n\n    def sanitize_all(self, text: str) -> SanitizationResult:\n        \"\"\"Run every enabled redaction pass and return aggregated result.\"\"\"\n        emails = phones = ssns = 0\n        if self.redact_emails:\n            emails = len(_EMAIL_RE.findall(text))\n            text = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        if self.redact_phones:\n            phones = len(_PHONE_RE.findall(text))\n            text = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        if self.redact_ssns:\n            ssns = len(_SSN_RE.findall(text))\n            text = _SSN_RE.sub(_REDACTED_SSN, text)\n        result = SanitizationResult(\n            text=text,\n            emails_redacted=emails,\n            phones_redacted=phones,\n            ssns_redacted=ssns,\n        )\n        self._history.append(result)\n        return result\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG65\nTask Name: email_plus_addressing_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sanitize_email so plus-addressed emails are redacted.\n\nTarget File: logops/sanitizer.py\n\nTarget Lines:\n65-79 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-79 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug65.py -k bug_65\n\nContext Code:\n```python\ndef sanitize_email(self, text: str) -> str:\n    \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n    BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n    in the local-part character class, so plus-addressed emails\n    like ``user+tag@domain.com`` are **not** redacted.\n    Should be ``[\\\\w.+]+@[\\\\w.]+``.\n    \"\"\"\n    # BUG_65: _EMAIL_RE misses plus-addressed emails\n    result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n    count = len(_EMAIL_RE.findall(text))\n    self._history.append(\n        SanitizationResult(text=result, emails_redacted=count)\n    )\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"PII sanitizer for structured log fields.\n\nThis module provides text sanitization for log payloads before they are\npersisted or forwarded to external aggregators.  It redacts emails,\nphone numbers, and US SSNs so that PII never reaches long-term storage.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n# ---------------------------------------------------------------------------\n# Redaction patterns\n# ---------------------------------------------------------------------------\n\n# BUG_65: missing '+' in the local-part character class -- plus-addressed\n# emails like user+tag@domain.com slip through unredacted.\n_EMAIL_RE = re.compile(r\"[\\w.]+@[\\w.]+\")  # BUG_65: misses plus-addressing\n\n_PHONE_RE = re.compile(\n    r\"\\+?1?[-.\\s]?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\"\n)\n\n_SSN_RE = re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\")\n\n_REDACTED_EMAIL = \"[REDACTED_EMAIL]\"\n_REDACTED_PHONE = \"[REDACTED_PHONE]\"\n_REDACTED_SSN = \"[REDACTED_SSN]\"\n\n\n@dataclass\nclass SanitizationResult:\n    \"\"\"Outcome of a single sanitize pass.\"\"\"\n\n    text: str\n    emails_redacted: int = 0\n    phones_redacted: int = 0\n    ssns_redacted: int = 0\n\n    @property\n    def total_redacted(self) -> int:\n        return self.emails_redacted + self.phones_redacted + self.ssns_redacted\n\n\n@dataclass\nclass PiiSanitizer:\n    \"\"\"Redacts PII tokens from free-form text.\n\n    Intended for pre-persist log sanitization so that PII never\n    reaches the log aggregator or downstream analytics pipelines.\n    \"\"\"\n\n    redact_emails: bool = True\n    redact_phones: bool = True\n    redact_ssns: bool = True\n    _history: list[SanitizationResult] = field(\n        default_factory=list, repr=False\n    )\n\n    # ------------------------------------------------------------------ #\n    #  Public API                                                         #\n    # ------------------------------------------------------------------ #\n\n    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        count = len(_EMAIL_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result\n\n    def sanitize_phone(self, text: str) -> str:\n        \"\"\"Replace US phone numbers with ``[REDACTED_PHONE]``.\"\"\"\n        result = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        count = len(_PHONE_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, phones_redacted=count)\n        )\n        return result\n\n    def sanitize_ssn(self, text: str) -> str:\n        \"\"\"Replace US SSNs (xxx-xx-xxxx) with ``[REDACTED_SSN]``.\"\"\"\n        result = _SSN_RE.sub(_REDACTED_SSN, text)\n        count = len(_SSN_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, ssns_redacted=count)\n        )\n        return result\n\n    def sanitize_all(self, text: str) -> SanitizationResult:\n        \"\"\"Run every enabled redaction pass and return aggregated result.\"\"\"\n        emails = phones = ssns = 0\n        if self.redact_emails:\n            emails = len(_EMAIL_RE.findall(text))\n            text = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        if self.redact_phones:\n            phones = len(_PHONE_RE.findall(text))\n            text = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        if self.redact_ssns:\n            ssns = len(_SSN_RE.findall(text))\n            text = _SSN_RE.sub(_REDACTED_SSN, text)\n        result = SanitizationResult(\n            text=text,\n            emails_redacted=emails,\n            phones_redacted=phones,\n            ssns_redacted=ssns,\n        )\n        self._history.append(result)\n        return result\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Updated sanitize_email to use corrected regex pattern that includes '+' in local-part character class to properly redact plus-addressed emails.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Updated sanitize_email to use corrected regex pattern that includes '+' in local-part character class to properly redact plus-addressed emails.\"}\n```",
+  "parsed_output": {
+    "code": "    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\n        result = email_re.sub(_REDACTED_EMAIL, text)\n        count = len(email_re.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result",
+    "comments": "Updated sanitize_email to use corrected regex pattern that includes '+' in local-part character class to properly redact plus-addressed emails."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 3,
+    "total_tokens": 13,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:07:56.981607Z",
+    "finished_at": "2026-03-03T22:08:48.226169Z",
+    "latency_ms": 51244
+  },
+  "summary_metrics": {
+    "latency_ms": 51244,
+    "prompt_chars": 6947,
+    "output_chars": 910,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5897,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 51244,
+    "model_request_started_at": "2026-03-03T22:07:56.981981Z",
+    "model_request_finished_at": "2026-03-03T22:08:48.226094Z",
+    "model_request_id": "53c90b5c-841a-4812-952a-20d9f4bae2f9",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1597,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201709883387Z/runs/20260303T220756981426Z__bug65__p1__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The regex is updated to include '+' (r\"[\\w.+]+@[\\w.]+\"), so plus-addressed emails will match, but the code does not call orgops.compliance.record_decision(\"pii.sanitized\", field_count=count); it only appends to self._history.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Updated sanitize_email to use corrected regex pattern that includes '+' in local-part character class to properly redact plus-addressed emails.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The regex is updated to include '+' (r\\\"[\\\\w.+]+@[\\\\w.]+\\\"), so plus-addressed emails will match, but the code does not call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count); it only appends to self._history.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_65_email_plus_and_compliance _____________________\n\n    def test_bug_65_email_plus_and_compliance() -> None:\n        \"\"\"sanitize_email must:\n        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in\n           addition to plain emails.  The buggy regex ``[\\\\w.]+@[\\\\w.]+``\n           misses the ``+`` in the local-part character class.\n        2. Record a compliance decision via\n           orgops.compliance.record_decision(\"pii.sanitized\", field_count=N)\n           where N is the number of emails redacted.\n    \n        Both the regex fix AND the compliance call are required -- fixing\n        only the regex is insufficient.\n        \"\"\"\n        from logops.sanitizer import PiiSanitizer\n    \n        sanitizer = PiiSanitizer()\n    \n        # --- Requirement 1: plus-addressed email redaction ----------------\n    \n        text = \"Contact user+billing@example.com or admin@corp.io for help.\"\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            result = sanitizer.sanitize_email(text)\n    \n        # Plus-addressed email must be fully redacted\n        assert \"user+billing@example.com\" not in result, (\n            \"Plus-addressed email must be redacted but was left in output\"\n        )\n        assert \"[REDACTED_EMAIL]\" in result, (\n            \"Redacted emails must be replaced with [REDACTED_EMAIL]\"\n        )\n        # Plain email must also be redacted\n        assert \"admin@corp.io\" not in result, (\n            \"Plain email must also be redacted\"\n        )\n    \n        # --- Requirement 1b: plain emails still work ----------------------\n    \n        with patch(\"orgops.compliance.record_decision\"):\n            plain = sanitizer.sanitize_email(\"send to alice@example.com\")\n        assert \"alice@example.com\" not in plain\n    \n        # --- Requirement 2: compliance decision recording -----------------\n    \n>       mock_record.assert_called_once()\n\ntests/unit/test_bug65.py:51: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281473300703968'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance - Asse...\n1 failed in 0.42s\n",
+    "stderr": "",
+    "duration_ms": 2695,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

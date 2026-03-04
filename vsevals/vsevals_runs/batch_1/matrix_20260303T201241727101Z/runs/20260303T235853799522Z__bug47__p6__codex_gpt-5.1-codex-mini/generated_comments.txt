@@ -1,0 +1,1 @@
+Switch eviction to min(last_used_at) and emit the pool.connection.evicted metric with the computed idle duration.

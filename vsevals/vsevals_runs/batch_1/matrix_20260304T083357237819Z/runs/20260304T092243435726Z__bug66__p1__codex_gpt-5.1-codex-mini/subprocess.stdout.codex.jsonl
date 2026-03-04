@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb828-20cc-7be1-901c-df766649566c"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Updating child correlation inclusion**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        # BUG_66: omits correlation_id — child context loses cross-request tracing\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n        }\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\\n\", \"comments\": \"Ensure the propagated child context now includes the parent correlation_id so async fan-outs retain tracing continuity.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":8665,"cached_input_tokens":5888,"output_tokens":235}}

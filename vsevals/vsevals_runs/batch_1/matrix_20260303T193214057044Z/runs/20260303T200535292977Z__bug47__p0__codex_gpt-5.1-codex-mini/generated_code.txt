@@ -1,0 +1,10 @@
+        now = time.time()
+
+        oldest_index = min(
+            range(len(self.connections)),
+            key=lambda idx: self.connections[idx].last_used_at,
+        )
+        evicted = self.connections.pop(oldest_index)
+
+        idle_seconds = now - evicted.last_used_at
+        return evicted

@@ -1,0 +1,1 @@
+Corrected the stale check and emit the refresh metric when entries age out.

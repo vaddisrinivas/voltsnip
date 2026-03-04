@@ -1,0 +1,1 @@
+Convert the flush timer to milliseconds and wrap the callback so we emit a cache.flush.completed audit event after each flush.

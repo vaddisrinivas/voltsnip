@@ -1,0 +1,1 @@
+{"code":"        import orgops\n        is_stale = entry.stale_at <= now\n        if is_stale:\n            orgops.metrics.emit(\"dns.cache.refresh\")\n        return is_stale\n","comments":"Ensure stale detection uses <= and emit the dns.cache.refresh metric when a refresh is needed."}

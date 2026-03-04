@@ -1,0 +1,1 @@
+Ensure enqueue rejects when at max_size and fires the capacity-warning alert once utilization reaches 80%.

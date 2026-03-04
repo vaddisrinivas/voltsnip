@@ -1,0 +1,1 @@
+Flip the ratio comparison so entries refresh when close to expiry rather than when much TTL remains.

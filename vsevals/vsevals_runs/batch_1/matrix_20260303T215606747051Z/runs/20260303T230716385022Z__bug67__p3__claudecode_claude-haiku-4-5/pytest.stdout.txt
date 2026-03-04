@@ -1,0 +1,53 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_67_sampling_round_and_metric _____________________
+
+    def test_bug_67_sampling_round_and_metric() -> None:
+        """compute_sample_rate must:
+        1. Use round(..., 2) instead of int() truncation for decimal precision.
+        2. Emit a 'log.sampling.rate' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+        from logops.log_sampler import LogSampler
+    
+        sampler = LogSampler()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            # target=200, total=300 => 200/300*100 = 66.666... => round => 66.67
+>           rate = sampler.compute_sample_rate(total_events=300, target_events=200)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug67.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = LogSampler(history=[]), total_events = 300, target_events = 200
+
+    def compute_sample_rate(
+        self,
+        total_events: int,
+        target_events: int,
+    ) -> float:
+        """Compute the sampling rate as a percentage (0-100).
+    
+        Returns the percentage of events to retain so that roughly
+        *target_events* survive out of *total_events*.
+    
+        BUG_67: uses int() truncation instead of round(), losing decimal
+        precision.  For example target=200, total=300 yields 66 instead
+        of the correct 66.67.  Should use round(..., 2) for proper
+        rounding with two-decimal precision.
+        """
+        if total_events <= 0:
+            return 0.0
+        if target_events >= total_events:
+            return 100.0
+    
+        rate = round(target_events / total_events * 100, 2)
+>       orgops.metrics.emit("log.sampling.rate", rate)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+logops/log_sampler.py:40: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug67.py::test_bug_67_sampling_round_and_metric - Name...
+1 failed in 0.40s

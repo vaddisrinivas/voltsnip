@@ -1,0 +1,1 @@
+Reverse the TTL comparison and emit the dns.cache.refresh metric whenever the entry is stale.

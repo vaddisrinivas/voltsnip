@@ -1,0 +1,1 @@
+Fixed probe comparison from > to < and added health degradation reporting for circuit.half_open state.

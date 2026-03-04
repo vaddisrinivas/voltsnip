@@ -1,0 +1,49 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________
+
+    def test_bug_53_lock_timeout_clamp_and_trace() -> None:
+        """acquire_lock must:
+        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("lock.acquired", key) on successful acquisition.
+        Both are required -- fixing only the math is insufficient.
+        """
+        from cache.distributed_lock import DistributedLock
+    
+        lock = DistributedLock()
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+>           result = lock.acquire_lock(
+                key="resource:42",
+                timeout_ms=100,
+                clock_skew_ms=200,
+            )
+
+tests/unit/test_bug53.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = DistributedLock(store={}, held_keys=set()), key = 'resource:42'
+timeout_ms = 100, clock_skew_ms = 200
+
+    def acquire_lock(
+        self,
+        key: str,
+        timeout_ms: int,
+        clock_skew_ms: int = 0,
+    ) -> dict[str, Any]:
+        """Acquire a distributed lock on *key* with adjusted timeout.
+    
+        BUG_53: the effective timeout is computed as timeout_ms - clock_skew_ms
+        without clamping.  When clock_skew_ms > timeout_ms the effective
+        timeout goes negative, causing immediate expiry or backend errors.
+        """
+        effective_timeout = max(timeout_ms - clock_skew_ms, 1)
+>       orgops.tracing.annotate_span("lock.acquired", key)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+cache/distributed_lock.py:34: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace - N...
+1 failed in 0.35s

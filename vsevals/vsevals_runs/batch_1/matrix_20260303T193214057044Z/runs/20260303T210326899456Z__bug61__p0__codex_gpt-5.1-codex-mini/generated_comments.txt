@@ -1,0 +1,1 @@
+Ensure successes replenish the budget, failures decrement it, and emit the retry budget metric every time.

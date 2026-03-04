@@ -1,0 +1,1 @@
+Fixed unit conversion bug by comparing lag directly against threshold without division, and added alert notification when threshold is exceeded.

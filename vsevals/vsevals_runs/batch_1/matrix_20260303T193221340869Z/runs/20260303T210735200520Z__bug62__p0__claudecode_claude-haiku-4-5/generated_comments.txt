@@ -1,0 +1,1 @@
+Pass context to each fallback call and annotate each activated fallback with tracing span using 0-based index.

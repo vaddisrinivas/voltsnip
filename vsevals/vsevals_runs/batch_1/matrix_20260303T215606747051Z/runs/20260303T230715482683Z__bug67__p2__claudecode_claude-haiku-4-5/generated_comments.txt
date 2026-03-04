@@ -1,0 +1,1 @@
+Fixed truncation bug by replacing int() with round(..., 2) for proper decimal precision, and added log.sampling.rate metric emission

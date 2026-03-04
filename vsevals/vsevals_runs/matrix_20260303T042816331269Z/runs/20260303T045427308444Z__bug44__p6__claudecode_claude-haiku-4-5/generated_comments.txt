@@ -1,0 +1,1 @@
+Fixed inverted stale check (entry.stale_at <= now instead of >) and added metric emission for stale entries to track cache refresh churn.

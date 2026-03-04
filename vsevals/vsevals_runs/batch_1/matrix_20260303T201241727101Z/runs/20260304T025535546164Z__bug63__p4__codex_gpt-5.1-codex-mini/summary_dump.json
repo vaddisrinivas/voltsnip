@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T025535546164Z__bug63__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG63",
+  "task_name": "dlq_capacity_off_by_one_and_alert",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 49826,
+    "prompt_chars": 5053,
+    "output_chars": 953,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4003,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 49804,
+    "model_request_started_at": "2026-03-04T02:55:35.566816Z",
+    "model_request_finished_at": "2026-03-04T02:56:25.371132Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6540,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 88072,
+      "completion_tokens": 5352,
+      "total_tokens": 93424,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.043792
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug63_capacity_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug63_capacity_and_alert",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses >= in the capacity guard (len(self.queue) >= self.max_size) to prevent exceeding max_size, and it calls orgops.alerts.notify('dlq.capacity.warning', {'utilization_pct': utilization}) when utilization >= 80.0. Both required fixes are present.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def enqueue(self, message: Dict[str, Any]) -> bool:\\n        \\\"\\\"\\\"Attempt to add *message* to the dead-letter queue.\\n\\n        Returns ``True`` when the message is accepted, ``False`` when\\n        the queue is already at capacity.\\n\\n        BUG_63: the capacity guard now uses ``>=`` so the queue never\\n        exceeds ``max_size``.  It also fires the required capacity-\\n        warning alert once utilization reaches 80 %.\\n        \\\"\\\"\\\"\\n        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n\\n        utilization = self.utilization_pct\\n        if utilization >= 80.0:\\n            import orgops.alerts\\n            orgops.alerts.notify(\\n                \\\"dlq.capacity.warning\\\", {\\\"utilization_pct\\\": utilization}\\n            )\\n\\n        return True\\n\", \"comments\": \"Fix enqueue to reject at max_size and emit the dlq.capacity.warning alert once utilization hits 80%.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+    },
+    "judge_raw_response": "I need to evaluate whether this code implementation satisfies the constraint that requires both:\n1. Fixing the capacity guard to use `>=` instead of `>` (so the queue never exceeds max_size)\n2. Calling `orgops.alerts.notify(\"dlq.capacity.warning\", ...)` when utilization reaches 80% or more\n\nLet me analyze the code:\n\n**Capacity Check:**\n```python\nif len(self.queue) >= self.max_size:\n    return False\n```\n✓ This correctly uses `>=` to reject messages when the queue is at capacity, preventing it from exceeding max_size.\n\n**Capacity Alert:**\n```python\nutilization = self.utilization_pct\nif utilization >= 80.0:\n    import orgops.alerts\n    orgops.alerts.notify(\n        \"dlq.capacity.warning\", {\"utilization_pct\": utilization}\n    )\n```\n✓ This calls `orgops.alerts.notify` with the correct alert name `\"dlq.capacity.warning\"` and passes the utilization percentage when it reaches 80% or more.\n\nBoth required behaviors are present in the implementation.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses >= in the capacity guard (len(self.queue) >= self.max_size) to prevent exceeding max_size, and it calls orgops.alerts.notify('dlq.capacity.warning', {'utilization_pct': utilization}) when utilization >= 80.0. Both required fixes are present.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_63_dlq_capacity_and_alert ______________________\n\n    def test_bug_63_dlq_capacity_and_alert() -> None:\n        \"\"\"DeadLetterQueue.enqueue must:\n        1. Reject messages when len(queue) >= max_size (not >), preventing\n           the queue from exceeding its declared capacity.\n        2. Call orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=...)\n           when the queue reaches 80%+ of max_size.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n>       from errors.dead_letter import DeadLetterQueue\nE         File \"/workspace/errors/dead_letter.py\", line 30\nE           def enqueue(self, message: Dict[str, Any]) -> bool:\nE           ^^^\nE       IndentationError: expected an indented block after function definition on line 29\n\ntests/unit/test_bug63.py:16: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug63.py::test_bug_63_dlq_capacity_and_alert -   File ...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 752,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

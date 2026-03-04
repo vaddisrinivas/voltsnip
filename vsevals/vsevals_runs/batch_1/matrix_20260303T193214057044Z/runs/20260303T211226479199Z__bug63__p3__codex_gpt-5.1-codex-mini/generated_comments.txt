@@ -1,0 +1,1 @@
+Fixes the off-by-one capacity check and emits the required 80%+ utilization alert inside enqueue.

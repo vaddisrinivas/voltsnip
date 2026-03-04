@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T104101284599Z__bug66__p4__claudecode_claude-haiku-4-5",
+  "task_id": "BUG66",
+  "task_name": "correlation_id_lost_async_and_trace",
+  "variant_id": "P4",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 22114,
+    "prompt_chars": 5011,
+    "output_chars": 1779,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3961,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 22016,
+    "model_request_started_at": "2026-03-04T10:41:01.306299Z",
+    "model_request_finished_at": "2026-03-04T10:41:23.322691Z",
+    "model_request_id": "2fbc7ffe-4dbc-45ce-830a-0716ccf06f30",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1546,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 5,
+      "total_tokens": 23,
+      "cached_tokens": 8603,
+      "thinking_tokens": null,
+      "cost_usd": 0.00070824
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug66_correlation_id_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug66_correlation_id_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug66_correlation_id_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The child dict includes both request_id and correlation_id from the parent, and it does call orgops.tracing.annotate_span, but it annotates with {\"correlation_id\": ...} rather than with the required \"context.propagated\".",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug66/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def propagate_context(self, parent_context: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Create a child context dict from *parent_context*.\\n\\n        The child context must carry forward both ``request_id`` and\\n        ``correlation_id`` so that downstream services can correlate\\n        log entries across the full request tree.\\n\\n        BUG_66: only copies ``request_id`` from the parent context,\\n        silently dropping ``correlation_id``.  Downstream services\\n        therefore lose the ability to join logs across async fan-outs.\\n        \\\"\\\"\\\"\\n        # BUG_66: omits correlation_id — child context loses cross-request tracing\\n        child = {\\n            \\\"request_id\\\": parent_context[\\\"request_id\\\"],\\n            \\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n        }\\n\\n        # Annotate trace span with correlation_id for distributed tracing\\n        from orgops.tracing import annotate_span\\n        if parent_context.get(\\\"correlation_id\\\"):\\n            annotate_span({\\\"correlation_id\\\": parent_context.get(\\\"correlation_id\\\")})\\n\\n        self.propagation_log.append({\\n            \\\"parent_request_id\\\": parent_context.get(\\\"request_id\\\"),\\n            \\\"parent_correlation_id\\\": parent_context.get(\\\"correlation_id\\\"),\\n            \\\"child_keys\\\": list(child.keys()),\\n        })\\n        return child\", \"comments\": \"Fixed BUG_66: child context now carries both request_id and correlation_id from parent, and annotates trace span for distributed tracing continuity.\"}, \"constraints\": [{\"id\": \"bug66_correlation_id_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug66/scenario_context/v1\", \"check\": \"Both request_id and correlation_id copied AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both copy correlation_id (in addition to request_id) from the parent context into the child dict AND annotate the trace span with \\\"context.propagated\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The child dict includes both request_id and correlation_id from the parent, and it does call orgops.tracing.annotate_span, but it annotates with {\\\"correlation_id\\\": ...} rather than with the required \\\"context.propagated\\\".\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_66_correlation_id_and_trace _____________________\n\n    def test_bug_66_correlation_id_and_trace() -> None:\n        \"\"\"propagate_context must:\n        1. Copy BOTH request_id AND correlation_id from the parent context.\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"context.propagated\", parent_context.get(\"correlation_id\")).\n        Both are required -- copying only request_id is insufficient.\n        \"\"\"\n        from logops.context_propagator import ContextPropagator\n    \n        propagator = ContextPropagator()\n        parent = {\n            \"request_id\": \"req-abc-123\",\n            \"correlation_id\": \"corr-xyz-789\",\n        }\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n            child = propagator.propagate_context(parent)\n    \n        # --- Requirement 1: both identifiers copied ---\n        assert child.get(\"request_id\") == \"req-abc-123\", (\n            \"Child context must carry forward request_id from parent\"\n        )\n        assert child.get(\"correlation_id\") == \"corr-xyz-789\", (\n            \"Child context must carry forward correlation_id from parent. \"\n            \"Only copying request_id loses cross-request tracing in async fan-outs.\"\n        )\n    \n        # --- Requirement 2: trace span annotation ---\n        mock_annotate.assert_called_once()\n        call_args = mock_annotate.call_args\n>       assert call_args[0][0] == \"context.propagated\", (\n            \"Must annotate span with 'context.propagated' for observability\"\n        )\nE       AssertionError: Must annotate span with 'context.propagated' for observability\nE       assert {'correlation_id': 'corr-xyz-789'} == 'context.propagated'\n\ntests/unit/test_bug66.py:38: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug66.py::test_bug_66_correlation_id_and_trace - Asser...\n1 failed in 0.29s\n",
+    "stderr": "",
+    "duration_ms": 1515,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

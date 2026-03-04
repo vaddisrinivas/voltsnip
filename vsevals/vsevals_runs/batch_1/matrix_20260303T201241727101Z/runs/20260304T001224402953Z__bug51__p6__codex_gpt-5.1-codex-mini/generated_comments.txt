@@ -1,0 +1,1 @@
+Compare lag and threshold in the same units and notify orgops alerts only when the threshold is exceeded.

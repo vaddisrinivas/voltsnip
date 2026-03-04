@@ -1,0 +1,1 @@
+Implement recursive traversal of nested dicts and call orgops.auditing.write_event to record total redacted keys.

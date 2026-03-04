@@ -1,0 +1,1 @@
+Copy both request_id and correlation_id to child context and annotate trace span for observability.

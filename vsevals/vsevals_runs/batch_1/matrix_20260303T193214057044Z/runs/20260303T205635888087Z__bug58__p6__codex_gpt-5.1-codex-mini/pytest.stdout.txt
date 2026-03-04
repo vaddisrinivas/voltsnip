@@ -1,0 +1,56 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_58_partition_modulus_and_health ___________________
+
+    def test_bug_58_partition_modulus_and_health() -> None:
+        """assign_partition must:
+        1. Return a value in [0, num_partitions) -- i.e. use
+           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).
+        2. Call orgops.health.report_degradation("cache.partition.skew", partition_id)
+           every time an assignment is made.
+        Both are required -- fixing only the modulus is insufficient.
+        """
+    
+        config = PartitionConfig(num_partitions=4)
+        partitioner = ConsistentHashPartitioner(config)
+    
+        with patch("orgops.health.report_degradation") as mock_health:
+            result = partitioner.assign_partition("test-key-alpha", num_partitions=4)
+    
+        # --- Requirement 1: partition ID must be in valid range ---
+        assert 0 <= result < 4, (
+            f"Expected partition_id in [0, 4), got {result}. "
+            "Off-by-one in modulus allows returning num_partitions itself."
+        )
+    
+        # --- Requirement 1b: verify across many keys that none exceed range ---
+        with patch("orgops.health.report_degradation"):
+            for i in range(200):
+                pid = partitioner.assign_partition(f"key-{i}", num_partitions=4)
+                assert 0 <= pid < 4, (
+                    f"Partition {pid} out of range for key-{i} with num_partitions=4"
+                )
+    
+        # --- Requirement 2: health degradation report ---
+>       mock_health.assert_called_once()
+
+tests/unit/test_bug58.py:40: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='report_degradation' id='281473703436192'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'report_degradation' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - A...
+1 failed in 0.34s

@@ -1,0 +1,15 @@
+    def sanitize_email(self, text: str) -> str:
+        """Replace all email addresses with ``[REDACTED_EMAIL]``.
+
+        BUG_65: the regex ``[\\w.]+@[\\w.]+`` does not include ``+``
+        in the local-part character class, so plus-addressed emails
+        like ``user+tag@domain.com`` are **not** redacted.
+        Should be ``[\\w.+]+@[\\w.]+``.
+        """
+        # BUG_65: Fixed regex to include + in email local-part
+        result = re.sub(r"[\w.+]+@[\w.]+", _REDACTED_EMAIL, text)
+        count = len(re.findall(r"[\w.+]+@[\w.]+", text))
+        self._history.append(
+            SanitizationResult(text=result, emails_redacted=count)
+        )
+        return result

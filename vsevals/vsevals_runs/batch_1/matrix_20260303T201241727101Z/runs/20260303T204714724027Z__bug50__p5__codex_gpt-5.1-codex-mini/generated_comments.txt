@@ -1,0 +1,1 @@
+apply selectivity once and emit the query.plan.estimated_cost metric

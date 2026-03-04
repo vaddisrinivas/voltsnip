@@ -1,0 +1,1 @@
+Fixed timeout calculation to use max(connect, dns) + read for parallel overlap, and added trace span annotation for observability.

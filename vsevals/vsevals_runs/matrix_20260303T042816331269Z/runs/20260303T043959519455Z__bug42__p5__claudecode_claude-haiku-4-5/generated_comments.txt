@@ -1,0 +1,1 @@
+Fixed probe limit comparison from > to < and added health degradation reporting when probes are allowed in half-open state.

@@ -1,0 +1,8 @@
+        ratio = time_remaining / ttl
+
+        # BUG_55: comparison should trigger when ratio is LOW (close to expiry)
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            return True
+
+        return False

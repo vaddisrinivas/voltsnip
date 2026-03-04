@@ -1,0 +1,1 @@
+Fixed timeout calculation to compound exponentially per attempt (original_ms * multiplier^attempt) and emit timeout.escalated metric for alerting system detection.

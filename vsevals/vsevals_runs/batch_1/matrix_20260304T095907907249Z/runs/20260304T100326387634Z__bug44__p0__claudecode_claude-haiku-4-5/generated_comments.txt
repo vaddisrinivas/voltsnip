@@ -1,0 +1,1 @@
+Fixed inverted comparison: changed from `>` to `<=` so the method returns True when entry is stale (now >= stale_at), enabling correct identification for refresh.

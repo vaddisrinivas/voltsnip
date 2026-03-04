@@ -1,0 +1,1 @@
+Fix BUG50: apply selectivity exactly once (was multiplied twice) and emit required query.plan.estimated_cost metric for optimizer dashboard.

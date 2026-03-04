@@ -1,0 +1,1 @@
+Replace FIFO pop(0) with LRU selection via min(last_used_at), then remove from list to fix eviction order.

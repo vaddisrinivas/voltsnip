@@ -1,0 +1,1 @@
+Include both request_id and correlation_id when creating the child context so downstream traces retain the full identifiers.

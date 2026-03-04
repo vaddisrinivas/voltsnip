@@ -1,0 +1,1 @@
+Clamp the adjusted timeout with max(..., 0) so clock skew can’t drive it negative.

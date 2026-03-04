@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb811-7030-7df3-9c55-6be264e7ef77"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Replacing evict_idle function with LRU eviction and metrics emission**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        \\\"\\\"\\\"Remove the least-recently-used idle connection and report the eviction.\\\"\\\"\\\"\\n        if not self.connections:\\n            return None\\n\\n        now = time.time()\\n\\n        import orgops.metrics\\n        lru_idx = min(range(len(self.connections)),\\n                      key=lambda i: self.connections[i].last_used_at)\\n        evicted = self.connections.pop(lru_idx)\\n\\n        idle_seconds = now - evicted.last_used_at\\n        orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n        return evicted\", \"comments\": \"Switch evict_idle to LRU removal and emit the required eviction metric.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9440,"cached_input_tokens":3840,"output_tokens":967}}

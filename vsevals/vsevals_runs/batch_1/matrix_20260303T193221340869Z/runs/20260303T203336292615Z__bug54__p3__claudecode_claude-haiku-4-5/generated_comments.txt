@@ -1,0 +1,1 @@
+Fix BUG_54: change jitter subtraction to addition and emit cache.ttl.jittered metric for operational monitoring.

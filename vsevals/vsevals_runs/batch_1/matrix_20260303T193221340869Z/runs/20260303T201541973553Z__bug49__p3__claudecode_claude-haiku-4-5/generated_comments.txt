@@ -1,0 +1,1 @@
+Added RELEASE SAVEPOINT after rollback to free resources and annotated trace span for observability.

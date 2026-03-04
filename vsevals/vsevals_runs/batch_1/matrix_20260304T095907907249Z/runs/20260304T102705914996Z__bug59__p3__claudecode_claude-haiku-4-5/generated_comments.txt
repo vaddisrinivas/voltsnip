@@ -1,0 +1,1 @@
+Split HTTP 4xx as client_error and 5xx as server_error; emit error.mapped metric for alerting and dashboards.

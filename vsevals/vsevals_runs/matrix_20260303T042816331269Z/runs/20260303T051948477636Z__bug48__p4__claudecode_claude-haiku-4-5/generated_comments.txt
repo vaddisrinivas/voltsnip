@@ -1,0 +1,1 @@
+Convert version comparisons and sorting from string (lexicographic) to int (numeric) so '10' sorts after '9' and pending detection works correctly.

@@ -1,0 +1,1 @@
+Fixes BUG_64 by compounding the timeout per attempt while keeping the ceiling guard in place.

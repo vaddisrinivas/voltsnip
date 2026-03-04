@@ -1,0 +1,1 @@
+Treat DNS and connect as parallel, compute max overlap plus read, and annotate the span.

@@ -1,0 +1,1 @@
+Add jitter to the TTL and, when available, invoke a cache metric emit method with the jittered value.

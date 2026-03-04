@@ -1,0 +1,15 @@
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+
+        metrics = getattr(self, "metrics", None)
+        if metrics:
+            metrics.emit("pool.connection.evicted", idle_seconds=idle_seconds)
+
+        return evicted

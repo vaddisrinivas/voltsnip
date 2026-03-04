@@ -1,0 +1,1 @@
+Fixed timeout compounding to use original_ms * (multiplier ** attempt) instead of ignoring attempt number, and added metric emission via orgops.metrics.emit for alerting system observability.

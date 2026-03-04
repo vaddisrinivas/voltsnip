@@ -1,0 +1,1 @@
+Fix timeout calculation to treat DNS and connect as parallel (max, not sum) and annotate trace span via orgops.tracing for observability.

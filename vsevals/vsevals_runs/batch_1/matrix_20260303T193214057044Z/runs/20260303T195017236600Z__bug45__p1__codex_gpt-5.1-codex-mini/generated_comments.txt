@@ -1,0 +1,1 @@
+Fixed the loop to cover every adjacent pair in the certificate chain by iterating over range(len(chain) - 1) and comparing each issuer with the next subject so no links are skipped.

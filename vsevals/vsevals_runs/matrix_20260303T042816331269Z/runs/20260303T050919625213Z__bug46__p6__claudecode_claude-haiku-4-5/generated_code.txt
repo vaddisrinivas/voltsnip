@@ -1,0 +1,6 @@
+    import orgops.ratelimit
+    boundary = now - window_seconds
+    idx = bisect.bisect_left(timestamps, boundary)
+    count = len(timestamps) - idx
+    orgops.ratelimit.check_quota("request.sliding_window", count)
+    return count

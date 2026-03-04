@@ -1,0 +1,1 @@
+Rescan decoded Base64 chunks for secrets, notify via orgops.alerts, and return the collected findings.

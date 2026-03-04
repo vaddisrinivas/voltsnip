@@ -1,0 +1,1 @@
+Recursively process nested dicts to redact all matching keys at any depth, track total count across all levels, and log redaction event to audit trail.

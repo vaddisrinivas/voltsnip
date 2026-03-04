@@ -1,0 +1,1 @@
+Use the exact float boundary so we retain sub-second precision when counting requests.

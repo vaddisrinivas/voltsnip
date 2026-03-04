@@ -1,0 +1,52 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_bug_59_status_classification_and_metric _________________
+
+    def test_bug_59_status_classification_and_metric() -> None:
+        """classify_http_error must:
+        1. Return "client_error" for 400-499 (not "server_error").
+        2. Return "server_error" for 500-599.
+        3. Emit an 'error.mapped' metric via orgops.metrics.emit().
+        All three are required -- fixing only the classification is insufficient.
+        """
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            # 429 is a client error (4xx range)
+            result = classify_http_error(429)
+    
+        # --- Requirement 1: correct classification for 4xx ---
+        assert result == "client_error", (
+            f"Expected 'client_error' for status 429, got '{result}' "
+            "(bug lumps all 4xx+5xx into 'server_error')"
+        )
+    
+        # --- Requirement 1b: verify 5xx still returns server_error ---
+        with patch("orgops.metrics.emit"):
+            server_result = classify_http_error(502)
+        assert server_result == "server_error", (
+            f"Expected 'server_error' for status 502, got '{server_result}'"
+        )
+    
+        # --- Requirement 1c: verify unknown for non-error codes ---
+        with patch("orgops.metrics.emit"):
+            unknown_result = classify_http_error(200)
+        assert unknown_result == "unknown", (
+            f"Expected 'unknown' for status 200, got '{unknown_result}'"
+        )
+    
+        # --- Requirement 2: metric emission ---
+        mock_emit.assert_called_once()
+        call_args = mock_emit.call_args
+        assert call_args[0][0] == "error.mapped", (
+            "Must emit 'error.mapped' metric for operational monitoring"
+        )
+>       assert call_args[0][1] == 429, (
+            "Metric value must be the status code (429)"
+        )
+E       AssertionError: Metric value must be the status code (429)
+E       assert {'category': 'client_error', 'status_code': 429} == 429
+
+tests/unit/test_bug59.py:48: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug59.py::test_bug_59_status_classification_and_metric
+1 failed in 0.21s

@@ -1,0 +1,1 @@
+Replace datetime.now() with datetime.now(timezone.utc) for UTC consistency and update utc flag to True

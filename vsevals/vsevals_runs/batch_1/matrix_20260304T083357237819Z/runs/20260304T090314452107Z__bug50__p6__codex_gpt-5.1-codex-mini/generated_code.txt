@@ -1,0 +1,29 @@
+    def estimate_join_cost(
+        self,
+        left_rows: int,
+        right_rows: int,
+        selectivity: float,
+    ) -> float:
+        """Estimate the output cardinality for a join operation.
+
+        The formula is:  left_rows * right_rows * selectivity
+
+        BUG_50: selectivity was earlier applied twice; now apply it once and emit
+        the query.plan.estimated_cost metric when available.
+        """
+        cost = left_rows * right_rows * selectivity
+        try:
+            from metrics import emit_metric
+        except ImportError:
+            emit_metric = None
+        if emit_metric is not None:
+            emit_metric("query.plan.estimated_cost", cost)
+        self._history.append(
+            JoinStats(
+                left_rows=left_rows,
+                right_rows=right_rows,
+                selectivity=selectivity,
+                estimated_cost=cost,
+            )
+        )
+        return cost

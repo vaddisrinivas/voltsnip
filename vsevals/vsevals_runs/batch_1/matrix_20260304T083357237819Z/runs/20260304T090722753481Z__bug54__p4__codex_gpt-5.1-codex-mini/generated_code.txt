@@ -1,0 +1,9 @@
+    jitter = random.uniform(0, jitter_range)
+    effective_ttl = base_ttl + jitter  # add jitter to push expiry forward
+    try:
+        from cache.metrics import emit_metric
+    except ImportError:
+        emit_metric = None
+    if emit_metric is not None:
+        emit_metric("cache.ttl.jittered", jitter)
+    return effective_ttl

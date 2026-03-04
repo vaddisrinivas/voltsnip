@@ -1,0 +1,1 @@
+Use round(..., 2) to preserve decimal precision and emit the log.sampling.rate metric before persisting the history entry.

@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug68_nested_redaction_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug68_nested_redaction_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation successfully recurses into nested dicts via the _redact_mapping helper function (checking isinstance(value, dict) and recursively calling itself), accumulates the total count of redacted keys across all nesting levels, and calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the correct event name and total count parameter.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted and audited.\\n\\n        Walks nested dicts so every sensitive key is replaced and records how\\n        many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        from orgops import auditing\\n\\n        def _redact_mapping(mapping: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            redacted: dict[str, Any] = {}\\n            total = 0\\n            for key, value in mapping.items():\\n                if self.is_sensitive(key):\\n                    redacted[key] = REDACTED_PLACEHOLDER\\n                    total += 1\\n                elif isinstance(value, dict):\\n                    nested, nested_count = _redact_mapping(value)\\n                    redacted[key] = nested\\n                    total += nested_count\\n                else:\\n                    redacted[key] = value\\n            return redacted, total\\n\\n        result, count = _redact_mapping(data)\\n        auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return result\\n\", \"comments\": \"Redact matching keys recursively and log an audit event for the total count.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+  },
+  "judge_raw_response": "I'll analyze the candidate implementation against the constraint.\n\n**Analyzing the constraint requirements:**\n\n1. **Recursive nested dict redaction**: The implementation must recurse into nested dictionaries to redact sensitive keys at any depth.\n2. **Audit event**: Must call `orgops.auditing.write_event(\"redaction.applied\", keys_redacted=count)` with the total count of redacted keys.\n\n**Examining the candidate code:**\n\n1. **Recursive redaction** ✓\n   - The `_redact_mapping` function is defined as a nested helper\n   - It iterates through all key-value pairs in the mapping\n   - When `isinstance(value, dict)` is true, it recursively calls `_redact_mapping(value)`\n   - It accumulates the count from nested calls: `total += nested_count`\n   - This ensures all sensitive keys at any depth are redacted\n\n2. **Audit event** ✓\n   - After processing, the code calls: `auditing.write_event(\"redaction.applied\", keys_redacted=count)`\n   - The event name matches exactly: `\"redaction.applied\"`\n   - The parameter name matches: `keys_redacted=count`\n   - The `count` variable contains the total number of redacted keys accumulated from all levels\n\n**Verification:**\n- The implementation imports `from orgops import auditing`\n- It processes the entire data structure recursively via `_redact_mapping`\n- It returns both the redacted dict and the count at each level\n- The top-level call captures the total count and passes it to the audit event\n- The audit call happens after all redaction is complete\n\nBoth requirements are fully satisfied.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation successfully recurses into nested dicts via the _redact_mapping helper function (checking isinstance(value, dict) and recursively calling itself), accumulates the total count of redacted keys across all nesting levels, and calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the correct event name and total count parameter.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

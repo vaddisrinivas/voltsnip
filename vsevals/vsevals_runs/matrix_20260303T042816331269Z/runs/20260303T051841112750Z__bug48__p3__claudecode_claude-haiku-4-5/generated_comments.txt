@@ -1,0 +1,1 @@
+Convert all version comparisons and sorting keys from str() to int() to restore numeric ordering; prevents lexicographic bug where "10" sorts before "2".

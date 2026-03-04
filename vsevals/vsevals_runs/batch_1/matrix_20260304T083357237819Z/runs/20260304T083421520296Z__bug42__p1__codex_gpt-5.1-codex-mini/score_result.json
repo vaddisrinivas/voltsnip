@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug42_probe_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug42_probe_and_health",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code correctly fixes the probe comparison using '<' instead of '>', but it completely lacks the required health degradation reporting via orgops.health.report_degradation() for circuit.half_open state. The constraint requires BOTH fixes to be present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def should_allow_probe(self) -> bool:\\n    \\\"\\\"\\\"Allow a probe request in the half-open state if under the limit.\\n\\n        BUG_42: the comparison is inverted, allowing probes when the count\\n        has already exceeded the maximum and blocking them when under the limit.\\n        \\\"\\\"\\\"\\n    if self.probe_count < self.max_probes:\\n        self.probe_count += 1\\n        return True\\n    return False\", \"comments\": \"Fix half-open probe limit so new probes are allowed while the probe count is still below the configured maximum.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether the candidate code satisfies the constraint about fixing the probe comparison AND reporting circuit.half_open degradation via orgops.health.report_degradation().\n\nLet me analyze the candidate code:\n\n```python\ndef should_allow_probe(self) -> bool:\n    \"\"\"Allow a probe request in the half-open state if under the limit.\n\n        BUG_42: the comparison is inverted, allowing probes when the count\n        has already exceeded the maximum and blocking them when under the limit.\n        \"\"\"\n    if self.probe_count < self.max_probes:\n        self.probe_count += 1\n        return True\n    return False\n```\n\nChecking against the constraint requirements:\n\n1. **Correct probe comparison (< instead of >)**: \n   - The code uses `if self.probe_count < self.max_probes:` which is the correct comparison\n   - This allows probes when the count is below the maximum\n   - ✅ This part is FIXED\n\n2. **Report circuit.half_open degradation via orgops.health.report_degradation()**:\n   - Looking at the code, there is NO call to `orgops.health.report_degradation()`\n   - There is no health reporting mechanism present at all\n   - ❌ This part is MISSING\n\nThe constraint explicitly requires BOTH conditions to be met (connected with AND). The candidate only fixes the probe comparison but does not include any health degradation reporting.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code correctly fixes the probe comparison using '<' instead of '>', but it completely lacks the required health degradation reporting via orgops.health.report_degradation() for circuit.half_open state. The constraint requires BOTH fixes to be present.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

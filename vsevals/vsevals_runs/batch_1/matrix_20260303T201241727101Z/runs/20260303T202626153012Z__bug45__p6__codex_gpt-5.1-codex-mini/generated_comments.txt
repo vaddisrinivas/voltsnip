@@ -1,0 +1,1 @@
+Validate every adjacent cert pair and log the tls.chain.validated compliance decision.

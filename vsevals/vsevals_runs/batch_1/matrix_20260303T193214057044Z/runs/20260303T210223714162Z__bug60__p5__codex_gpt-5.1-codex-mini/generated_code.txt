@@ -1,0 +1,7 @@
+    errors: list[ValidationError] = []
+    for rule in schema:
+        value = payload.get(rule.field_name)
+        error = _check_field(value, rule)
+        if error is not None:
+            errors.append(error)
+    return errors

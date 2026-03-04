@@ -1,0 +1,1 @@
+Switch the backoff computation to exponential growth, cap it at max_delay, and keep emitting the retry metric.

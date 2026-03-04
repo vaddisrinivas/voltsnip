@@ -1,0 +1,1 @@
+Pass milliseconds to `_start_timer` and emit a flush audit event with the schedule metadata.

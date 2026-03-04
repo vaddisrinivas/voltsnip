@@ -1,0 +1,1 @@
+Removed int() truncation to use exact float arithmetic for the window boundary, preserving sub-second precision in sliding window count calculations.

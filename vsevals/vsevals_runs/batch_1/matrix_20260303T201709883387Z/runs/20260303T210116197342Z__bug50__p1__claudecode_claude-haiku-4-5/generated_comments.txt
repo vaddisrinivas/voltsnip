@@ -1,0 +1,1 @@
+Removed duplicate selectivity multiplication: changed cost formula from left_rows * right_rows * selectivity * selectivity to left_rows * right_rows * selectivity.

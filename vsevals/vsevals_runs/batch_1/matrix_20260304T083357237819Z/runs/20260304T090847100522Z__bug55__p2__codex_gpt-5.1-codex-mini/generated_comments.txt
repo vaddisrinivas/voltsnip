@@ -1,0 +1,1 @@
+Fix the inverted TTL ratio check and conditionally emit cache.stampede.prevented via any configured emitter when an early refresh is triggered.

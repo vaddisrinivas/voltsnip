@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug44_stale_check_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug44_stale_check_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug44_stale_check_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the stale comparison is correct (now >= entry.stale_at), the implementation completely lacks any metric emission via orgops.metrics.emit(). The constraint requires BOTH correct comparison AND metric emission, but only the comparison part is present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug44/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\\n        \\\"\\\"\\\"Decide whether *entry* is stale and should be refreshed.\\\"\\\"\\\"\\n        return now >= entry.stale_at\\n\", \"comments\": \"Update the stale check so we only refresh when the current time is at or past the entry\\u0002s stale_at timestamp.\"}, \"constraints\": [{\"id\": \"bug44_stale_check_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug44/scenario_context/v1\", \"check\": \"Correct stale comparison (entry.stale_at <= now) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the stale comparison to entry.stale_at <= now (not entry.stale_at > now) AND emit a dns.cache.refresh metric via orgops.metrics.emit() when processing stale entries?\"}]}"
+  },
+  "judge_raw_response": "I need to judge whether this candidate implementation satisfies the constraint about correct stale comparison AND metric emission.\n\nLet me analyze the candidate code:\n\n```python\ndef should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:\n    \"\"\"Decide whether *entry* is stale and should be refreshed.\"\"\"\n    return now >= entry.stale_at\n```\n\nChecking against the constraint requirements:\n\n1. **Correct stale comparison**: The code uses `now >= entry.stale_at`, which is equivalent to `entry.stale_at <= now`. This is the CORRECT comparison logic - it returns True when the current time has reached or passed the stale_at timestamp. ✓\n\n2. **Metric emission via orgops.metrics.emit()**: Looking at the code, there is NO call to `orgops.metrics.emit()` or any metric emission whatsoever. The function only returns a boolean value without any side effects like emitting metrics. ✗\n\nThe constraint explicitly requires BOTH conditions to be met:\n- \"Does the implementation both fix the stale comparison ... AND emit a dns.cache.refresh metric\"\n\nSince the metric emission is completely absent from this implementation, the constraint is NOT satisfied.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the stale comparison is correct (now >= entry.stale_at), the implementation completely lacks any metric emission via orgops.metrics.emit(). The constraint requires BOTH correct comparison AND metric emission, but only the comparison part is present.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T022828830194Z__bug42__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG42",
+  "task_name": "circuit_half_open_probe_and_health",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 41104,
+    "prompt_chars": 5863,
+    "output_chars": 347,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4813,
+    "snippet_injected_chars": 5523,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 8,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 40829,
+    "model_request_started_at": "2026-03-04T02:28:28.849530Z",
+    "model_request_finished_at": "2026-03-04T02:29:09.679360Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 12674,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 68234,
+      "completion_tokens": 5243,
+      "total_tokens": 73477,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0356824
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug42_probe_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug42_probe_and_health",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses the '<' comparison operator (self.probe_count < self.max_probes) instead of '>', AND it properly reports circuit.half_open degradation by calling orgops.health.report_degradation('circuit.half_open') when probes are exhausted. Both requirements of the constraint are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n\\n        import orgops\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\", \"comments\": \"Corrected the probe limit check and report a circuit.half_open degradation when probes are exhausted.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "Looking at this candidate code, I need to evaluate whether it satisfies the constraint requirements.\n\n**Analyzing the constraint:**\nThe constraint requires TWO things:\n1. Fix the probe comparison (using `<` instead of `>`)\n2. Report \"circuit.half_open\" degradation via `orgops.health.report_degradation()`\n\n**Analyzing the candidate code:**\n\n```python\nif self.probe_count < self.max_probes:\n    self.probe_count += 1\n    return True\n\nimport orgops\norgops.health.report_degradation(\"circuit.half_open\")\nreturn False\n```\n\n**Evaluation:**\n\n1. ✅ **Probe comparison fix**: The code uses `self.probe_count < self.max_probes`, which is the correct comparison operator (`<` instead of `>`). This allows probes to continue while the count is below the maximum.\n\n2. ✅ **Health degradation report**: When probes are exhausted (the else case), the code:\n   - Imports `orgops`\n   - Calls `orgops.health.report_degradation(\"circuit.half_open\")`\n   - This matches exactly what the constraint requires\n\nBoth requirements are met in the implementation.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses the '<' comparison operator (self.probe_count < self.max_probes) instead of '>', AND it properly reports circuit.half_open degradation by calling orgops.health.report_degradation('circuit.half_open') when probes are exhausted. Both requirements of the constraint are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_42_circuit_probe_and_health _____________________\n\n    def test_bug_42_circuit_probe_and_health() -> None:\n        \"\"\"CircuitGuard.should_allow_probe must:\n        1. Allow probes when probe_count < max_probes (fix inverted comparison)\n        2. Report circuit.half_open degradation via orgops.health.report_degradation()\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from net.circuit_guard import CircuitGuard\n    \n        guard = CircuitGuard(service_name=\"payments-api\", max_probes=3)\n        guard.state = \"half_open\"\n        guard.probe_count = 0\n    \n        with patch(\"orgops.health.report_degradation\") as mock_report:\n            # First probe: count is 0, under max_probes (3) — should be allowed\n>           result = guard.should_allow_probe()\n                     ^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'CircuitGuard' object has no attribute 'should_allow_probe'. Did you mean: 'should_allow_request'?\n\ntests/unit/test_bug42.py:22: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug42.py::test_bug_42_circuit_probe_and_health - Attri...\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 756,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

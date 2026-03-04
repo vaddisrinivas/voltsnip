@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T083621983207Z__bug43__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG43",
+  "task_name": "pool_timeout_overlap_and_trace",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 79719,
+    "prompt_chars": 6846,
+    "output_chars": 1541,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5796,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 4,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 6,
+    "voltsnip_error_count": 6,
+    "model_request_latency_ms": 77218,
+    "model_request_started_at": "2026-03-04T08:36:22.011661Z",
+    "model_request_finished_at": "2026-03-04T08:37:39.230034Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9087,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 80153,
+      "completion_tokens": 9322,
+      "total_tokens": 89475,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0469764
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug43_timeout_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug43_timeout_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug43_timeout_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "While the timeout calculation correctly uses max(connect_timeout, dns_timeout) + read_timeout, the trace annotation does not match the required signature. The constraint specifies annotate_span('pool.timeout.adjusted', total_timeout), but the implementation uses annotate_span('request_pool.effective_timeout', {...dictionary...}) with a different span name and a dictionary instead of the single total_timeout value.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def calculate_effective_timeout(\\n        self,\\n        connect_timeout: Optional[float] = None,\\n        dns_timeout: Optional[float] = None,\\n        read_timeout: Optional[float] = None,\\n    ) -> float:\\n        \\\"\\\"\\\"Return the effective timeout for a single request.\\n\\n        BUG_43: DNS resolution and the TCP connect happen in parallel, so\\n        the first phase is max(connect, dns) — not the sum.  The current\\n        implementation adds all three timeouts sequentially, over-estimating\\n        the real deadline and delaying failure detection.\\n        \\\"\\\"\\\"\\n        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: DNS resolution and TCP connect overlap, so use the slower phase.\\n        overlap_timeout = max(ct, dt)\\n        total_timeout = overlap_timeout + rt\\n\\n        from orgops.tracing import annotate_span\\n\\n        annotate_span(\\n            \\\"request_pool.effective_timeout\\\",\\n            {\\n                \\\"connect_timeout\\\": ct,\\n                \\\"dns_timeout\\\": dt,\\n                \\\"read_timeout\\\": rt,\\n                \\\"overlap_timeout\\\": overlap_timeout,\\n                \\\"effective_timeout\\\": total_timeout,\\n            },\\n        )\\n        return total_timeout\\n\", \"comments\": \"Use the max of DNS/connect plus read, annotate the span, and return that effective timeout.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+    },
+    "judge_raw_response": "I need to evaluate whether the candidate implementation satisfies the constraint about correct parallel timeout calculation AND trace annotation.\n\nLet me analyze the candidate code:\n\n1. **Timeout calculation**: The code does:\n   - `overlap_timeout = max(ct, dt)` - correctly takes the max of connect and dns timeouts\n   - `total_timeout = overlap_timeout + rt` - correctly adds the read timeout\n   - This matches the required behavior: `max(connect_timeout, dns_timeout) + read_timeout`\n\n2. **Trace annotation**: The code does:\n   - Imports `from orgops.tracing import annotate_span`\n   - Calls `annotate_span(\"request_pool.effective_timeout\", {...})`\n   - However, the constraint asks for `annotate_span(\"pool.timeout.adjusted\", total_timeout)`\n   \nThe constraint specifically requires:\n- The span name to be `\"pool.timeout.adjusted\"`\n- The second argument to be `total_timeout` (a single value)\n\nThe candidate uses:\n- Span name: `\"request_pool.effective_timeout\"` (different)\n- Second argument: a dictionary with multiple fields (different structure)\n\nWhile the candidate does annotate a span with the correct timeout value included in the dictionary, it does not match the exact signature specified in the constraint: `annotate_span(\"pool.timeout.adjusted\", total_timeout)`.\n\nThe timeout calculation is correct, but the trace annotation does not match the required signature.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the timeout calculation correctly uses max(connect_timeout, dns_timeout) + read_timeout, the trace annotation does not match the required signature. The constraint specifies annotate_span('pool.timeout.adjusted', total_timeout), but the implementation uses annotate_span('request_pool.effective_timeout', {...dictionary...}) with a different span name and a dictionary instead of the single total_timeout value.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________________ test_bug_43_pool_timeout_and_trace ______________________\n\n    def test_bug_43_pool_timeout_and_trace() -> None:\n        \"\"\"calculate_effective_timeout must:\n        1. Treat DNS and connect as parallel: effective = max(connect, dns) + read\n           (NOT connect + dns + read).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"pool.timeout.adjusted\", total_timeout).\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from net.request_pool import RequestPool\n    \n        pool = RequestPool(connect_timeout=5.0, dns_timeout=2.0, read_timeout=30.0)\n    \n        with patch(\"orgops.tracing.annotate_span\") as mock_annotate:\n            result = pool.calculate_effective_timeout(\n                connect_timeout=5.0,\n                dns_timeout=2.0,\n                read_timeout=30.0,\n            )\n    \n        # Correct timeout: max(5.0, 2.0) + 30.0 = 35.0 (not 5.0 + 2.0 + 30.0 = 37.0)\n        assert result == 35.0, (\n            f\"Expected max(connect, dns) + read = 35.0, got {result}. \"\n            \"DNS and connect happen in parallel, not sequentially.\"\n        )\n    \n        # Must also annotate the trace span\n        mock_annotate.assert_called_once()\n        call_args = mock_annotate.call_args\n>       assert call_args[0][0] == \"pool.timeout.adjusted\", (\n            \"Must annotate span with 'pool.timeout.adjusted' for observability\"\n        )\nE       AssertionError: Must annotate span with 'pool.timeout.adjusted' for observability\nE       assert 'request_pool...ctive_timeout' == 'pool.timeout.adjusted'\nE         \nE         - pool.timeout.adjusted\nE         + request_pool.effective_timeout\n\ntests/unit/test_bug43.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug43.py::test_bug_43_pool_timeout_and_trace - Asserti...\n1 failed in 0.14s\n",
+    "stderr": "",
+    "duration_ms": 865,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

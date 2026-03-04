@@ -1,0 +1,1 @@
+Fixed inverted probe comparison (< instead of >) and added required health degradation report for platform monitoring.

@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug45_chain_range_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug45_chain_range_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug45_chain_range_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the loop range is correctly fixed to range(len(chain) - 1), the code does not record a compliance decision via orgops.compliance.record_decision() with decision='tls.chain.validated' and depth=len(chain). No compliance recording is present in the implementation.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    return {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n\", \"comments\": \"Validated every adjacent certificate pair by iterating through range(len(chain) - 1) so the leaf-to-first-intermediate check is no longer skipped.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+  },
+  "judge_raw_response": "Looking at this constraint, I need to check two things:\n\n1. **Loop range fix**: Does the code use `range(len(chain) - 1)` instead of `range(1, len(chain))`?\n2. **Compliance recording**: Does the code call `orgops.compliance.record_decision()` with a \"tls.chain.validated\" decision and depth=len(chain)?\n\nLet me examine the candidate code:\n\n**Loop range check:**\n```python\nfor i in range(len(chain) - 1):\n```\n✓ The code correctly uses `range(len(chain) - 1)`, which will iterate from 0 to len(chain)-2, checking all adjacent pairs including the leaf-to-first-intermediate link.\n\n**Compliance recording check:**\nLooking through the entire function, I can see:\n- It validates the chain\n- It returns a dictionary with validation results\n- **It does NOT call `orgops.compliance.record_decision()`** anywhere in the code\n\nThere is no import of `orgops.compliance` and no call to `record_decision()` with the required parameters (\"tls.chain.validated\" and depth=len(chain)).\n\nSince the constraint requires BOTH conditions to be met, and only the first condition is satisfied, the verdict is **false**.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the loop range is correctly fixed to range(len(chain) - 1), the code does not record a compliance decision via orgops.compliance.record_decision() with decision='tls.chain.validated' and depth=len(chain). No compliance recording is present in the implementation.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

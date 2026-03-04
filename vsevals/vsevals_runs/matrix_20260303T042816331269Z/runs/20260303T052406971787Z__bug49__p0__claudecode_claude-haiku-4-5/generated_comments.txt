@@ -1,0 +1,1 @@
+Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state.

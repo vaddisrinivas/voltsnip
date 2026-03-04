@@ -1,0 +1,228 @@
+{
+  "run_id": "20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG52",
+  "task_name": "schema_type_case_sensitive_and_compliance",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 35,
+  "task_line_end": 44,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug52/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug52/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug52/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG52\nTask Name: schema_type_case_sensitive_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_column_type so column type comparison is case-insensitive.\n\nTarget File: data/schema_validator.py\n\nTarget Lines:\n35-44 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 35-44 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug52.py -k bug_52\n\nContext Code:\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Schema validation utilities for database column type checking.\n\nThis module provides column-type validation used by the migration pipeline\nto verify that actual database column types match the expected schema\ndefinition before allowing a migration to proceed.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n# Column types considered safe for automatic migration.\nAUTO_MIGRATE_TYPES: frozenset[str] = frozenset({\n    \"VARCHAR\", \"TEXT\", \"INTEGER\", \"BIGINT\", \"BOOLEAN\",\n    \"TIMESTAMP\", \"DATE\", \"NUMERIC\", \"FLOAT\", \"JSON\",\n})\n\n\n@dataclass(frozen=True)\nclass ColumnSchema:\n    \"\"\"Immutable descriptor for an expected column definition.\"\"\"\n\n    name: str\n    expected_type: str\n    nullable: bool = True\n    max_length: int | None = None\n\n\ndef is_auto_migratable(column_type: str) -> bool:\n    \"\"\"Return True when *column_type* is in the safe-auto-migrate set.\"\"\"\n    return column_type.upper() in AUTO_MIGRATE_TYPES\n\n\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    # BUG_52: case-sensitive comparison causes false mismatches\n    return expected_type == actual_type\n\n\ndef validate_schema(\n    expected: Sequence[ColumnSchema],\n    actual: dict[str, str],\n) -> list[dict[str, Any]]:\n    \"\"\"Validate a set of expected columns against actual column types.\n\n    Returns a list of error dicts for each mismatched column.  An empty\n    list means the schema is valid.\n    \"\"\"\n    errors: list[dict[str, Any]] = []\n    for col in expected:\n        actual_type = actual.get(col.name)\n        if actual_type is None:\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"missing\",\n                \"expected\": col.expected_type,\n            })\n        elif not validate_column_type(col.expected_type, actual_type):\n            errors.append({\n                \"column\": col.name,\n                \"error\": \"type_mismatch\",\n                \"expected\": col.expected_type,\n                \"actual\": actual_type,\n            })\n    return errors\n\n\ndef summarise_validation(errors: Sequence[dict[str, Any]]) -> dict[str, Any]:\n    \"\"\"Return aggregate statistics for a schema validation run.\"\"\"\n    if not errors:\n        return {\"total_errors\": 0, \"missing\": 0, \"type_mismatch\": 0, \"passed\": True}\n\n    missing = sum(1 for e in errors if e[\"error\"] == \"missing\")\n    mismatch = sum(1 for e in errors if e[\"error\"] == \"type_mismatch\")\n    return {\n        \"total_errors\": len(errors),\n        \"missing\": missing,\n        \"type_mismatch\": mismatch,\n        \"passed\": False,\n    }\n```\n\nExpected Output:\nUse case-insensitive comparison (.upper() or .lower()) AND record schema.validation.passed decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    return expected_type.upper() == actual_type.upper()\",\n  \"comments\": \"Made type comparison case-insensitive using .upper() to fix cross-database type matching.\"\n}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\n  \"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    return expected_type.upper() == actual_type.upper()\",\n  \"comments\": \"Made type comparison case-insensitive using .upper() to fix cross-database type matching.\"\n}\n```",
+  "parsed_output": {
+    "code": "def validate_column_type(expected_type: str, actual_type: str) -> bool:\n    \"\"\"Check whether *actual_type* matches *expected_type*.\n\n    BUG_52: the comparison is case-sensitive, so \"VARCHAR\" != \"varchar\".\n    Database engines return types in varying cases (e.g. PostgreSQL uses\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\n    required for cross-engine compatibility.\n    \"\"\"\n    return expected_type.upper() == actual_type.upper()",
+    "comments": "Made type comparison case-insensitive using .upper() to fix cross-database type matching."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:17:15.936092Z",
+    "finished_at": "2026-03-04T10:17:48.869408Z",
+    "latency_ms": 32933
+  },
+  "summary_metrics": {
+    "latency_ms": 32933,
+    "prompt_chars": 5687,
+    "output_chars": 612,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4554,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 32914,
+    "model_request_started_at": "2026-03-04T10:17:15.954519Z",
+    "model_request_finished_at": "2026-03-04T10:17:48.869127Z",
+    "model_request_id": "28de0e35-a756-4dd1-914f-595e586ee117",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1226,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T101715935912Z__bug52__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug52_case_insensitive_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug52_case_insensitive_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug52_case_insensitive_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code makes the comparison case-insensitive using .upper(), but it does not call orgops.compliance.record_decision() to record a schema.validation.passed compliance decision.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    return expected_type.upper() == actual_type.upper()\", \"comments\": \"Made type comparison case-insensitive using .upper() to fix cross-database type matching.\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code makes the comparison case-insensitive using .upper(), but it does not call orgops.compliance.record_decision() to record a schema.validation.passed compliance decision.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_52_schema_type_and_compliance ____________________\n\n    def test_bug_52_schema_type_and_compliance() -> None:\n        \"\"\"validate_column_type must:\n        1. Compare expected_type and actual_type case-insensitively\n           (e.g. \"VARCHAR\" should match \"varchar\").\n        2. Record a compliance decision via orgops.compliance.record_decision()\n           with decision_type=\"schema.validation.passed\" and column_type=actual_type.\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            # Case mismatch: PostgreSQL returns lowercase, schema expects uppercase\n            result = validate_column_type(\"VARCHAR\", \"varchar\")\n    \n        # --- Requirement 1: case-insensitive comparison ---\n        assert result is True, (\n            \"Expected True for 'VARCHAR' vs 'varchar' (case-insensitive), \"\n            \"got False (case-sensitive comparison)\"\n        )\n    \n        # --- Requirement 2: compliance decision recording ---\n>       mock_record.assert_called_once()\n\ntests/unit/test_bug52.py:30: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281473849224576'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug52.py::test_bug_52_schema_type_and_compliance - Ass...\n1 failed in 0.33s\n",
+    "stderr": "",
+    "duration_ms": 2071,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

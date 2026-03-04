@@ -1,0 +1,1 @@
+Fixed loop range to range(len(chain) - 1) to validate chain[0] vs chain[1] pair, simplified validation logic, and added compliance recording via orgops.compliance.record_decision.

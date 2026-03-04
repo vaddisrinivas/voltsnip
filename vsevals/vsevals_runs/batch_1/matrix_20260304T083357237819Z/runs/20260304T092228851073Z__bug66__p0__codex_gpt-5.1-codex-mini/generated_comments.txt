@@ -1,0 +1,1 @@
+Propagate both request_id and correlation_id into the child context so tracing isn’t lost.

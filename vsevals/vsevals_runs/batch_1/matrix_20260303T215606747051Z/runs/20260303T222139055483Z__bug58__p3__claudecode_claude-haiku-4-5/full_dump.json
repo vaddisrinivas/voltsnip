@@ -1,0 +1,226 @@
+{
+  "run_id": "20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs",
+  "task_id": "BUG58",
+  "task_name": "hash_ring_modulus_off_by_one_and_health",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 66,
+  "task_line_end": 77,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug58/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/concurrency_cache/guiding_principle/v1\nTitle: Script30 Concurrency & Cache guiding principle\nCode:\n```\n# Concurrency & Cache — Org Guiding Principle\n\n## Distributed Locks\n- Clamp effective timeout to minimum 1ms when adjusting for clock skew.\n- Annotate via orgops.tracing.annotate_span(\"lock.acquired\", key) on acquisition.\n\n## TTL Jitter\n- ADD jitter to base TTL (never subtract — subtraction can produce negative TTLs).\n- Emit orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl) for monitoring.\n\n## Stampede Prevention\n- Refresh early when time_remaining/ttl < threshold (close to expiry), not > threshold.\n- Emit orgops.metrics.emit(\"cache.stampede.prevented\", key) when early refresh triggers.\n\n## LFU Eviction\n- Decay frequency by age: score = access_count / (1 + age_hours).\n- Emit orgops.metrics.emit(\"cache.eviction.lfu\", score) on eviction decisions.\n\n## Write-Behind Buffers\n- Convert interval_seconds to milliseconds (* 1000) when passing to timer APIs.\n- Write orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=n) after flush.\n\n## Consistent Hashing\n- Use hash(key) % num_partitions (not num_partitions + 1 — causes out-of-range).\n- Report orgops.health.report_degradation(\"cache.partition.skew\", partition_id) on assignment.\n```\n\nSnippet 2: voltsnip/script30/hard/bug58/scenario_context/v1\nTitle: Cache partitioner requires correct modulus AND health degradation report\nCode:\n```\n# Cache Partition Assignment — Two Requirements\n\n## 1. Correct Modulus\n```python\npartition_id = _stable_hash(key) % num_partitions\n```\nNever use `num_partitions + 1` — that produces out-of-range IDs.\n\n## 2. Health Degradation Report (REQUIRED)\n```python\nimport orgops.health\norgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/concurrency_cache/guiding_principle/v1\n- voltsnip/script30/hard/bug58/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG58\nTask Name: hash_ring_modulus_off_by_one_and_health\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix assign_partition to use hash(key) % num_partitions instead of hash(key) % (num_partitions + 1).\n\nTarget File: cache/partitioner.py\n\nTarget Lines:\n66-77 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-77 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug58.py -k bug_58\n\nContext Code:\n```python\ndef assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n    \"\"\"Return the partition ID for *key*.\n\n    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n    return ``num_partitions`` itself -- an out-of-range value\n    (valid range is ``0 .. num_partitions - 1``).  The fix must\n    use ``hash(key) % num_partitions`` instead.\n    \"\"\"\n    n = num_partitions if num_partitions is not None else self._config.num_partitions\n    # BUG_58: off-by-one in modulus -- can return n itself\n    partition_id = _stable_hash(key) % (n + 1)\n    return partition_id\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Consistent-hash partitioner for the distributed cache layer.\n\nAssigns cache keys to partitions using a hash ring.  The partition ID\nmust always fall in the range ``[0, num_partitions)``.\n\nCallers rely on stable, uniform distribution so that no single\npartition becomes a hot-spot.\n\"\"\"\nfrom __future__ import annotations\n\nimport hashlib\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass PartitionConfig:\n    \"\"\"Immutable configuration for the hash-ring partitioner.\"\"\"\n\n    num_partitions: int = 16\n    replicas_per_node: int = 150\n    hash_algorithm: str = \"md5\"\n\n\ndef _stable_hash(key: str, algorithm: str = \"md5\") -> int:\n    \"\"\"Return a deterministic positive integer hash for *key*.\n\n    Uses hashlib so the value is stable across Python processes\n    (unlike the built-in ``hash()`` which is randomised by default).\n    \"\"\"\n    h = hashlib.new(algorithm, key.encode(\"utf-8\"))\n    return int(h.hexdigest(), 16)\n\n\nclass ConsistentHashPartitioner:\n    \"\"\"Map arbitrary string keys to partition IDs on a fixed hash ring.\n\n    Parameters\n    ----------\n    config:\n        Partitioning parameters (number of partitions, replicas, etc.).\n    \"\"\"\n\n    def __init__(self, config: PartitionConfig | None = None) -> None:\n        self._config = config or PartitionConfig()\n        self._ring: list[tuple[int, int]] = []\n        self._build_ring()\n\n    # ------------------------------------------------------------------\n    # Ring construction\n    # ------------------------------------------------------------------\n\n    def _build_ring(self) -> None:\n        \"\"\"Pre-compute virtual-node positions on the ring.\"\"\"\n        for part_id in range(self._config.num_partitions):\n            for replica in range(self._config.replicas_per_node):\n                vnode_key = f\"part-{part_id}-rep-{replica}\"\n                position = _stable_hash(vnode_key, self._config.hash_algorithm)\n                self._ring.append((position, part_id))\n        self._ring.sort()\n\n    # ------------------------------------------------------------------\n    # Assignment\n    # ------------------------------------------------------------------\n\n    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n        \"\"\"Return the partition ID for *key*.\n\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n        return ``num_partitions`` itself -- an out-of-range value\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\n        use ``hash(key) % num_partitions`` instead.\n        \"\"\"\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\n        # BUG_58: off-by-one in modulus -- can return n itself\n        partition_id = _stable_hash(key) % (n + 1)\n        return partition_id\n\n    # ------------------------------------------------------------------\n    # Diagnostics\n    # ------------------------------------------------------------------\n\n    def partition_distribution(\n        self, keys: Sequence[str], num_partitions: int | None = None\n    ) -> dict[int, int]:\n        \"\"\"Return a mapping of ``partition_id -> count`` for *keys*.\"\"\"\n        dist: dict[int, int] = {}\n        for k in keys:\n            pid = self.assign_partition(k, num_partitions)\n            dist[pid] = dist.get(pid, 0) + 1\n        return dist\n```\n\nExpected Output:\nUse hash(key) % num_partitions instead of % (num_partitions + 1) AND report cache.partition.skew degradation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug58/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "340670b0-63ee-40f9-ba75-7b42706981bf",
+      "canonical_key": "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "title": "Script30 Concurrency & Cache guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for concurrency and caching: distributed locks, TTL jitter, stampede prevention, LFU eviction, write-behind buffers, and consistent hashing.",
+      "code": "# Concurrency & Cache — Org Guiding Principle\n\n## Distributed Locks\n- Clamp effective timeout to minimum 1ms when adjusting for clock skew.\n- Annotate via orgops.tracing.annotate_span(\"lock.acquired\", key) on acquisition.\n\n## TTL Jitter\n- ADD jitter to base TTL (never subtract — subtraction can produce negative TTLs).\n- Emit orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl) for monitoring.\n\n## Stampede Prevention\n- Refresh early when time_remaining/ttl < threshold (close to expiry), not > threshold.\n- Emit orgops.metrics.emit(\"cache.stampede.prevented\", key) when early refresh triggers.\n\n## LFU Eviction\n- Decay frequency by age: score = access_count / (1 + age_hours).\n- Emit orgops.metrics.emit(\"cache.eviction.lfu\", score) on eviction decisions.\n\n## Write-Behind Buffers\n- Convert interval_seconds to milliseconds (* 1000) when passing to timer APIs.\n- Write orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=n) after flush.\n\n## Consistent Hashing\n- Use hash(key) % num_partitions (not num_partitions + 1 — causes out-of-range).\n- Report orgops.health.report_degradation(\"cache.partition.skew\", partition_id) on assignment.\n"
+    },
+    {
+      "id": "005c15d9-c0fe-4a62-bc3a-0091c80e3374",
+      "canonical_key": "voltsnip/script30/hard/bug58/scenario_context/v1",
+      "title": "Cache partitioner requires correct modulus AND health degradation report",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "health"
+      ],
+      "description": "The assign_partition function must use hash(key) % num_partitions (not num_partitions + 1) AND report degradation via orgops.health.report_degradation for operational monitoring.",
+      "code": "# Cache Partition Assignment — Two Requirements\n\n## 1. Correct Modulus\n```python\npartition_id = _stable_hash(key) % num_partitions\n```\nNever use `num_partitions + 1` — that produces out-of-range IDs.\n\n## 2. Health Degradation Report (REQUIRED)\n```python\nimport orgops.health\norgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/concurrency_cache/guiding_principle/v1\nTitle: Script30 Concurrency & Cache guiding principle\nCode:\n```\n# Concurrency & Cache — Org Guiding Principle\n\n## Distributed Locks\n- Clamp effective timeout to minimum 1ms when adjusting for clock skew.\n- Annotate via orgops.tracing.annotate_span(\"lock.acquired\", key) on acquisition.\n\n## TTL Jitter\n- ADD jitter to base TTL (never subtract — subtraction can produce negative TTLs).\n- Emit orgops.metrics.emit(\"cache.ttl.jittered\", effective_ttl) for monitoring.\n\n## Stampede Prevention\n- Refresh early when time_remaining/ttl < threshold (close to expiry), not > threshold.\n- Emit orgops.metrics.emit(\"cache.stampede.prevented\", key) when early refresh triggers.\n\n## LFU Eviction\n- Decay frequency by age: score = access_count / (1 + age_hours).\n- Emit orgops.metrics.emit(\"cache.eviction.lfu\", score) on eviction decisions.\n\n## Write-Behind Buffers\n- Convert interval_seconds to milliseconds (* 1000) when passing to timer APIs.\n- Write orgops.auditing.write_event(\"cache.flush.completed\", items_flushed=n) after flush.\n\n## Consistent Hashing\n- Use hash(key) % num_partitions (not num_partitions + 1 — causes out-of-range).\n- Report orgops.health.report_degradation(\"cache.partition.skew\", partition_id) on assignment.\n```\n\nSnippet 2: voltsnip/script30/hard/bug58/scenario_context/v1\nTitle: Cache partitioner requires correct modulus AND health degradation report\nCode:\n```\n# Cache Partition Assignment — Two Requirements\n\n## 1. Correct Modulus\n```python\npartition_id = _stable_hash(key) % num_partitions\n```\nNever use `num_partitions + 1` — that produces out-of-range IDs.\n\n## 2. Health Degradation Report (REQUIRED)\n```python\nimport orgops.health\norgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/concurrency_cache/guiding_principle/v1\n- voltsnip/script30/hard/bug58/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG58\nTask Name: hash_ring_modulus_off_by_one_and_health\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix assign_partition to use hash(key) % num_partitions instead of hash(key) % (num_partitions + 1).\n\nTarget File: cache/partitioner.py\n\nTarget Lines:\n66-77 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 66-77 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug58.py -k bug_58\n\nContext Code:\n```python\ndef assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n    \"\"\"Return the partition ID for *key*.\n\n    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n    return ``num_partitions`` itself -- an out-of-range value\n    (valid range is ``0 .. num_partitions - 1``).  The fix must\n    use ``hash(key) % num_partitions`` instead.\n    \"\"\"\n    n = num_partitions if num_partitions is not None else self._config.num_partitions\n    # BUG_58: off-by-one in modulus -- can return n itself\n    partition_id = _stable_hash(key) % (n + 1)\n    return partition_id\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Consistent-hash partitioner for the distributed cache layer.\n\nAssigns cache keys to partitions using a hash ring.  The partition ID\nmust always fall in the range ``[0, num_partitions)``.\n\nCallers rely on stable, uniform distribution so that no single\npartition becomes a hot-spot.\n\"\"\"\nfrom __future__ import annotations\n\nimport hashlib\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass PartitionConfig:\n    \"\"\"Immutable configuration for the hash-ring partitioner.\"\"\"\n\n    num_partitions: int = 16\n    replicas_per_node: int = 150\n    hash_algorithm: str = \"md5\"\n\n\ndef _stable_hash(key: str, algorithm: str = \"md5\") -> int:\n    \"\"\"Return a deterministic positive integer hash for *key*.\n\n    Uses hashlib so the value is stable across Python processes\n    (unlike the built-in ``hash()`` which is randomised by default).\n    \"\"\"\n    h = hashlib.new(algorithm, key.encode(\"utf-8\"))\n    return int(h.hexdigest(), 16)\n\n\nclass ConsistentHashPartitioner:\n    \"\"\"Map arbitrary string keys to partition IDs on a fixed hash ring.\n\n    Parameters\n    ----------\n    config:\n        Partitioning parameters (number of partitions, replicas, etc.).\n    \"\"\"\n\n    def __init__(self, config: PartitionConfig | None = None) -> None:\n        self._config = config or PartitionConfig()\n        self._ring: list[tuple[int, int]] = []\n        self._build_ring()\n\n    # ------------------------------------------------------------------\n    # Ring construction\n    # ------------------------------------------------------------------\n\n    def _build_ring(self) -> None:\n        \"\"\"Pre-compute virtual-node positions on the ring.\"\"\"\n        for part_id in range(self._config.num_partitions):\n            for replica in range(self._config.replicas_per_node):\n                vnode_key = f\"part-{part_id}-rep-{replica}\"\n                position = _stable_hash(vnode_key, self._config.hash_algorithm)\n                self._ring.append((position, part_id))\n        self._ring.sort()\n\n    # ------------------------------------------------------------------\n    # Assignment\n    # ------------------------------------------------------------------\n\n    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n        \"\"\"Return the partition ID for *key*.\n\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n        return ``num_partitions`` itself -- an out-of-range value\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\n        use ``hash(key) % num_partitions`` instead.\n        \"\"\"\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\n        # BUG_58: off-by-one in modulus -- can return n itself\n        partition_id = _stable_hash(key) % (n + 1)\n        return partition_id\n\n    # ------------------------------------------------------------------\n    # Diagnostics\n    # ------------------------------------------------------------------\n\n    def partition_distribution(\n        self, keys: Sequence[str], num_partitions: int | None = None\n    ) -> dict[int, int]:\n        \"\"\"Return a mapping of ``partition_id -> count`` for *keys*.\"\"\"\n        dist: dict[int, int] = {}\n        for k in keys:\n            pid = self.assign_partition(k, num_partitions)\n            dist[pid] = dist.get(pid, 0) + 1\n        return dist\n```\n\nExpected Output:\nUse hash(key) % num_partitions instead of % (num_partitions + 1) AND report cache.partition.skew degradation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n        \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n        return ``num_partitions`` itself -- an out-of-range value\\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\\n        use ``hash(key) % num_partitions`` instead.\\n        \\\"\\\"\\\"\\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\\n        partition_id = _stable_hash(key) % n\\n        orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id)\\n        return partition_id\", \"comments\": \"Fixed off-by-one modulus bug (% (n+1) → % n) and added cache partition skew health degradation report per guiding principle.\"}\n```"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "```json\n{\"code\": \"    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n        \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n        return ``num_partitions`` itself -- an out-of-range value\\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\\n        use ``hash(key) % num_partitions`` instead.\\n        \\\"\\\"\\\"\\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\\n        partition_id = _stable_hash(key) % n\\n        orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id)\\n        return partition_id\", \"comments\": \"Fixed off-by-one modulus bug (% (n+1) → % n) and added cache partition skew health degradation report per guiding principle.\"}\n```",
+  "parsed_output": {
+    "code": "    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n        \"\"\"Return the partition ID for *key*.\n\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n        return ``num_partitions`` itself -- an out-of-range value\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\n        use ``hash(key) % num_partitions`` instead.\n        \"\"\"\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\n        partition_id = _stable_hash(key) % n\n        orgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n        return partition_id",
+    "comments": "Fixed off-by-one modulus bug (% (n+1) → % n) and added cache partition skew health degradation report per guiding principle."
+  },
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 1,
+    "total_tokens": 11,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 1.2e-05
+  },
+  "timings": {
+    "started_at": "2026-03-03T22:21:39.055657Z",
+    "finished_at": "2026-03-03T22:22:23.803571Z",
+    "latency_ms": 44747
+  },
+  "summary_metrics": {
+    "latency_ms": 44747,
+    "prompt_chars": 8302,
+    "output_chars": 821,
+    "prompt_system_chars": 3190,
+    "prompt_user_chars": 5112,
+    "snippet_injected_chars": 1508,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 44675,
+    "model_request_started_at": "2026-03-03T22:21:39.127764Z",
+    "model_request_finished_at": "2026-03-03T22:22:23.803463Z",
+    "model_request_id": "74cc8501-a1a7-456a-811d-bea3d1795ed9",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1144,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T215606747051Z/runs/20260303T222139055483Z__bug58__p3__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug58_modulus_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug58_modulus_and_health",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code computes n as the effective num_partitions and uses _stable_hash(key) % n (no +1), and it calls orgops.health.report_degradation(\"cache.partition.skew\", partition_id).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n        \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n        return ``num_partitions`` itself -- an out-of-range value\\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\\n        use ``hash(key) % num_partitions`` instead.\\n        \\\"\\\"\\\"\\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\\n        partition_id = _stable_hash(key) % n\\n        orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id)\\n        return partition_id\", \"comments\": \"Fixed off-by-one modulus bug (% (n+1) → % n) and added cache partition skew health degradation report per guiding principle.\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes n as the effective num_partitions and uses _stable_hash(key) % n (no +1), and it calls orgops.health.report_degradation(\\\"cache.partition.skew\\\", partition_id).\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_58_partition_modulus_and_health ___________________\n\n    def test_bug_58_partition_modulus_and_health() -> None:\n        \"\"\"assign_partition must:\n        1. Return a value in [0, num_partitions) -- i.e. use\n           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).\n        2. Call orgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n           every time an assignment is made.\n        Both are required -- fixing only the modulus is insufficient.\n        \"\"\"\n    \n        config = PartitionConfig(num_partitions=4)\n        partitioner = ConsistentHashPartitioner(config)\n    \n        with patch(\"orgops.health.report_degradation\") as mock_health:\n>           result = partitioner.assign_partition(\"test-key-alpha\", num_partitions=4)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug58.py:23: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <cache.partitioner.ConsistentHashPartitioner object at 0xffff92a83f20>\nkey = 'test-key-alpha', num_partitions = 4\n\n    def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\n        \"\"\"Return the partition ID for *key*.\n    \n        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\n        return ``num_partitions`` itself -- an out-of-range value\n        (valid range is ``0 .. num_partitions - 1``).  The fix must\n        use ``hash(key) % num_partitions`` instead.\n        \"\"\"\n        n = num_partitions if num_partitions is not None else self._config.num_partitions\n        partition_id = _stable_hash(key) % n\n>       orgops.health.report_degradation(\"cache.partition.skew\", partition_id)\n        ^^^^^^\nE       NameError: name 'orgops' is not defined\n\ncache/partitioner.py:76: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - N...\n1 failed in 0.28s\n",
+    "stderr": "",
+    "duration_ms": 2894,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

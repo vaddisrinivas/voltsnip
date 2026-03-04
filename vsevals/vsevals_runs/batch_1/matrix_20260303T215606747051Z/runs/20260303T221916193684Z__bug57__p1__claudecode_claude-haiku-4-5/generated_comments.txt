@@ -1,0 +1,1 @@
+Fixed milliseconds conversion bug (multiply interval_seconds by 1000) and added audit_event emission.

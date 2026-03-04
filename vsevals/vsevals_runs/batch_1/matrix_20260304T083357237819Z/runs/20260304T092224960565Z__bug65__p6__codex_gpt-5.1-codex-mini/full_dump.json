@@ -1,0 +1,406 @@
+{
+  "run_id": "20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "skills_agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "logging_privacy",
+  "task_difficulty": "hard",
+  "task_line_start": 65,
+  "task_line_end": 79,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+    "voltsnip/script30/hard/bug65/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG65\nTask Name: email_plus_addressing_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sanitize_email so plus-addressed emails are redacted.\n\nTarget File: logops/sanitizer.py\n\nTarget Lines:\n65-79 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-79 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug65.py -k bug_65\n\nContext Code:\n```python\ndef sanitize_email(self, text: str) -> str:\n    \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n    BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n    in the local-part character class, so plus-addressed emails\n    like ``user+tag@domain.com`` are **not** redacted.\n    Should be ``[\\\\w.+]+@[\\\\w.]+``.\n    \"\"\"\n    # BUG_65: _EMAIL_RE misses plus-addressed emails\n    result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n    count = len(_EMAIL_RE.findall(text))\n    self._history.append(\n        SanitizationResult(text=result, emails_redacted=count)\n    )\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"PII sanitizer for structured log fields.\n\nThis module provides text sanitization for log payloads before they are\npersisted or forwarded to external aggregators.  It redacts emails,\nphone numbers, and US SSNs so that PII never reaches long-term storage.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n# ---------------------------------------------------------------------------\n# Redaction patterns\n# ---------------------------------------------------------------------------\n\n# BUG_65: missing '+' in the local-part character class -- plus-addressed\n# emails like user+tag@domain.com slip through unredacted.\n_EMAIL_RE = re.compile(r\"[\\w.]+@[\\w.]+\")  # BUG_65: misses plus-addressing\n\n_PHONE_RE = re.compile(\n    r\"\\+?1?[-.\\s]?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\"\n)\n\n_SSN_RE = re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\")\n\n_REDACTED_EMAIL = \"[REDACTED_EMAIL]\"\n_REDACTED_PHONE = \"[REDACTED_PHONE]\"\n_REDACTED_SSN = \"[REDACTED_SSN]\"\n\n\n@dataclass\nclass SanitizationResult:\n    \"\"\"Outcome of a single sanitize pass.\"\"\"\n\n    text: str\n    emails_redacted: int = 0\n    phones_redacted: int = 0\n    ssns_redacted: int = 0\n\n    @property\n    def total_redacted(self) -> int:\n        return self.emails_redacted + self.phones_redacted + self.ssns_redacted\n\n\n@dataclass\nclass PiiSanitizer:\n    \"\"\"Redacts PII tokens from free-form text.\n\n    Intended for pre-persist log sanitization so that PII never\n    reaches the log aggregator or downstream analytics pipelines.\n    \"\"\"\n\n    redact_emails: bool = True\n    redact_phones: bool = True\n    redact_ssns: bool = True\n    _history: list[SanitizationResult] = field(\n        default_factory=list, repr=False\n    )\n\n    # ------------------------------------------------------------------ #\n    #  Public API                                                         #\n    # ------------------------------------------------------------------ #\n\n    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        count = len(_EMAIL_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result\n\n    def sanitize_phone(self, text: str) -> str:\n        \"\"\"Replace US phone numbers with ``[REDACTED_PHONE]``.\"\"\"\n        result = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        count = len(_PHONE_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, phones_redacted=count)\n        )\n        return result\n\n    def sanitize_ssn(self, text: str) -> str:\n        \"\"\"Replace US SSNs (xxx-xx-xxxx) with ``[REDACTED_SSN]``.\"\"\"\n        result = _SSN_RE.sub(_REDACTED_SSN, text)\n        count = len(_SSN_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, ssns_redacted=count)\n        )\n        return result\n\n    def sanitize_all(self, text: str) -> SanitizationResult:\n        \"\"\"Run every enabled redaction pass and return aggregated result.\"\"\"\n        emails = phones = ssns = 0\n        if self.redact_emails:\n            emails = len(_EMAIL_RE.findall(text))\n            text = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        if self.redact_phones:\n            phones = len(_PHONE_RE.findall(text))\n            text = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        if self.redact_ssns:\n            ssns = len(_SSN_RE.findall(text))\n            text = _SSN_RE.sub(_REDACTED_SSN, text)\n        result = SanitizationResult(\n            text=text,\n            emails_redacted=emails,\n            phones_redacted=phones,\n            ssns_redacted=ssns,\n        )\n        self._history.append(result)\n        return result\n```\n\nExpected Output:\nFix email regex to include + in local-part AND record pii.sanitized compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug65/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG65\nTask Name: email_plus_addressing_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sanitize_email so plus-addressed emails are redacted.\n\nTarget File: logops/sanitizer.py\n\nTarget Lines:\n65-79 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-79 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug65.py -k bug_65\n\nContext Code:\n```python\ndef sanitize_email(self, text: str) -> str:\n    \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n    BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n    in the local-part character class, so plus-addressed emails\n    like ``user+tag@domain.com`` are **not** redacted.\n    Should be ``[\\\\w.+]+@[\\\\w.]+``.\n    \"\"\"\n    # BUG_65: _EMAIL_RE misses plus-addressed emails\n    result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n    count = len(_EMAIL_RE.findall(text))\n    self._history.append(\n        SanitizationResult(text=result, emails_redacted=count)\n    )\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"PII sanitizer for structured log fields.\n\nThis module provides text sanitization for log payloads before they are\npersisted or forwarded to external aggregators.  It redacts emails,\nphone numbers, and US SSNs so that PII never reaches long-term storage.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n# ---------------------------------------------------------------------------\n# Redaction patterns\n# ---------------------------------------------------------------------------\n\n# BUG_65: missing '+' in the local-part character class -- plus-addressed\n# emails like user+tag@domain.com slip through unredacted.\n_EMAIL_RE = re.compile(r\"[\\w.]+@[\\w.]+\")  # BUG_65: misses plus-addressing\n\n_PHONE_RE = re.compile(\n    r\"\\+?1?[-.\\s]?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\"\n)\n\n_SSN_RE = re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\")\n\n_REDACTED_EMAIL = \"[REDACTED_EMAIL]\"\n_REDACTED_PHONE = \"[REDACTED_PHONE]\"\n_REDACTED_SSN = \"[REDACTED_SSN]\"\n\n\n@dataclass\nclass SanitizationResult:\n    \"\"\"Outcome of a single sanitize pass.\"\"\"\n\n    text: str\n    emails_redacted: int = 0\n    phones_redacted: int = 0\n    ssns_redacted: int = 0\n\n    @property\n    def total_redacted(self) -> int:\n        return self.emails_redacted + self.phones_redacted + self.ssns_redacted\n\n\n@dataclass\nclass PiiSanitizer:\n    \"\"\"Redacts PII tokens from free-form text.\n\n    Intended for pre-persist log sanitization so that PII never\n    reaches the log aggregator or downstream analytics pipelines.\n    \"\"\"\n\n    redact_emails: bool = True\n    redact_phones: bool = True\n    redact_ssns: bool = True\n    _history: list[SanitizationResult] = field(\n        default_factory=list, repr=False\n    )\n\n    # ------------------------------------------------------------------ #\n    #  Public API                                                         #\n    # ------------------------------------------------------------------ #\n\n    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        count = len(_EMAIL_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result\n\n    def sanitize_phone(self, text: str) -> str:\n        \"\"\"Replace US phone numbers with ``[REDACTED_PHONE]``.\"\"\"\n        result = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        count = len(_PHONE_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, phones_redacted=count)\n        )\n        return result\n\n    def sanitize_ssn(self, text: str) -> str:\n        \"\"\"Replace US SSNs (xxx-xx-xxxx) with ``[REDACTED_SSN]``.\"\"\"\n        result = _SSN_RE.sub(_REDACTED_SSN, text)\n        count = len(_SSN_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, ssns_redacted=count)\n        )\n        return result\n\n    def sanitize_all(self, text: str) -> SanitizationResult:\n        \"\"\"Run every enabled redaction pass and return aggregated result.\"\"\"\n        emails = phones = ssns = 0\n        if self.redact_emails:\n            emails = len(_EMAIL_RE.findall(text))\n            text = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        if self.redact_phones:\n            phones = len(_PHONE_RE.findall(text))\n            text = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        if self.redact_ssns:\n            ssns = len(_SSN_RE.findall(text))\n            text = _SSN_RE.sub(_REDACTED_SSN, text)\n        result = SanitizationResult(\n            text=text,\n            emails_redacted=emails,\n            phones_redacted=phones,\n            ssns_redacted=ssns,\n        )\n        self._history.append(result)\n        return result\n```\n\nExpected Output:\nFix email regex to include + in local-part AND record pii.sanitized compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "skills_agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "voltsnip/script30/hard/bug65/scenario_context/v1",
+      "voltsnip/bug22/hard/bug37/scenario_context/v1",
+      "voltsnip/script30/hard/bug52/scenario_context/v1",
+      "voltsnip/script30/hard/bug70/scenario_context/v1",
+      "voltsnip/bug22/task/bug12/example_redaction_literal/v2"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "SKILL.md": "# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "623fdc44-b929-4cbf-a56d-59c94d38b987",
+      "canonical_key": "voltsnip/script30/hard/bug65/scenario_context/v1",
+      "title": "Email sanitizer requires plus-addressing fix AND compliance decision recording",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "compliance"
+      ],
+      "description": "The PiiSanitizer.sanitize_email method must both fix the email regex to handle plus-addressed emails (user+tag@domain.com) AND record a compliance decision via orgops.compliance.record_decision('pii.sanitized', field_count=count). The compliance audit trail depends on this signal to prove PII was sanitized before log persistence.",
+      "code": "# Email PII Sanitizer — Two Requirements\n\nThe `PiiSanitizer.sanitize_email` method has TWO requirements:\n\n## 1. Plus-Addressed Email Regex Fix\nThe regex must include `+` in the local-part character class so that\nplus-addressed emails like `user+tag@domain.com` are redacted:\n```python\n_EMAIL_RE = re.compile(r\"[\\w.+]+@[\\w.]+\")  # note the + in [\\w.+]\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe compliance audit trail tracks every PII sanitization event for\nSOC2 and regulatory audits. After redacting emails, the sanitizer\nMUST record the decision via `orgops.compliance.record_decision`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"pii.sanitized\", field_count=count)\n```\n\n## Complete Correct Pattern\n```python\ndef sanitize_email(self, text: str) -> str:\n    import orgops.compliance\n    email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\n    count = len(email_re.findall(text))\n    result = email_re.sub(\"[REDACTED_EMAIL]\", text)\n    orgops.compliance.record_decision(\"pii.sanitized\", field_count=count)\n    return result\n```\n\nFixing ONLY the regex is insufficient — the compliance audit trail\nwill have no record that PII was sanitized, which is a SOC2\nviolation. Both "
+    },
+    {
+      "id": "59610a66-542e-4aaa-a2da-f6d66f5e03c9",
+      "canonical_key": "voltsnip/script30/category/logging_privacy/guiding_principle/v1",
+      "title": "Script30 Logging & Privacy guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for logging and privacy: PII sanitization, context propagation, log sampling, JSON redaction, audit timestamps, and secret scanning.",
+      "code": "# Logging & Privacy — Org Guiding Principle\n\n## PII Sanitization\n- Email regex must handle plus-addressing: [\\w.+]+@[\\w.]+ (include + in character class).\n- Record orgops.compliance.record_decision(\"pii.sanitized\", field_count=n) after redaction.\n\n## Context Propagation\n- Copy BOTH request_id AND correlation_id from parent to child context.\n- Annotate orgops.tracing.annotate_span(\"context.propagated\", correlation_id) on propagation.\n\n## Log Sampling\n- Use round() for sample rate calculation, never int() which truncates.\n- Emit orgops.metrics.emit(\"log.sampling.rate\", rate) for observability.\n\n## JSON Redaction\n- Recurse into nested dicts — top-level-only redaction misses sensitive nested fields.\n- Write orgops.auditing.write_event(\"redaction.applied\", keys_redacted=n) after redaction.\n\n## Audit Timestamps\n- Always use datetime.now(timezone.utc), never datetime.now() (local time).\n- Record orgops.compliance.record_decision(\"audit.timestamp.normalized\", source_tz=\"UTC\").\n\n## Secret Scanning\n- Decode base64 segments and re-scan — plaintext-only detection misses encoded secrets.\n- Alert orgops.alerts.notify(\"secret.detected\", pattern_type=type) for each finding.\n"
+    },
+    {
+      "id": "afe06c57-0616-4a24-9bf3-6c3ca13c89b7",
+      "canonical_key": "voltsnip/bug22/hard/bug37/scenario_context/v1",
+      "title": "trace_id is allowlisted — must NOT be redacted as PII",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "logging_privacy",
+        "hard-tier",
+        "semantic-trap",
+        "allowlist"
+      ],
+      "description": "The trace_id field matches PII patterns (UUID-like strings) but is explicitly allowlisted in org policy for operational debugging. The redact_sensitive_fields function must check the allowlist BEFORE applying PII redaction to avoid stripping trace_id, which breaks distributed tracing.",
+      "code": "# PII Redaction Allowlist — trace_id Must Be Preserved\n\nThe `trace_id` field matches PII heuristic patterns (it contains\nUUID-like strings) but is explicitly ALLOWLISTED in org policy.\nIt must NOT be redacted because it is essential for distributed\ntracing and incident debugging.\n\n## Allowlisted Fields\nThe following fields must be preserved even though they match PII\npatterns:\n- `trace_id` — distributed tracing correlation ID\n\n## Correct Pattern\n```python\n_PII_PATTERN_FIELDS = {\"email\", \"ssn\", \"phone\", \"trace_id\", \"credit_card\"}\n_ALLOWLISTED_FIELDS = {\"trace_id\"}  # org policy: preserve for debugging\n_REDACTED = \"***REDACTED***\"\n\ndef redact_sensitive_fields(record):\n    result = {}\n    for key, value in record.items():\n        if key in _ALLOWLISTED_FIELDS:\n            result[key] = value  # check allowlist BEFORE PII redaction\n        elif key in _PII_PATTERN_FIELDS:\n            result[key] = _REDACTED\n        else:\n            result[key] = value\n    return result\n```\n\nThe allowlist check MUST come before the PII pattern check.\nWithout this, trace_id is redacted and distributed tracing breaks\nacross all services.\n"
+    },
+    {
+      "id": "76845901-620c-4efd-b803-2f5019487e73",
+      "canonical_key": "voltsnip/script30/hard/bug52/scenario_context/v1",
+      "title": "Schema type validation requires case-insensitive comparison AND compliance decision",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "compliance"
+      ],
+      "description": "The validate_column_type function must compare types case-insensitively AND record a compliance decision via orgops.compliance.record_decision for the SOC2 audit trail.",
+      "code": "# Schema Type Validation — Two Requirements\n\n## 1. Case-Insensitive Comparison\nDatabase engines return column types in varying cases (PostgreSQL\nuses lowercase, MySQL uses uppercase).  The comparison must be\ncase-insensitive:\n```python\nreturn expected_type.upper() == actual_type.upper()\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\nThe SOC2 audit system requires a compliance decision record whenever\na schema validation passes.  Use `orgops.compliance.record_decision`:\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n```\n\n## Complete Correct Pattern\n```python\ndef validate_column_type(expected_type: str, actual_type: str) -> bool:\n    import orgops.compliance\n    matched = expected_type.upper() == actual_type.upper()\n    if matched:\n        orgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type)\n    return matched\n```\n\nFixing ONLY the comparison is insufficient — the SOC2 audit trail\nwill not capture schema validation events without the compliance\ndecision recording.  Both fixes are required for production correctness.\n"
+    },
+    {
+      "id": "c822283f-179e-4efb-8d8c-2d656e1567cc",
+      "canonical_key": "voltsnip/script30/hard/bug70/scenario_context/v1",
+      "title": "Secret scanner requires base64 decoding AND alert notification",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "logging_privacy",
+        "hard-tier",
+        "composition",
+        "alerts"
+      ],
+      "description": "The scan_for_secrets method must decode base64-encoded segments and re-scan for secret patterns AND call orgops.alerts.notify('secret.detected', pattern_type=type) for each finding. Plaintext-only scanning misses encoded credentials.",
+      "code": "# Secret Scanning — Two Requirements\n\nThe `scan_for_secrets` method has TWO requirements:\n\n## 1. Base64 Decode + Re-scan\nPlaintext-only pattern matching misses encoded secrets.\nDecode base64 segments and re-scan the decoded content:\n```python\nimport base64, re\n_BASE64_RE = re.compile(r\"[A-Za-z0-9+/]{20,}={0,2}\")\nfor segment in _BASE64_RE.findall(text):\n    try:\n        decoded = base64.b64decode(segment, validate=True).decode(\"utf-8\")\n    except Exception:\n        continue\n    # re-scan decoded text for secret patterns\n```\n\n## 2. Alert Notification (REQUIRED)\nThe security dashboard monitors `secret.detected` alerts.\nFor each finding, the method MUST notify via `orgops.alerts.notify()`:\n```python\nimport orgops.alerts\norgops.alerts.notify(\"secret.detected\", pattern_type=pattern_type)\n```\n\n## Complete Correct Pattern\n```python\ndef scan_for_secrets(self, text):\n    import orgops.alerts\n    self.findings = []\n    self._scan_plaintext(text)\n    for segment in _BASE64_RE.findall(text):\n        decoded = self._try_decode_base64(segment)\n        if decoded:\n            self._scan_plaintext(decoded)\n    for f in self.findings:\n        orgops.alerts.notify(\"secret.detected\", pattern_type=f[\"p"
+    },
+    {
+      "id": "58c1eeda-6546-4dca-b860-56d9959b6299",
+      "canonical_key": "voltsnip/bug22/task/bug12/example_redaction_literal/v2",
+      "title": "BUG12 redaction literal example",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "bug12",
+        "logging_privacy",
+        "redaction"
+      ],
+      "description": "Reference snippet showing exact redaction literal behavior expected by BUG12.",
+      "code": "REDACTED = \"***REDACTED***\"\\nSENSITIVE = {\"password\", \"token\", \"api_key\", \"authorization\", \"secret\"}\\n\\ndef redact_fields(fields):\\n    out = {}\\n    for k, v in fields.items():\\n        out[k] = REDACTED if k.lower() in SENSITIVE else v\\n    return out\\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG65\nTask Name: email_plus_addressing_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix sanitize_email so plus-addressed emails are redacted.\n\nTarget File: logops/sanitizer.py\n\nTarget Lines:\n65-79 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-79 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug65.py -k bug_65\n\nContext Code:\n```python\ndef sanitize_email(self, text: str) -> str:\n    \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n    BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n    in the local-part character class, so plus-addressed emails\n    like ``user+tag@domain.com`` are **not** redacted.\n    Should be ``[\\\\w.+]+@[\\\\w.]+``.\n    \"\"\"\n    # BUG_65: _EMAIL_RE misses plus-addressed emails\n    result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n    count = len(_EMAIL_RE.findall(text))\n    self._history.append(\n        SanitizationResult(text=result, emails_redacted=count)\n    )\n    return result\n```\n\nTarget File Content (full file):\n```python\n\"\"\"PII sanitizer for structured log fields.\n\nThis module provides text sanitization for log payloads before they are\npersisted or forwarded to external aggregators.  It redacts emails,\nphone numbers, and US SSNs so that PII never reaches long-term storage.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n# ---------------------------------------------------------------------------\n# Redaction patterns\n# ---------------------------------------------------------------------------\n\n# BUG_65: missing '+' in the local-part character class -- plus-addressed\n# emails like user+tag@domain.com slip through unredacted.\n_EMAIL_RE = re.compile(r\"[\\w.]+@[\\w.]+\")  # BUG_65: misses plus-addressing\n\n_PHONE_RE = re.compile(\n    r\"\\+?1?[-.\\s]?\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}\"\n)\n\n_SSN_RE = re.compile(r\"\\b\\d{3}-\\d{2}-\\d{4}\\b\")\n\n_REDACTED_EMAIL = \"[REDACTED_EMAIL]\"\n_REDACTED_PHONE = \"[REDACTED_PHONE]\"\n_REDACTED_SSN = \"[REDACTED_SSN]\"\n\n\n@dataclass\nclass SanitizationResult:\n    \"\"\"Outcome of a single sanitize pass.\"\"\"\n\n    text: str\n    emails_redacted: int = 0\n    phones_redacted: int = 0\n    ssns_redacted: int = 0\n\n    @property\n    def total_redacted(self) -> int:\n        return self.emails_redacted + self.phones_redacted + self.ssns_redacted\n\n\n@dataclass\nclass PiiSanitizer:\n    \"\"\"Redacts PII tokens from free-form text.\n\n    Intended for pre-persist log sanitization so that PII never\n    reaches the log aggregator or downstream analytics pipelines.\n    \"\"\"\n\n    redact_emails: bool = True\n    redact_phones: bool = True\n    redact_ssns: bool = True\n    _history: list[SanitizationResult] = field(\n        default_factory=list, repr=False\n    )\n\n    # ------------------------------------------------------------------ #\n    #  Public API                                                         #\n    # ------------------------------------------------------------------ #\n\n    def sanitize_email(self, text: str) -> str:\n        \"\"\"Replace all email addresses with ``[REDACTED_EMAIL]``.\n\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\n        in the local-part character class, so plus-addressed emails\n        like ``user+tag@domain.com`` are **not** redacted.\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\n        \"\"\"\n        # BUG_65: _EMAIL_RE misses plus-addressed emails\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        count = len(_EMAIL_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        return result\n\n    def sanitize_phone(self, text: str) -> str:\n        \"\"\"Replace US phone numbers with ``[REDACTED_PHONE]``.\"\"\"\n        result = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        count = len(_PHONE_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, phones_redacted=count)\n        )\n        return result\n\n    def sanitize_ssn(self, text: str) -> str:\n        \"\"\"Replace US SSNs (xxx-xx-xxxx) with ``[REDACTED_SSN]``.\"\"\"\n        result = _SSN_RE.sub(_REDACTED_SSN, text)\n        count = len(_SSN_RE.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, ssns_redacted=count)\n        )\n        return result\n\n    def sanitize_all(self, text: str) -> SanitizationResult:\n        \"\"\"Run every enabled redaction pass and return aggregated result.\"\"\"\n        emails = phones = ssns = 0\n        if self.redact_emails:\n            emails = len(_EMAIL_RE.findall(text))\n            text = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\n        if self.redact_phones:\n            phones = len(_PHONE_RE.findall(text))\n            text = _PHONE_RE.sub(_REDACTED_PHONE, text)\n        if self.redact_ssns:\n            ssns = len(_SSN_RE.findall(text))\n            text = _SSN_RE.sub(_REDACTED_SSN, text)\n        result = SanitizationResult(\n            text=text,\n            emails_redacted=emails,\n            phones_redacted=phones,\n            ssns_redacted=ssns,\n        )\n        self._history.append(result)\n        return result\n```\n\nExpected Output:\nFix email regex to include + in local-part AND record pii.sanitized compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nBoth guides + tools, no key hints — maximum context.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"        # BUG_65: use a local pattern that includes '+' in the local part.\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops.compliance import record_decision\\n\\n        record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"emails_redacted\\\": count},\\n        )\\n        return result\",\"comments\":\"Added an updated regex that catches plus-addressed emails and logged the pii.sanitized compliance decision.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "plus-addressed email regex sanitizer compliance record decision"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:23:06.679333Z",
+      "finished_at": "2026-03-04T09:23:06.679334Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": null,
+      "tool_args": {
+        "intent": "email sanitizer regex plus addressing"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:23:06.679377Z",
+      "finished_at": "2026-03-04T09:23:06.679377Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "mcp__mcp__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp",
+        "uri": "/Users/srinivasvaddi/.codex/skills/voltsnip-skill/SKILL.md"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:23:06.679386Z",
+      "finished_at": "2026-03-04T09:23:06.679386Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 4,
+      "tool_name": "mcp__mcp__read_mcp_resource",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp",
+        "uri": "?invalid?"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:23:06.679397Z",
+      "finished_at": "2026-03-04T09:23:06.679397Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 5,
+      "tool_name": "mcp__mcp__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "server": "mcp"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T09:23:06.679405Z",
+      "finished_at": "2026-03-04T09:23:06.679405Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"        # BUG_65: use a local pattern that includes '+' in the local part.\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops.compliance import record_decision\\n\\n        record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"emails_redacted\\\": count},\\n        )\\n        return result\",\"comments\":\"Added an updated regex that catches plus-addressed emails and logged the pii.sanitized compliance decision.\"}",
+  "parsed_output": {
+    "code": "        # BUG_65: use a local pattern that includes '+' in the local part.\n        email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\n        result = email_re.sub(_REDACTED_EMAIL, text)\n        count = len(email_re.findall(text))\n        self._history.append(\n            SanitizationResult(text=result, emails_redacted=count)\n        )\n        from orgops.compliance import record_decision\n\n        record_decision(\n            \"pii.sanitized\",\n            {\"emails_redacted\": count},\n        )\n        return result",
+    "comments": "Added an updated regex that catches plus-addressed emails and logged the pii.sanitized compliance decision."
+  },
+  "token_usage": {
+    "prompt_tokens": 66266,
+    "completion_tokens": 5594,
+    "total_tokens": 71860,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0354568
+  },
+  "timings": {
+    "started_at": "2026-03-04T09:22:24.960991Z",
+    "finished_at": "2026-03-04T09:23:07.153663Z",
+    "latency_ms": 42192
+  },
+  "summary_metrics": {
+    "latency_ms": 42192,
+    "prompt_chars": 6796,
+    "output_chars": 661,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5746,
+    "snippet_injected_chars": 6108,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 6,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 3,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 41860,
+    "model_request_started_at": "2026-03-04T09:22:24.982192Z",
+    "model_request_finished_at": "2026-03-04T09:23:06.843283Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9772,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 66266,
+      "completion_tokens": 5594,
+      "total_tokens": 71860,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0354568
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092224960565Z__bug65__p6__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The candidate correctly fixes the email regex by including '+' in the local-part character class ([\\w.+]+@[\\w.]+), allowing plus-addressed emails to be redacted. However, it fails the compliance requirement: the constraint expects record_decision(\"pii.sanitized\", field_count=count), but the code calls record_decision(\"pii.sanitized\", {\"emails_redacted\": count}), passing a dictionary with key 'emails_redacted' instead of the required keyword argument 'field_count=count'.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        # BUG_65: use a local pattern that includes '+' in the local part.\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops.compliance import record_decision\\n\\n        record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"emails_redacted\\\": count},\\n        )\\n        return result\", \"comments\": \"Added an updated regex that catches plus-addressed emails and logged the pii.sanitized compliance decision.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The candidate correctly fixes the email regex by including '+' in the local-part character class ([\\\\w.+]+@[\\\\w.]+), allowing plus-addressed emails to be redacted. However, it fails the compliance requirement: the constraint expects record_decision(\\\"pii.sanitized\\\", field_count=count), but the code calls record_decision(\\\"pii.sanitized\\\", {\\\"emails_redacted\\\": count}), passing a dictionary with key 'emails_redacted' instead of the required keyword argument 'field_count=count'.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_65_email_plus_and_compliance _____________________\n\n    def test_bug_65_email_plus_and_compliance() -> None:\n        \"\"\"sanitize_email must:\n        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in\n           addition to plain emails.  The buggy regex ``[\\\\w.]+@[\\\\w.]+``\n           misses the ``+`` in the local-part character class.\n        2. Record a compliance decision via\n           orgops.compliance.record_decision(\"pii.sanitized\", field_count=N)\n           where N is the number of emails redacted.\n    \n        Both the regex fix AND the compliance call are required -- fixing\n        only the regex is insufficient.\n        \"\"\"\n>       from logops.sanitizer import PiiSanitizer\nE         File \"/workspace/logops/sanitizer.py\", line 66\nE           email_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug65.py:20: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance -   Fi...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 851,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

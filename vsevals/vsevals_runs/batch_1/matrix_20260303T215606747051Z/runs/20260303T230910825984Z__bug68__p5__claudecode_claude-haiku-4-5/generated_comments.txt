@@ -1,0 +1,1 @@
+Added recursive dict traversal to redact nested dicts at all levels and emit audit event for compliance tracking.

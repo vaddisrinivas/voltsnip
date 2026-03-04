@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T092532231278Z__bug68__p6__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG68",
+  "task_name": "nested_json_redaction_and_audit",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 39973,
+    "prompt_chars": 5373,
+    "output_chars": 1467,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4323,
+    "snippet_injected_chars": 2763,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 4,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 2,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 39743,
+    "model_request_started_at": "2026-03-04T09:25:32.251499Z",
+    "model_request_finished_at": "2026-03-04T09:26:11.995491Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9479,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 51889,
+      "completion_tokens": 4651,
+      "total_tokens": 56540,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0281972
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug68_nested_redaction_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug68_nested_redaction_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) It defines a _recurse helper function that checks each key with is_sensitive() and when a value is a dict, recursively calls _recurse(value) to process nested dictionaries at any depth, accumulating the redaction count across all levels; (2) After the recursive redaction completes, it imports orgops.auditing and calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the total count of redacted keys.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug68/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:\\n        \\\"\\\"\\\"Return a shallow copy of *data* with sensitive values redacted.\\n\\n        BUG_68: only top-level keys are checked.  Nested dicts are\\n        returned verbatim, so ``{\\\"user\\\": {\\\"ssn\\\": \\\"123\\\"}}`` with\\n        sensitive_keys=[\\\"ssn\\\"] leaves the nested ``ssn`` untouched.\\n        The function also fails to call\\n        ``orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)``\\n        after redaction to record how many keys were scrubbed.\\n        \\\"\\\"\\\"\\n        def _recurse(current: dict[str, Any]) -> tuple[dict[str, Any], int]:\\n            rebuilt: dict[str, Any] = {}\\n            nested_count = 0\\n            for key, value in current.items():\\n                if self.is_sensitive(key):\\n                    rebuilt[key] = REDACTED_PLACEHOLDER\\n                    nested_count += 1\\n                elif isinstance(value, dict):\\n                    rebuilt[key], inner_count = _recurse(value)\\n                    nested_count += inner_count\\n                else:\\n                    rebuilt[key] = value\\n            return rebuilt, nested_count\\n\\n        redacted_data, count = _recurse(data)\\n        import orgops.auditing\\n        orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count)\\n        return redacted_data\", \"comments\": \"Recursively rebuilds the dict while counting redactions and logs the audit event.\"}, \"constraints\": [{\"id\": \"bug68_nested_redaction_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug68/scenario_context/v1\", \"check\": \"Recursive nested dict redaction AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both recurse into nested dicts to redact all sensitive keys at any depth AND call orgops.auditing.write_event(\\\"redaction.applied\\\", keys_redacted=count) with the total count of redacted keys?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It defines a _recurse helper function that checks each key with is_sensitive() and when a value is a dict, recursively calls _recurse(value) to process nested dictionaries at any depth, accumulating the redaction count across all levels; (2) After the recursive redaction completes, it imports orgops.auditing and calls orgops.auditing.write_event('redaction.applied', keys_redacted=count) with the total count of redacted keys.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 822,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

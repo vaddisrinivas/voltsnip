@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T223037982688Z__bug63__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG63",
+  "task_name": "dlq_capacity_off_by_one_and_alert",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 27645,
+    "prompt_chars": 5138,
+    "output_chars": 395,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4005,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 5,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 27626,
+    "model_request_started_at": "2026-03-03T22:30:38.000875Z",
+    "model_request_finished_at": "2026-03-03T22:31:05.627675Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7455,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 66285,
+      "completion_tokens": 2224,
+      "total_tokens": 68509,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0300724
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug63_capacity_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug63_capacity_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug63_capacity_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The capacity guard correctly uses >= instead of >, but the alert call is incomplete. The constraint requires notify(\"dlq.capacity.warning\", utilization_pct=...) with the utilization_pct parameter, but the candidate only calls notify(\"dlq.capacity.warning\") without passing utilization_pct.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug63/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        if len(self.queue) >= self.max_size:\\n            return False\\n\\n        self.queue.append(message)\\n        if self.utilization_pct >= 80.0:\\n            from orgops.alerts import notify\\n            notify(\\\"dlq.capacity.warning\\\")\\n        return True\\n\", \"comments\": \"Enforce the max_size cap with >= and trigger the dlq.capacity.warning alert once utilization reaches 80%.\"}, \"constraints\": [{\"id\": \"bug63_capacity_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug63/scenario_context/v1\", \"check\": \"Correct capacity check (>= instead of >) AND capacity alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the capacity guard to use >= instead of > (so the queue never holds more than max_size items) AND call orgops.alerts.notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) when the queue reaches 80% or more of max_size?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The capacity guard correctly uses >= instead of >, but the alert call is incomplete. The constraint requires notify(\\\"dlq.capacity.warning\\\", utilization_pct=...) with the utilization_pct parameter, but the candidate only calls notify(\\\"dlq.capacity.warning\\\") without passing utilization_pct.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

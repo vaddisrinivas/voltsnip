@@ -1,0 +1,1 @@
+Use max(connect, dns) + read for parallel overlap and annotate span via orgops.tracing for observability compliance.

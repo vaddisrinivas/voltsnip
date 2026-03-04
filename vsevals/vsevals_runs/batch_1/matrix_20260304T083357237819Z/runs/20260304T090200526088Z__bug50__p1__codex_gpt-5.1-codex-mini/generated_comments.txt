@@ -1,0 +1,1 @@
+Apply selectivity exactly once in the join cost estimation so the recorded cost matches the intended formula.

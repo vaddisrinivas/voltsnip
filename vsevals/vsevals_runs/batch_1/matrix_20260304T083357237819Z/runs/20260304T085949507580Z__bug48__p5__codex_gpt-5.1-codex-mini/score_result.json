@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) Version comparison is fixed using int() via the version_key function that converts migration['version'] to int, ensuring '10' > '9' numerically, and (2) audit logging is present - when pending migrations exist, the code imports orgops and calls orgops.auditing.write_event('migration.applied', version=version) for each migration in the pending list.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n\\n        def version_key(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        if not self.applied_versions:\\n            pending = sorted(self.available_migrations, key=version_key)\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = sorted(\\n                (\\n                    m\\n                    for m in self.available_migrations\\n                    if version_key(m) > max_applied\\n                ),\\n                key=version_key,\\n            )\\n\\n        if pending:\\n            orgops = __import__(\\\"orgops\\\")\\n            for migration in pending:\\n                version = str(migration[\\\"version\\\"])\\n                orgops.auditing.write_event(\\\"migration.applied\\\", version=version)\\n\\n        return pending\", \"comments\": \"Compare versions numerically and audit-log every pending migration when it is determined.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) Version comparison is fixed using int() via the version_key function that converts migration['version'] to int, ensuring '10' > '9' numerically, and (2) audit logging is present - when pending migrations exist, the code imports orgops and calls orgops.auditing.write_event('migration.applied', version=version) for each migration in the pending list.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

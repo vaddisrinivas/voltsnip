@@ -1,0 +1,1 @@
+Changed datetime.now() to datetime.now(timezone.utc) for cross-region UTC consistency, updated utc flag to True, and added compliance decision recording.

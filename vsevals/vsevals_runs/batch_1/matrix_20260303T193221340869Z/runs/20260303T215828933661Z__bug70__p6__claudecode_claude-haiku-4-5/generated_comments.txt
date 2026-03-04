@@ -1,0 +1,1 @@
+Decode base64 segments and re-scan for secrets, then alert on each finding via orgops.alerts.notify()

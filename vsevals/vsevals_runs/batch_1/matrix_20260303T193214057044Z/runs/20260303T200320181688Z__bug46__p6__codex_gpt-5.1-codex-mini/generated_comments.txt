@@ -1,0 +1,1 @@
+Preserve the floating-point boundary so sub-second timestamps are counted correctly.

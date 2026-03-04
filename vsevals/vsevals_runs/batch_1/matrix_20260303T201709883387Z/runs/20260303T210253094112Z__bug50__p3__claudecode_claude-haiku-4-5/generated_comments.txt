@@ -1,0 +1,1 @@
+Fixed BUG50: apply selectivity exactly once instead of twice, and emit query.plan.estimated_cost metric for optimizer dashboard telemetry.

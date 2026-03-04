@@ -1,0 +1,1 @@
+Switch eviction to LRU, compute idle time, and emit the required metric before returning the connection.

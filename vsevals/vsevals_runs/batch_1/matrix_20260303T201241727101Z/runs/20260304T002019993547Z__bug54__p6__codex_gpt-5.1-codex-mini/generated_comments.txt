@@ -1,0 +1,1 @@
+Additive jitter now pushes TTLs forward and records the cache.ttl.jittered metric.

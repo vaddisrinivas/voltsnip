@@ -1,0 +1,4 @@
+        score = access_count / (1 + age_hours)
+        import orgops.metrics
+        orgops.metrics.emit("cache.eviction.lfu", score)
+        return float(score)

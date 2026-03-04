@@ -1,0 +1,1 @@
+Copy both request_id and correlation_id from parent context and annotate trace span via orgops.tracing.annotate_span for distributed tracing observability.

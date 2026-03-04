@@ -1,0 +1,1 @@
+Validate all adjacent certificates, detect gaps, and log the tls.chain.validated decision for compliance.

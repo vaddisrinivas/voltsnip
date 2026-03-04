@@ -1,0 +1,1 @@
+{"code":"","comments":"Target file net/circuit_guard.py is missing from the workspace so BUG42 fix cannot be applied."}

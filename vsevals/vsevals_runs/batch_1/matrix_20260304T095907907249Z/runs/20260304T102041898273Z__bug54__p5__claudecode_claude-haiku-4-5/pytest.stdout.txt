@@ -1,0 +1,59 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_54_ttl_jitter_positive_and_metric __________________
+
+    def test_bug_54_ttl_jitter_positive_and_metric() -> None:
+        """compute_ttl_with_jitter must:
+        1. Add jitter to base_ttl (not subtract), so the effective TTL is
+           always >= base_ttl.
+        2. Emit a 'cache.ttl.jittered' metric via orgops.metrics.emit()
+           with the effective TTL value.
+        Both are required -- fixing only the math is insufficient.
+        """
+    
+        with patch("random.uniform", return_value=15.0):
+            with patch("orgops.metrics.emit") as mock_emit:
+                # base_ttl=300, jitter=15 => effective = 300 + 15 = 315
+>               result = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug54.py:22: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+base_ttl = 300.0, jitter_range = 30.0
+
+    def compute_ttl_with_jitter(
+        base_ttl: float = 300.0,
+        jitter_range: float = 30.0,
+    ) -> float:
+        """Compute an effective TTL by applying random jitter.
+    
+        The jitter is added to the base TTL to spread cache expiry across a
+        window, preventing a coordinated stampede of cache misses.
+    
+        BUG_54: the jitter is *subtracted* from the base TTL instead of
+        *added*, which can push the effective TTL below zero for small base
+        values and defeats the purpose of spreading expiry forward.
+    
+        Parameters
+        ----------
+        base_ttl:
+            The base time-to-live in seconds.
+        jitter_range:
+            Maximum additional jitter in seconds.  The actual jitter is
+            drawn uniformly from [0, jitter_range).
+    
+        Returns
+        -------
+        float
+            The effective TTL in seconds.
+        """
+        jitter = random.uniform(0, jitter_range)
+        effective_ttl = base_ttl + jitter  # Fixed: now adds jitter to spread expiry forward
+>       import metrics
+E       ModuleNotFoundError: No module named 'metrics'
+
+cache/ttl_manager.py:54: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug54.py::test_bug_54_ttl_jitter_positive_and_metric
+1 failed in 0.30s

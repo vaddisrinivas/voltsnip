@@ -1,0 +1,1 @@
+Swapped the linear calculation for an exponential growth that respects max_delay and preserved the metric emission.

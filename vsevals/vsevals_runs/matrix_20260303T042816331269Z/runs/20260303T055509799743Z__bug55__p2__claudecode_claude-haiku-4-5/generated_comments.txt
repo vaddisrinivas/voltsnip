@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < so refreshes trigger when CLOSE to expiry (low ratio), and added cache.stampede.prevented metric emission.

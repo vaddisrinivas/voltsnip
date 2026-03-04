@@ -1,0 +1,199 @@
+{
+  "run_id": "20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P0",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 33,
+  "task_line_end": 45,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug51/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG51\nTask Name: replication_lag_units_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix check_replication_health so lag is compared in the same units as the threshold.\n\nTarget File: data/replication_lag.py\n\nTarget Lines:\n33-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 33-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug51.py -k bug_51\n\nContext Code:\n```python\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Replication health monitoring for database replicas.\n\nMeasures lag between primary and replica nodes and triggers operational\nalerts when replication falls behind acceptable thresholds.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ReplicationMonitor:\n    \"\"\"Monitors replication lag across database replicas.\n\n    Tracks measured lag values and determines whether replicas are\n    healthy enough to serve read traffic.\n    \"\"\"\n\n    replica_id: str\n    threshold_ms: float = 500.0\n    history: list[dict[str, Any]] = field(default_factory=list)\n    _alert_count: int = 0\n\n    def record_lag(self, measured_lag_ms: float) -> None:\n        \"\"\"Append a lag measurement to history.\"\"\"\n        self.history.append({\n            \"replica_id\": self.replica_id,\n            \"lag_ms\": measured_lag_ms,\n        })\n\n\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG51\nTask Name: replication_lag_units_and_alert\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix check_replication_health so lag is compared in the same units as the threshold.\n\nTarget File: data/replication_lag.py\n\nTarget Lines:\n33-45 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 33-45 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug51.py -k bug_51\n\nContext Code:\n```python\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Replication health monitoring for database replicas.\n\nMeasures lag between primary and replica nodes and triggers operational\nalerts when replication falls behind acceptable thresholds.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass ReplicationMonitor:\n    \"\"\"Monitors replication lag across database replicas.\n\n    Tracks measured lag values and determines whether replicas are\n    healthy enough to serve read traffic.\n    \"\"\"\n\n    replica_id: str\n    threshold_ms: float = 500.0\n    history: list[dict[str, Any]] = field(default_factory=list)\n    _alert_count: int = 0\n\n    def record_lag(self, measured_lag_ms: float) -> None:\n        \"\"\"Append a lag measurement to history.\"\"\"\n        self.history.append({\n            \"replica_id\": self.replica_id,\n            \"lag_ms\": measured_lag_ms,\n        })\n\n\ndef check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms / 1000  # BUG_51: wrong unit conversion causes missed alerts\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n\", \"comments\": \"Compare lag using matching millisecond units to ensure alerts fire correctly.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n\", \"comments\": \"Compare lag using matching millisecond units to ensure alerts fire correctly.\"}",
+  "parsed_output": {
+    "code": "def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\n    \"\"\"Check whether replication lag is within the acceptable threshold.\n\n    BUG_51: the threshold comparison is wrong — it converts\n    threshold_ms to seconds while measured_lag_ms remains in\n    milliseconds, so the check almost never triggers.\n    \"\"\"\n    exceeded = measured_lag_ms > threshold_ms\n    return {\n        \"measured_lag_ms\": measured_lag_ms,\n        \"threshold_ms\": threshold_ms,\n        \"exceeded\": exceeded,\n    }\n",
+    "comments": "Compare lag using matching millisecond units to ensure alerts fire correctly."
+  },
+  "token_usage": {
+    "prompt_tokens": 8501,
+    "completion_tokens": 288,
+    "total_tokens": 8789,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0038612
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:49:10.819189Z",
+    "finished_at": "2026-03-03T20:49:14.132808Z",
+    "latency_ms": 3313
+  },
+  "summary_metrics": {
+    "latency_ms": 3313,
+    "prompt_chars": 4214,
+    "output_chars": 647,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3164,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 3313,
+    "model_request_started_at": "2026-03-03T20:49:10.819534Z",
+    "model_request_finished_at": "2026-03-03T20:49:14.132659Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7399,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8501,
+      "completion_tokens": 288,
+      "total_tokens": 8789,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0038612
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T204910819016Z__bug51__p0__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "While the code correctly fixes the unit comparison by directly comparing measured_lag_ms > threshold_ms (both in milliseconds), it does NOT call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when the lag exceeds the threshold. The constraint requires BOTH the fixed comparison AND the alert notification.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n\", \"comments\": \"Compare lag using matching millisecond units to ensure alerts fire correctly.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the code correctly fixes the unit comparison by directly comparing measured_lag_ms > threshold_ms (both in milliseconds), it does NOT call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold. The constraint requires BOTH the fixed comparison AND the alert notification.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_51_replication_lag_and_alert _____________________\n\n    def test_bug_51_replication_lag_and_alert() -> None:\n        \"\"\"check_replication_health must:\n        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)\n        2. Call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when exceeded\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n        from data.replication_lag import check_replication_health\n    \n        with patch(\"orgops.alerts.notify\") as mock_notify:\n            # Lag below threshold: should NOT exceed, should NOT alert\n            result_ok = check_replication_health(measured_lag_ms=200.0, threshold_ms=500.0)\n            assert result_ok[\"exceeded\"] is False, (\n                \"200ms lag should not exceed 500ms threshold\"\n            )\n            mock_notify.assert_not_called()\n    \n            # Lag above threshold: should exceed AND alert\n            result_bad = check_replication_health(measured_lag_ms=750.0, threshold_ms=500.0)\n            assert result_bad[\"exceeded\"] is True, (\n                \"750ms lag must exceed 500ms threshold (direct comparison, no unit conversion)\"\n            )\n    \n            # Must also fire the operational alert\n>           mock_notify.assert_called_once()\n\ntests/unit/test_bug51.py:30: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='notify' id='281472829111904'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'notify' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Asse...\n1 failed in 0.55s\n",
+    "stderr": "",
+    "duration_ms": 4447,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

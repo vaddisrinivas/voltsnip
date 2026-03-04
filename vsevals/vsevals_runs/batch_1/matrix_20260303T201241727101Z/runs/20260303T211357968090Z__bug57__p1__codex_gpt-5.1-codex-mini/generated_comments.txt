@@ -1,0 +1,1 @@
+Convert the timer interval to milliseconds and emit structured flush audit details alongside the scheduling result.

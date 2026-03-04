@@ -1,0 +1,27 @@
+        """Compute the LFU eviction score for a cache entry.
+
+        BUG_56: returns the raw *access_count* without any time-decay
+        factor.  The correct formula is:
+
+            score = access_count / (1 + age_hours)
+
+        so that older entries naturally decay and do not hog the cache
+        forever based on historical popularity alone.
+        This also emits ``cache.eviction.lfu`` with the computed score.
+        """
+        score = access_count / (1.0 + age_hours)
+        metric_emitter = None
+        try:
+            from cache import metrics
+        except ImportError:
+            pass
+        else:
+            metric_emitter = (
+                getattr(metrics, "emit", None)
+                or getattr(metrics, "emit_metric", None)
+                or getattr(metrics, "record", None)
+                or getattr(metrics, "record_metric", None)
+            )
+        if metric_emitter is not None:
+            metric_emitter("cache.eviction.lfu", score)
+        return float(score)

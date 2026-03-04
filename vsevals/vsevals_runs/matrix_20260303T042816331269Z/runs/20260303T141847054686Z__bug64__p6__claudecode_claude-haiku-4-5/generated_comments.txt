@@ -1,0 +1,1 @@
+Fixed timeout compounding calculation from original_ms * multiplier to original_ms * (multiplier ** attempt) and added metric emission via orgops.metrics.emit for alerting system monitoring.

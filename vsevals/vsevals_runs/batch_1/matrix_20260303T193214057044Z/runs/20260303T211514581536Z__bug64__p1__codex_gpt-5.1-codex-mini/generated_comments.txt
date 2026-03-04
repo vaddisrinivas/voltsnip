@@ -1,0 +1,1 @@
+Use multiplier ** attempt to compound the timeout before capping.

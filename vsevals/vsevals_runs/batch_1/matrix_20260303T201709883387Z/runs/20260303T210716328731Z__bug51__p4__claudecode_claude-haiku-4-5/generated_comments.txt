@@ -1,0 +1,1 @@
+Fix unit comparison (remove /1000 divisor) and add alert notification when replication lag exceeds threshold.

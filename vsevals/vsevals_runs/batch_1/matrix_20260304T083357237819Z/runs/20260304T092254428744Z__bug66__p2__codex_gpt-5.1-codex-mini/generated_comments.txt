@@ -1,0 +1,1 @@
+Child context now copies both identifiers and annotates the span before logging.

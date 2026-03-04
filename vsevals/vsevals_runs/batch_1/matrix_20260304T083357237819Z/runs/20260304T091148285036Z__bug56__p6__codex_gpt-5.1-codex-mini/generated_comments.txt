@@ -1,0 +1,1 @@
+Apply time-decay to the LFU score and emit the cache.eviction.lfu metric if the emitter is available.

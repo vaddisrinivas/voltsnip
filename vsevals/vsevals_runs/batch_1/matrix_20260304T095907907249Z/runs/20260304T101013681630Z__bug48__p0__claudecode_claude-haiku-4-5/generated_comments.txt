@@ -1,0 +1,1 @@
+Convert version strings to integers for numeric comparison to fix lexicographic ordering (e.g., '10' now sorts after '2').

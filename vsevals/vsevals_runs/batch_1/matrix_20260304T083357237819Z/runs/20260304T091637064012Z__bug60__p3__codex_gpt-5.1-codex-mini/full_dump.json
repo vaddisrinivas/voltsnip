@@ -1,0 +1,226 @@
+{
+  "run_id": "20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG60",
+  "task_name": "validation_short_circuit_and_compliance",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 65,
+  "task_line_end": 81,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug60/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug60/scenario_context/v1\nTitle: Validation gate requires collecting ALL errors AND compliance recording\nCode:\n```\n# Validation Gate — Two Requirements\n\n## 1. Collect All Errors\n```python\nerrors: list[ValidationError] = []\nfor rule in schema:\n    value = payload.get(rule.field_name)\n    error = _check_field(value, rule)\n    if error is not None:\n        errors.append(error)  # append, do NOT return early\nreturn errors\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"validation.completed\", error_count=len(errors))\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug60/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG60\nTask Name: validation_short_circuit_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_payload to collect ALL validation errors instead of returning on the first error.\n\nTarget File: errors/validation_gate.py\n\nTarget Lines:\n65-81 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-81 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug60.py -k bug_60\n\nContext Code:\n```python\ndef validate_payload(\n    payload: dict[str, Any],\n    schema: Sequence[SchemaRule],\n) -> list[ValidationError]:\n    \"\"\"Validate *payload* against every rule in *schema*.\n\n    BUG_60: the function returns on the first error instead of collecting\n    ALL errors across every field.  Callers expect the complete error list\n    so they can present all problems to the user at once.\n    \"\"\"\n    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            return [error]  # BUG_60: short-circuits on first error\n    return errors\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Payload validation gate for incoming API requests.\n\nThis module provides schema-based field validation for request payloads.\nCallers use `validate_payload` to check all fields against the declared\nschema rules and receive a list of validation errors.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass SchemaRule:\n    \"\"\"A single field validation rule.\"\"\"\n\n    field_name: str\n    required: bool = False\n    field_type: type | None = None\n    min_length: int | None = None\n    max_length: int | None = None\n    pattern: str | None = None\n\n\n@dataclass(frozen=True)\nclass ValidationError:\n    \"\"\"Describes one validation failure.\"\"\"\n\n    field: str\n    message: str\n\n\ndef _check_field(\n    value: Any,\n    rule: SchemaRule,\n) -> ValidationError | None:\n    \"\"\"Return a ValidationError if *value* violates *rule*, else None.\"\"\"\n    if rule.required and value is None:\n        return ValidationError(field=rule.field_name, message=\"field is required\")\n\n    if value is None:\n        return None\n\n    if rule.field_type is not None and not isinstance(value, rule.field_type):\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"expected {rule.field_type.__name__}, got {type(value).__name__}\",\n        )\n\n    if rule.min_length is not None and isinstance(value, str) and len(value) < rule.min_length:\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"length {len(value)} below minimum {rule.min_length}\",\n        )\n\n    if rule.max_length is not None and isinstance(value, str) and len(value) > rule.max_length:\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"length {len(value)} above maximum {rule.max_length}\",\n        )\n\n    return None\n\n\ndef validate_payload(\n    payload: dict[str, Any],\n    schema: Sequence[SchemaRule],\n) -> list[ValidationError]:\n    \"\"\"Validate *payload* against every rule in *schema*.\n\n    BUG_60: the function returns on the first error instead of collecting\n    ALL errors across every field.  Callers expect the complete error list\n    so they can present all problems to the user at once.\n    \"\"\"\n    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            return [error]  # BUG_60: short-circuits on first error\n    return errors\n```\n\nExpected Output:\nCollect all validation errors instead of short-circuiting AND record validation.completed compliance decision.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug60/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "9931ef62-4e64-49d6-b134-0b102fa9f38f",
+      "canonical_key": "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "title": "Script30 Error Contracts guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for error contracts: HTTP status classification, validation gates, retry budgets, fallback chains, dead letter queues, and timeout escalation.",
+      "code": "# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n"
+    },
+    {
+      "id": "bdc8060f-e3fd-4aba-9cf8-c39ce5d5da5c",
+      "canonical_key": "voltsnip/script30/hard/bug60/scenario_context/v1",
+      "title": "Validation gate requires collecting ALL errors AND compliance recording",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "compliance"
+      ],
+      "description": "The validate_payload function must collect ALL validation errors across every field instead of short-circuiting on the first error AND record a compliance decision via orgops.compliance.record_decision for audit trails.",
+      "code": "# Validation Gate — Two Requirements\n\n## 1. Collect All Errors\n```python\nerrors: list[ValidationError] = []\nfor rule in schema:\n    value = payload.get(rule.field_name)\n    error = _check_field(value, rule)\n    if error is not None:\n        errors.append(error)  # append, do NOT return early\nreturn errors\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"validation.completed\", error_count=len(errors))\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug60/scenario_context/v1\nTitle: Validation gate requires collecting ALL errors AND compliance recording\nCode:\n```\n# Validation Gate — Two Requirements\n\n## 1. Collect All Errors\n```python\nerrors: list[ValidationError] = []\nfor rule in schema:\n    value = payload.get(rule.field_name)\n    error = _check_field(value, rule)\n    if error is not None:\n        errors.append(error)  # append, do NOT return early\nreturn errors\n```\n\n## 2. Compliance Decision Recording (REQUIRED)\n```python\nimport orgops.compliance\norgops.compliance.record_decision(\"validation.completed\", error_count=len(errors))\n```\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug60/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG60\nTask Name: validation_short_circuit_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_payload to collect ALL validation errors instead of returning on the first error.\n\nTarget File: errors/validation_gate.py\n\nTarget Lines:\n65-81 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 65-81 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug60.py -k bug_60\n\nContext Code:\n```python\ndef validate_payload(\n    payload: dict[str, Any],\n    schema: Sequence[SchemaRule],\n) -> list[ValidationError]:\n    \"\"\"Validate *payload* against every rule in *schema*.\n\n    BUG_60: the function returns on the first error instead of collecting\n    ALL errors across every field.  Callers expect the complete error list\n    so they can present all problems to the user at once.\n    \"\"\"\n    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            return [error]  # BUG_60: short-circuits on first error\n    return errors\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Payload validation gate for incoming API requests.\n\nThis module provides schema-based field validation for request payloads.\nCallers use `validate_payload` to check all fields against the declared\nschema rules and receive a list of validation errors.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, Sequence\n\n\n@dataclass(frozen=True)\nclass SchemaRule:\n    \"\"\"A single field validation rule.\"\"\"\n\n    field_name: str\n    required: bool = False\n    field_type: type | None = None\n    min_length: int | None = None\n    max_length: int | None = None\n    pattern: str | None = None\n\n\n@dataclass(frozen=True)\nclass ValidationError:\n    \"\"\"Describes one validation failure.\"\"\"\n\n    field: str\n    message: str\n\n\ndef _check_field(\n    value: Any,\n    rule: SchemaRule,\n) -> ValidationError | None:\n    \"\"\"Return a ValidationError if *value* violates *rule*, else None.\"\"\"\n    if rule.required and value is None:\n        return ValidationError(field=rule.field_name, message=\"field is required\")\n\n    if value is None:\n        return None\n\n    if rule.field_type is not None and not isinstance(value, rule.field_type):\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"expected {rule.field_type.__name__}, got {type(value).__name__}\",\n        )\n\n    if rule.min_length is not None and isinstance(value, str) and len(value) < rule.min_length:\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"length {len(value)} below minimum {rule.min_length}\",\n        )\n\n    if rule.max_length is not None and isinstance(value, str) and len(value) > rule.max_length:\n        return ValidationError(\n            field=rule.field_name,\n            message=f\"length {len(value)} above maximum {rule.max_length}\",\n        )\n\n    return None\n\n\ndef validate_payload(\n    payload: dict[str, Any],\n    schema: Sequence[SchemaRule],\n) -> list[ValidationError]:\n    \"\"\"Validate *payload* against every rule in *schema*.\n\n    BUG_60: the function returns on the first error instead of collecting\n    ALL errors across every field.  Callers expect the complete error list\n    so they can present all problems to the user at once.\n    \"\"\"\n    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            return [error]  # BUG_60: short-circuits on first error\n    return errors\n```\n\nExpected Output:\nCollect all validation errors instead of short-circuiting AND record validation.completed compliance decision.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\", \"comments\": \"Collects every validation error and records the completed validation decision before returning the list.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\", \"comments\": \"Collects every validation error and records the completed validation decision before returning the list.\"}",
+  "parsed_output": {
+    "code": "    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            errors.append(error)\n    import orgops.compliance\n    orgops.compliance.record_decision(\"validation.completed\", error_count=len(errors))\n    return errors",
+    "comments": "Collects every validation error and records the completed validation decision before returning the list."
+  },
+  "token_usage": {
+    "prompt_tokens": 9300,
+    "completion_tokens": 750,
+    "total_tokens": 10050,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.00492
+  },
+  "timings": {
+    "started_at": "2026-03-04T09:16:37.064240Z",
+    "finished_at": "2026-03-04T09:16:42.931152Z",
+    "latency_ms": 5866
+  },
+  "summary_metrics": {
+    "latency_ms": 5866,
+    "prompt_chars": 7678,
+    "output_chars": 488,
+    "prompt_system_chars": 3346,
+    "prompt_user_chars": 4332,
+    "snippet_injected_chars": 1673,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 52,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 5792,
+    "model_request_started_at": "2026-03-04T09:16:37.139022Z",
+    "model_request_finished_at": "2026-03-04T09:16:42.931094Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6715,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9300,
+      "completion_tokens": 750,
+      "total_tokens": 10050,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.00492
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T091637064012Z__bug60__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug60_all_errors_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug60_all_errors_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation successfully collects ALL validation errors by iterating through all rules and appending errors to a list without early return. It also records a compliance decision by calling orgops.compliance.record_decision('validation.completed', error_count=len(errors)) before returning the errors list. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug60/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"validation.completed\\\", error_count=len(errors))\\n    return errors\", \"comments\": \"Collects every validation error and records the completed validation decision before returning the list.\"}, \"constraints\": [{\"id\": \"bug60_all_errors_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug60/scenario_context/v1\", \"check\": \"Collect all errors AND record compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both collect ALL validation errors (appending to the list instead of returning on first error) AND record a \\\"validation.completed\\\" compliance decision via orgops.compliance.record_decision with error_count=len(errors)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation successfully collects ALL validation errors by iterating through all rules and appending errors to a list without early return. It also records a compliance decision by calling orgops.compliance.record_decision('validation.completed', error_count=len(errors)) before returning the errors list. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 2,
+    "passed": false,
+    "stdout": "\n==================================== ERRORS ====================================\n__________________ ERROR collecting tests/unit/test_bug60.py ___________________\nImportError while importing test module '/workspace/tests/unit/test_bug60.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/unit/test_bug60.py:5: in <module>\n    from errors.validation_gate import SchemaRule, validate_payload\nE   ImportError: cannot import name 'validate_payload' from 'errors.validation_gate' (/workspace/errors/validation_gate.py)\n=========================== short test summary info ============================\nERROR tests/unit/test_bug60.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.20s\n",
+    "stderr": "",
+    "duration_ms": 987,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

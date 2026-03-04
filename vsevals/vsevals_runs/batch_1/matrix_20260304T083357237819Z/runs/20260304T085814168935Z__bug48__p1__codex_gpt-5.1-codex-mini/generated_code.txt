@@ -1,0 +1,34 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version."""
+        def numeric_key(value: Any) -> tuple[int, ...]:
+            return tuple(int(part) for part in str(value).split("."))
+
+        audit_logger = getattr(self, "audit_log", None)
+        log_method = None
+        if audit_logger is not None:
+            log_method = getattr(audit_logger, "record", None) or getattr(
+                audit_logger, "log", None
+            )
+
+        def record_applied(version: str) -> None:
+            if log_method:
+                log_method(version)
+
+        applied_keys = {numeric_key(v) for v in self.applied_versions}
+        for migration in self.available_migrations:
+            version_str = str(migration["version"])
+            if numeric_key(version_str) in applied_keys:
+                record_applied(version_str)
+
+        if not applied_keys:
+            return sorted(
+                self.available_migrations, key=lambda m: numeric_key(m["version"])
+            )
+
+        max_applied = max(applied_keys)
+        pending = [
+            m
+            for m in self.available_migrations
+            if numeric_key(m["version"]) > max_applied
+        ]
+        return sorted(pending, key=lambda m: numeric_key(m["version"]))

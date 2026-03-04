@@ -1,0 +1,1 @@
+Fix off-by-one error: changed % (n + 1) to % n so assign_partition returns valid partition IDs in range [0, num_partitions).

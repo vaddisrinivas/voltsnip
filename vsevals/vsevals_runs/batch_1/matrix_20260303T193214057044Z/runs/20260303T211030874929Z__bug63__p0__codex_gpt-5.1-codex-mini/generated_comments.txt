@@ -1,0 +1,1 @@
+Use >= for capacity guard, then trigger any provided capacity-warning alert once utilization hits 80% after enqueueing.

@@ -1,0 +1,1 @@
+Make column type comparison case-insensitive by converting both strings to uppercase before comparing, following the pattern already used in is_auto_migratable.

@@ -1,0 +1,1 @@
+Fix the replication health check so both measured lag and threshold stay in milliseconds before comparison.

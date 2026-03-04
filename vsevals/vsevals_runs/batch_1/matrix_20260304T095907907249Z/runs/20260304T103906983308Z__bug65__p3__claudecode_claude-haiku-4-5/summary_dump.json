@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T103906983308Z__bug65__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 62855,
+    "prompt_chars": 7177,
+    "output_chars": 949,
+    "prompt_system_chars": 1361,
+    "prompt_user_chars": 5816,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 2290,
+    "voltsnip_retry_count": 4,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 6,
+    "model_request_latency_ms": 60545,
+    "model_request_started_at": "2026-03-04T10:39:09.292757Z",
+    "model_request_finished_at": "2026-03-04T10:40:09.838447Z",
+    "model_request_id": "6b4a179d-774b-4d6f-9557-679bb5d054a4",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1749,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The regex is updated to include '+' (r\"[\\w.+]+@[\\w.]+\"), so plus-addressed emails would be matched, but the code does not call orgops.compliance.record_decision(\"pii.sanitized\", field_count=count); it only appends to self._history.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\\\\\w.]+@[\\\\\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\\\\\w.+]+@[\\\\\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: Fixed regex to include + in local-part character class\\n        email_pattern = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_pattern.sub(_REDACTED_EMAIL, text)\\n        count = len(email_pattern.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Fixed email regex pattern to include + character in local-part character class so plus-addressed emails like user+tag@domain.com are properly redacted.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The regex is updated to include '+' (r\\\"[\\\\w.+]+@[\\\\w.]+\\\"), so plus-addressed emails would be matched, but the code does not call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count); it only appends to self._history.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_65_email_plus_and_compliance _____________________\n\n    def test_bug_65_email_plus_and_compliance() -> None:\n        \"\"\"sanitize_email must:\n        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in\n           addition to plain emails.  The buggy regex ``[\\\\w.]+@[\\\\w.]+``\n           misses the ``+`` in the local-part character class.\n        2. Record a compliance decision via\n           orgops.compliance.record_decision(\"pii.sanitized\", field_count=N)\n           where N is the number of emails redacted.\n    \n        Both the regex fix AND the compliance call are required -- fixing\n        only the regex is insufficient.\n        \"\"\"\n        from logops.sanitizer import PiiSanitizer\n    \n        sanitizer = PiiSanitizer()\n    \n        # --- Requirement 1: plus-addressed email redaction ----------------\n    \n        text = \"Contact user+billing@example.com or admin@corp.io for help.\"\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            result = sanitizer.sanitize_email(text)\n    \n        # Plus-addressed email must be fully redacted\n        assert \"user+billing@example.com\" not in result, (\n            \"Plus-addressed email must be redacted but was left in output\"\n        )\n        assert \"[REDACTED_EMAIL]\" in result, (\n            \"Redacted emails must be replaced with [REDACTED_EMAIL]\"\n        )\n        # Plain email must also be redacted\n        assert \"admin@corp.io\" not in result, (\n            \"Plain email must also be redacted\"\n        )\n    \n        # --- Requirement 1b: plain emails still work ----------------------\n    \n        with patch(\"orgops.compliance.record_decision\"):\n            plain = sanitizer.sanitize_email(\"send to alice@example.com\")\n        assert \"alice@example.com\" not in plain\n    \n        # --- Requirement 2: compliance decision recording -----------------\n    \n>       mock_record.assert_called_once()\n\ntests/unit/test_bug65.py:51: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='record_decision' id='281472888618784'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance - Asse...\n1 failed in 0.49s\n",
+    "stderr": "",
+    "duration_ms": 2106,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

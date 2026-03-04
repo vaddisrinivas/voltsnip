@@ -1,0 +1,1 @@
+Replenish remaining on success via min(remaining + 1, max_budget) and emit retry.budget.consumed metric after every call.

@@ -1,0 +1,1 @@
+Use case-insensitive type comparison and record the schema validation decision.

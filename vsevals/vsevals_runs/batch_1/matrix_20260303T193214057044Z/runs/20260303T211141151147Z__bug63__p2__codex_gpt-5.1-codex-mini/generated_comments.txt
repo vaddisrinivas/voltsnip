@@ -1,0 +1,1 @@
+Fix the capacity check to reject at max_size and fire the 80% utilization alert with the current utilization percentage.

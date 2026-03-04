@@ -1,0 +1,5 @@
+        import orgops
+        is_stale = entry.stale_at <= now
+        if is_stale:
+            orgops.metrics.emit("dns.cache.refresh")
+        return is_stale

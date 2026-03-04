@@ -1,0 +1,1 @@
+Inverted comparison operator from > to < on line 53 to trigger refreshes when ratio is LOW (close to expiry) instead of HIGH (far from expiry).

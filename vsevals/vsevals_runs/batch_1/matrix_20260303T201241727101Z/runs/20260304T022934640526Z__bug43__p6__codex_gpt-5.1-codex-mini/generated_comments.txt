@@ -1,0 +1,1 @@
+Use the max of DNS/connect timeouts plus read timeout and annotate the span via orgops.tracing.annotate_span.

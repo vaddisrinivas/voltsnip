@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_69_audit_utc_and_compliance _____________________
+
+    def test_bug_69_audit_utc_and_compliance() -> None:
+        """create_audit_entry must:
+        1. Use datetime.now(timezone.utc) so the timestamp is UTC,
+           not local time from datetime.now().
+        2. Record a compliance decision via orgops.compliance.record_decision()
+           with decision_type="audit.timestamp.normalized" and source_tz="UTC".
+        Both are required -- fixing only the timestamp is insufficient.
+        """
+>       from logops.audit_trail import AuditTrail
+E         File "/workspace/logops/audit_trail.py", line 22
+E           ts = datetime.now(datetime.timezone.utc)
+E       IndentationError: unexpected indent
+
+tests/unit/test_bug69.py:16: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance -   Fil...
+1 failed in 0.40s

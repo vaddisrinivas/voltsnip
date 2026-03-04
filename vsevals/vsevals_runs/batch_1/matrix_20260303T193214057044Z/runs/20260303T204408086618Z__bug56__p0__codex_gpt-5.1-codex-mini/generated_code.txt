@@ -1,0 +1,2 @@
+        score = access_count / (1 + age_hours)  # apply time decay so older entries weaken over time
+        return float(score)

@@ -1,0 +1,1 @@
+Fix double selectivity application (removed second * selectivity) and add required metric emission via orgops.metrics.emit().

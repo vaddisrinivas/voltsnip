@@ -1,0 +1,1 @@
+Apply selectivity once and emit query.plan.estimated_cost via metrics.emit_metric.

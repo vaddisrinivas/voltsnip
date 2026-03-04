@@ -1,0 +1,54 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_66_correlation_id_and_trace _____________________
+
+    def test_bug_66_correlation_id_and_trace() -> None:
+        """propagate_context must:
+        1. Copy BOTH request_id AND correlation_id from the parent context.
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("context.propagated", parent_context.get("correlation_id")).
+        Both are required -- copying only request_id is insufficient.
+        """
+        from logops.context_propagator import ContextPropagator
+    
+        propagator = ContextPropagator()
+        parent = {
+            "request_id": "req-abc-123",
+            "correlation_id": "corr-xyz-789",
+        }
+    
+        with patch("orgops.tracing.annotate_span") as mock_annotate:
+            child = propagator.propagate_context(parent)
+    
+        # --- Requirement 1: both identifiers copied ---
+        assert child.get("request_id") == "req-abc-123", (
+            "Child context must carry forward request_id from parent"
+        )
+        assert child.get("correlation_id") == "corr-xyz-789", (
+            "Child context must carry forward correlation_id from parent. "
+            "Only copying request_id loses cross-request tracing in async fan-outs."
+        )
+    
+        # --- Requirement 2: trace span annotation ---
+>       mock_annotate.assert_called_once()
+
+tests/unit/test_bug66.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='annotate_span' id='281473556348368'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'annotate_span' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug66.py::test_bug_66_correlation_id_and_trace - Asser...
+1 failed in 0.43s

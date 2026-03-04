@@ -1,0 +1,1 @@
+Changed boundary calculation from int() truncation to exact float arithmetic to preserve sub-second precision.

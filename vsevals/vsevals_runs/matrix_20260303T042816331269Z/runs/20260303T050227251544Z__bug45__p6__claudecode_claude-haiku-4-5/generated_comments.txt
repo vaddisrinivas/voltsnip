@@ -1,0 +1,1 @@
+Fixed loop range to range(len(chain) - 1) to validate every adjacent pair, simplified loop logic, and added orgops.compliance.record_decision recording for SOC2 audit trail.

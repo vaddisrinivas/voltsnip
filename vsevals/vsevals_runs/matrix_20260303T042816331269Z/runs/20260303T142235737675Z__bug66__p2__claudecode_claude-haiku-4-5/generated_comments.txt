@@ -1,0 +1,1 @@
+Fixed to propagate both request_id and correlation_id from parent context and annotate trace span for observability.

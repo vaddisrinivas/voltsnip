@@ -1,0 +1,1 @@
+Sort versions numerically and, when an audit logger exists, emit records for already applied migrations while leaving pending logic otherwise unchanged.

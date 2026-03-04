@@ -1,0 +1,199 @@
+{
+  "run_id": "20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG54",
+  "task_name": "ttl_jitter_subtraction_and_metric",
+  "variant_id": "P1",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 26,
+  "task_line_end": 54,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug54/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG54\nTask Name: ttl_jitter_subtraction_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_ttl_with_jitter so jitter is added to spread expiry forward.\n\nTarget File: cache/ttl_manager.py\n\nTarget Lines:\n26-54 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 26-54 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug54.py -k bug_54\n\nContext Code:\n```python\ndef compute_ttl_with_jitter(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Compute an effective TTL by applying random jitter.\n\n    The jitter is added to the base TTL to spread cache expiry across a\n    window, preventing a coordinated stampede of cache misses.\n\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\n    *added*, which can push the effective TTL below zero for small base\n    values and defeats the purpose of spreading expiry forward.\n\n    Parameters\n    ----------\n    base_ttl:\n        The base time-to-live in seconds.\n    jitter_range:\n        Maximum additional jitter in seconds.  The actual jitter is\n        drawn uniformly from [0, jitter_range).\n\n    Returns\n    -------\n    float\n        The effective TTL in seconds.\n    \"\"\"\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl - jitter  # BUG_54: subtracts jitter instead of adding\n    return effective_ttl\n```\n\nTarget File Content (full file):\n```python\n\"\"\"TTL manager with jitter for cache expiry spread.\n\nThis module provides TTL computation with configurable jitter to\nprevent thundering-herd cache invalidation.  Adding random jitter to\nthe base TTL spreads expiry times so that cached entries do not all\nexpire at the same instant.  The operational metrics pipeline is\nnotified whenever a jittered TTL is computed.\n\"\"\"\nfrom __future__ import annotations\n\nimport random\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass TTLConfig:\n    \"\"\"Immutable TTL configuration for the cache layer.\"\"\"\n\n    base_ttl: float = 300.0       # seconds\n    jitter_range: float = 30.0    # max jitter seconds\n    min_ttl: float = 1.0          # floor to prevent zero/negative TTLs\n\n\ndef compute_ttl_with_jitter(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Compute an effective TTL by applying random jitter.\n\n    The jitter is added to the base TTL to spread cache expiry across a\n    window, preventing a coordinated stampede of cache misses.\n\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\n    *added*, which can push the effective TTL below zero for small base\n    values and defeats the purpose of spreading expiry forward.\n\n    Parameters\n    ----------\n    base_ttl:\n        The base time-to-live in seconds.\n    jitter_range:\n        Maximum additional jitter in seconds.  The actual jitter is\n        drawn uniformly from [0, jitter_range).\n\n    Returns\n    -------\n    float\n        The effective TTL in seconds.\n    \"\"\"\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl - jitter  # BUG_54: subtracts jitter instead of adding\n    return effective_ttl\n\n\ndef compute_expiry_timestamp(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Return the absolute expiry timestamp (monotonic clock + jittered TTL).\"\"\"\n    ttl = compute_ttl_with_jitter(base_ttl, jitter_range)\n    return time.monotonic() + ttl\n\n\n@dataclass\nclass TTLManager:\n    \"\"\"Manages TTL computation and tracks statistics.\"\"\"\n\n    config: TTLConfig = field(default_factory=TTLConfig)\n    ttls_computed: int = 0\n    total_jitter_applied: float = 0.0\n\n    def get_ttl(self) -> float:\n        \"\"\"Compute a jittered TTL using the manager's config.\"\"\"\n        ttl = compute_ttl_with_jitter(\n            self.config.base_ttl,\n            self.config.jitter_range,\n        )\n        self.ttls_computed += 1\n        return ttl\n\n    def get_expiry(self) -> float:\n        \"\"\"Return an absolute monotonic expiry timestamp.\"\"\"\n        return time.monotonic() + self.get_ttl()\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return manager statistics.\"\"\"\n        return {\n            \"config_base_ttl\": self.config.base_ttl,\n            \"config_jitter_range\": self.config.jitter_range,\n            \"ttls_computed\": self.ttls_computed,\n        }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG54\nTask Name: ttl_jitter_subtraction_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix compute_ttl_with_jitter so jitter is added to spread expiry forward.\n\nTarget File: cache/ttl_manager.py\n\nTarget Lines:\n26-54 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 26-54 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug54.py -k bug_54\n\nContext Code:\n```python\ndef compute_ttl_with_jitter(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Compute an effective TTL by applying random jitter.\n\n    The jitter is added to the base TTL to spread cache expiry across a\n    window, preventing a coordinated stampede of cache misses.\n\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\n    *added*, which can push the effective TTL below zero for small base\n    values and defeats the purpose of spreading expiry forward.\n\n    Parameters\n    ----------\n    base_ttl:\n        The base time-to-live in seconds.\n    jitter_range:\n        Maximum additional jitter in seconds.  The actual jitter is\n        drawn uniformly from [0, jitter_range).\n\n    Returns\n    -------\n    float\n        The effective TTL in seconds.\n    \"\"\"\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl - jitter  # BUG_54: subtracts jitter instead of adding\n    return effective_ttl\n```\n\nTarget File Content (full file):\n```python\n\"\"\"TTL manager with jitter for cache expiry spread.\n\nThis module provides TTL computation with configurable jitter to\nprevent thundering-herd cache invalidation.  Adding random jitter to\nthe base TTL spreads expiry times so that cached entries do not all\nexpire at the same instant.  The operational metrics pipeline is\nnotified whenever a jittered TTL is computed.\n\"\"\"\nfrom __future__ import annotations\n\nimport random\nimport time\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass TTLConfig:\n    \"\"\"Immutable TTL configuration for the cache layer.\"\"\"\n\n    base_ttl: float = 300.0       # seconds\n    jitter_range: float = 30.0    # max jitter seconds\n    min_ttl: float = 1.0          # floor to prevent zero/negative TTLs\n\n\ndef compute_ttl_with_jitter(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Compute an effective TTL by applying random jitter.\n\n    The jitter is added to the base TTL to spread cache expiry across a\n    window, preventing a coordinated stampede of cache misses.\n\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\n    *added*, which can push the effective TTL below zero for small base\n    values and defeats the purpose of spreading expiry forward.\n\n    Parameters\n    ----------\n    base_ttl:\n        The base time-to-live in seconds.\n    jitter_range:\n        Maximum additional jitter in seconds.  The actual jitter is\n        drawn uniformly from [0, jitter_range).\n\n    Returns\n    -------\n    float\n        The effective TTL in seconds.\n    \"\"\"\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl - jitter  # BUG_54: subtracts jitter instead of adding\n    return effective_ttl\n\n\ndef compute_expiry_timestamp(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Return the absolute expiry timestamp (monotonic clock + jittered TTL).\"\"\"\n    ttl = compute_ttl_with_jitter(base_ttl, jitter_range)\n    return time.monotonic() + ttl\n\n\n@dataclass\nclass TTLManager:\n    \"\"\"Manages TTL computation and tracks statistics.\"\"\"\n\n    config: TTLConfig = field(default_factory=TTLConfig)\n    ttls_computed: int = 0\n    total_jitter_applied: float = 0.0\n\n    def get_ttl(self) -> float:\n        \"\"\"Compute a jittered TTL using the manager's config.\"\"\"\n        ttl = compute_ttl_with_jitter(\n            self.config.base_ttl,\n            self.config.jitter_range,\n        )\n        self.ttls_computed += 1\n        return ttl\n\n    def get_expiry(self) -> float:\n        \"\"\"Return an absolute monotonic expiry timestamp.\"\"\"\n        return time.monotonic() + self.get_ttl()\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return manager statistics.\"\"\"\n        return {\n            \"config_base_ttl\": self.config.base_ttl,\n            \"config_jitter_range\": self.config.jitter_range,\n            \"ttls_computed\": self.ttls_computed,\n        }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nBaseline + explicit oracle criteria stated in prompt.\n\nExecution Instruction:\nThis is strict: satisfy the acceptance criteria and expected output exactly.\nKeep output deterministic and minimal.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter  # add jitter to push expiry forward\\n    return effective_ttl\\n\", \"comments\": \"Add jitter instead of subtracting it so compute_ttl_with_jitter always extends the TTL.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter  # add jitter to push expiry forward\\n    return effective_ttl\\n\", \"comments\": \"Add jitter instead of subtracting it so compute_ttl_with_jitter always extends the TTL.\"}",
+  "parsed_output": {
+    "code": "def compute_ttl_with_jitter(\n    base_ttl: float = 300.0,\n    jitter_range: float = 30.0,\n) -> float:\n    \"\"\"Compute an effective TTL by applying random jitter.\n\n    The jitter is added to the base TTL to spread cache expiry across a\n    window, preventing a coordinated stampede of cache misses.\n\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\n    *added*, which can push the effective TTL below zero for small base\n    values and defeats the purpose of spreading expiry forward.\n\n    Parameters\n    ----------\n    base_ttl:\n        The base time-to-live in seconds.\n    jitter_range:\n        Maximum additional jitter in seconds.  The actual jitter is\n        drawn uniformly from [0, jitter_range).\n\n    Returns\n    -------\n    float\n        The effective TTL in seconds.\n    \"\"\"\n    jitter = random.uniform(0, jitter_range)\n    effective_ttl = base_ttl + jitter  # add jitter to push expiry forward\n    return effective_ttl\n",
+    "comments": "Add jitter instead of subtracting it so compute_ttl_with_jitter always extends the TTL."
+  },
+  "token_usage": {
+    "prompt_tokens": 8976,
+    "completion_tokens": 368,
+    "total_tokens": 9344,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0041792
+  },
+  "timings": {
+    "started_at": "2026-03-03T20:57:30.531137Z",
+    "finished_at": "2026-03-03T20:57:34.139414Z",
+    "latency_ms": 3608
+  },
+  "summary_metrics": {
+    "latency_ms": 3608,
+    "prompt_chars": 6152,
+    "output_chars": 1099,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5102,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 3607,
+    "model_request_started_at": "2026-03-03T20:57:30.531459Z",
+    "model_request_finished_at": "2026-03-03T20:57:34.139355Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6609,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 8976,
+      "completion_tokens": 368,
+      "total_tokens": 9344,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0041792
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260303T205730530976Z__bug54__p1__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug54_jitter_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug54_jitter_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit a 'cache.ttl.jittered' metric via orgops.metrics.emit(). The constraint requires BOTH conditions to be satisfied, and metric emission is completely absent from the code.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter  # add jitter to push expiry forward\\n    return effective_ttl\\n\", \"comments\": \"Add jitter instead of subtracting it so compute_ttl_with_jitter always extends the TTL.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit a 'cache.ttl.jittered' metric via orgops.metrics.emit(). The constraint requires BOTH conditions to be satisfied, and metric emission is completely absent from the code.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_54_ttl_jitter_positive_and_metric __________________\n\n    def test_bug_54_ttl_jitter_positive_and_metric() -> None:\n        \"\"\"compute_ttl_with_jitter must:\n        1. Add jitter to base_ttl (not subtract), so the effective TTL is\n           always >= base_ttl.\n        2. Emit a 'cache.ttl.jittered' metric via orgops.metrics.emit()\n           with the effective TTL value.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n    \n        with patch(\"random.uniform\", return_value=15.0):\n            with patch(\"orgops.metrics.emit\") as mock_emit:\n                # base_ttl=300, jitter=15 => effective = 300 + 15 = 315\n                result = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)\n    \n        # --- Requirement 1: jitter is additive ---\n        assert result == 315.0, (\n            f\"Expected 300.0 + 15.0 = 315.0 (additive jitter), got {result} \"\n            \"(subtractive would give 285.0)\"\n        )\n    \n        # --- Requirement 1b: verify jitter never reduces TTL below base ---\n        with patch(\"random.uniform\", return_value=0.0):\n            with patch(\"orgops.metrics.emit\"):\n                floor = compute_ttl_with_jitter(base_ttl=300.0, jitter_range=30.0)\n        assert floor == 300.0, (\n            f\"With zero jitter the TTL should equal base_ttl=300.0, got {floor}\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug54.py:39: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473828154800'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug54.py::test_bug_54_ttl_jitter_positive_and_metric\n1 failed in 0.44s\n",
+    "stderr": "",
+    "duration_ms": 4463,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

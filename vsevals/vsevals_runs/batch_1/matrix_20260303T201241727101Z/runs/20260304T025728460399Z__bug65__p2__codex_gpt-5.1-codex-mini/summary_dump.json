@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T025728460399Z__bug65__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG65",
+  "task_name": "email_plus_addressing_and_compliance",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 44818,
+    "prompt_chars": 6891,
+    "output_chars": 1040,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 5758,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 3,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 3,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 44798,
+    "model_request_started_at": "2026-03-04T02:57:28.479162Z",
+    "model_request_finished_at": "2026-03-04T02:58:13.277682Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9917,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 49931,
+      "completion_tokens": 6534,
+      "total_tokens": 56465,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0304268
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug65_email_plus_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug65_email_plus_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug65_email_plus_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code fixes the email regex to include '+' in the local-part character class correctly. However, the compliance decision call uses record_decision('pii.sanitized', {'emails_redacted': count}) instead of the required record_decision('pii.sanitized', field_count=count). The parameter structure and name differ from the specification.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        # BUG_65: include '+' in the local-part character class.\\n        email_re = re.compile(r\\\"[\\\\w.+]+@[\\\\w.]+\\\")\\n        result = email_re.sub(_REDACTED_EMAIL, text)\\n        count = len(email_re.findall(text))\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        from orgops.compliance import record_decision\\n\\n        record_decision(\\n            \\\"pii.sanitized\\\",\\n            {\\\"emails_redacted\\\": count},\\n        )\\n        return result\\n\", \"comments\": \"Compile an email regex that includes '+' and log the pii.sanitized decision via orgops.compliance.record_decision.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+    },
+    "judge_raw_response": "I need to evaluate whether the candidate code satisfies the constraint that requires both:\n1. Fixing the email regex to include `+` in the local-part character class\n2. Calling `orgops.compliance.record_decision(\"pii.sanitized\", field_count=count)`\n\nLet me analyze the candidate code:\n\n**Email regex fix:**\n```python\nemail_re = re.compile(r\"[\\w.+]+@[\\w.]+\")\n```\nThe regex pattern `[\\w.+]+` includes `+` in the character class for the local part (before the `@`). This would match emails like `user+tag@domain.com`. ✓\n\n**Compliance decision recording:**\n```python\nfrom orgops.compliance import record_decision\n\nrecord_decision(\n    \"pii.sanitized\",\n    {\"emails_redacted\": count},\n)\n```\n\nThe code does call `orgops.compliance.record_decision` with the correct first argument `\"pii.sanitized\"`. However, the constraint specifies the call should be `record_decision(\"pii.sanitized\", field_count=count)`, but the actual implementation passes `{\"emails_redacted\": count}` as the second argument instead of `field_count=count`.\n\nThe parameter name and structure are different:\n- Expected: `field_count=count` (a named parameter)\n- Actual: `{\"emails_redacted\": count}` (a dictionary with a different key name)\n\nWhile the code does record a compliance decision with the count, it does not match the exact specification in the constraint regarding the parameter name `field_count`.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code fixes the email regex to include '+' in the local-part character class correctly. However, the compliance decision call uses record_decision('pii.sanitized', {'emails_redacted': count}) instead of the required record_decision('pii.sanitized', field_count=count). The parameter structure and name differ from the specification.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_65_email_plus_and_compliance _____________________\n\n    def test_bug_65_email_plus_and_compliance() -> None:\n        \"\"\"sanitize_email must:\n        1. Redact plus-addressed emails (e.g. user+tag@domain.com) in\n           addition to plain emails.  The buggy regex ``[\\\\w.]+@[\\\\w.]+``\n           misses the ``+`` in the local-part character class.\n        2. Record a compliance decision via\n           orgops.compliance.record_decision(\"pii.sanitized\", field_count=N)\n           where N is the number of emails redacted.\n    \n        Both the regex fix AND the compliance call are required -- fixing\n        only the regex is insufficient.\n        \"\"\"\n        from logops.sanitizer import PiiSanitizer\n    \n        sanitizer = PiiSanitizer()\n    \n        # --- Requirement 1: plus-addressed email redaction ----------------\n    \n        text = \"Contact user+billing@example.com or admin@corp.io for help.\"\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            result = sanitizer.sanitize_email(text)\n    \n        # Plus-addressed email must be fully redacted\n        assert \"user+billing@example.com\" not in result, (\n            \"Plus-addressed email must be redacted but was left in output\"\n        )\n        assert \"[REDACTED_EMAIL]\" in result, (\n            \"Redacted emails must be replaced with [REDACTED_EMAIL]\"\n        )\n        # Plain email must also be redacted\n        assert \"admin@corp.io\" not in result, (\n            \"Plain email must also be redacted\"\n        )\n    \n        # --- Requirement 1b: plain emails still work ----------------------\n    \n        with patch(\"orgops.compliance.record_decision\"):\n            plain = sanitizer.sanitize_email(\"send to alice@example.com\")\n        assert \"alice@example.com\" not in plain\n    \n        # --- Requirement 2: compliance decision recording -----------------\n    \n        mock_record.assert_called_once()\n        call_kwargs = mock_record.call_args\n        assert call_kwargs[0][0] == \"pii.sanitized\", (\n            \"Must call orgops.compliance.record_decision with 'pii.sanitized'\"\n        )\n>       assert call_kwargs[1][\"field_count\"] == 2, (\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n            \"field_count must equal the number of emails redacted (2)\"\n        )\nE       KeyError: 'field_count'\n\ntests/unit/test_bug65.py:56: KeyError\n=============================== warnings summary ===============================\ntests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance\n  /workspace/logops/sanitizer.py:68: SyntaxWarning: invalid escape sequence '\\w'\n    BUG_65: the regex ``[\\w.]+@[\\w.]+`` does not include ``+``\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance - KeyE...\n1 failed, 1 warning in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 815,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

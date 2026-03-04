@@ -1,0 +1,1 @@
+Apply selectivity once and publish the estimated cost through any available metric hook.

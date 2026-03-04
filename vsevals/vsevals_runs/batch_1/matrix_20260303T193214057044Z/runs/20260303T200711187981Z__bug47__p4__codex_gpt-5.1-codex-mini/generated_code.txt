@@ -1,0 +1,11 @@
+        # BUG_47: FIFO eviction — should find the conn with min(last_used_at)
+        min_index = min(
+            range(len(self.connections)),
+            key=lambda index: self.connections[index].last_used_at,
+        )
+        evicted = self.connections.pop(min_index)
+
+        idle_seconds = now - evicted.last_used_at
+        import orgops.metrics
+        orgops.metrics.emit("pool.connection.evicted", idle_seconds)
+        return evicted

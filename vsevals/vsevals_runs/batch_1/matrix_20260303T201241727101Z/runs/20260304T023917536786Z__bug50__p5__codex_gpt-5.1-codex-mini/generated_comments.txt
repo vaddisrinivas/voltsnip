@@ -1,0 +1,1 @@
+Apply selectivity once and conditionally emit the query.plan.estimated_cost metric if an emitter is registered.

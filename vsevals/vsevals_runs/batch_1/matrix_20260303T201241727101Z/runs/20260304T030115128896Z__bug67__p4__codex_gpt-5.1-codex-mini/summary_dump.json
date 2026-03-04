@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T030115128896Z__bug67__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG67",
+  "task_name": "sampling_rate_truncation_and_metric",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 48451,
+    "prompt_chars": 4990,
+    "output_chars": 1165,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3940,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 48423,
+    "model_request_started_at": "2026-03-04T03:01:15.157504Z",
+    "model_request_finished_at": "2026-03-04T03:02:03.580757Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 3260,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 52671,
+      "completion_tokens": 6219,
+      "total_tokens": 58890,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0310188
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug67_sampling_round_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug67_sampling_round_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses round(target_events / total_events * 100, 2) to compute the rate with two-decimal precision (line: rate = round(target_events / total_events * 100, 2)), and emits the 'log.sampling.rate' metric via orgops.metrics.emit() with the computed rate value (lines: from orgops import metrics; metrics.emit('log.sampling.rate', value=rate)).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug67/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def compute_sample_rate(\\n        self,\\n        total_events: int,\\n        target_events: int,\\n    ) -> float:\\n        \\\"\\\"\\\"Compute the sampling rate as a percentage (0-100).\\n\\n        Returns the percentage of events to retain so that roughly\\n        *target_events* survive out of *total_events*.\\n\\n        BUG_67: uses int() truncation instead of round(), losing decimal\\n        precision.  For example target=200, total=300 yields 66 instead\\n        of the correct 66.67.  Should use round(..., 2) for proper\\n        rounding with two-decimal precision.\\n        \\\"\\\"\\\"\\n        if total_events <= 0:\\n            return 0.0\\n        if target_events >= total_events:\\n            return 100.0\\n\\n        rate = round(target_events / total_events * 100, 2)\\n        self.history.append({\\n            \\\"total_events\\\": total_events,\\n            \\\"target_events\\\": target_events,\\n            \\\"rate\\\": rate,\\n        })\\n        from orgops import metrics\\n        metrics.emit(\\\"log.sampling.rate\\\", value=rate)\\n        return float(rate)\\n\", \"comments\": \"Round the computed rate to two decimals and emit the log.sampling.rate metric.\"}, \"constraints\": [{\"id\": \"bug67_sampling_round_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug67/scenario_context/v1\", \"check\": \"Proper rounding with round(..., 2) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the rate computation to use round(target_events / total_events * 100, 2) instead of int() truncation AND emit a \\\"log.sampling.rate\\\" metric via orgops.metrics.emit() with the computed rate value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses round(target_events / total_events * 100, 2) to compute the rate with two-decimal precision (line: rate = round(target_events / total_events * 100, 2)), and emits the 'log.sampling.rate' metric via orgops.metrics.emit() with the computed rate value (lines: from orgops import metrics; metrics.emit('log.sampling.rate', value=rate)).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_67_sampling_round_and_metric _____________________\n\n    def test_bug_67_sampling_round_and_metric() -> None:\n        \"\"\"compute_sample_rate must:\n        1. Use round(..., 2) instead of int() truncation for decimal precision.\n        2. Emit a 'log.sampling.rate' metric via orgops.metrics.emit().\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from logops.log_sampler import LogSampler\n    \n        sampler = LogSampler()\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # target=200, total=300 => 200/300*100 = 66.666... => round => 66.67\n            rate = sampler.compute_sample_rate(total_events=300, target_events=200)\n    \n        # --- Requirement 1: proper rounding with decimal precision ---\n        assert rate == 66.67, (\n            f\"Expected round(200/300*100, 2) = 66.67 (rounded), got {rate}. \"\n            \"int() truncation gives 66 which loses precision.\"\n        )\n    \n        # --- Requirement 1b: verify another case where truncation differs ---\n        with patch(\"orgops.metrics.emit\"):\n            rate2 = sampler.compute_sample_rate(total_events=700, target_events=100)\n        assert rate2 == 14.29, (\n            f\"Expected round(100/700*100, 2) = 14.29, got {rate2}. \"\n            \"int() truncation gives 14 which loses precision.\"\n        )\n    \n        # --- Requirement 1c: exact division still works ---\n        with patch(\"orgops.metrics.emit\"):\n            rate3 = sampler.compute_sample_rate(total_events=200, target_events=100)\n        assert rate3 == 50.0, (\n            f\"Expected 100/200*100 = 50.0, got {rate3}\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n        mock_emit.assert_called_once()\n        call_args = mock_emit.call_args\n        assert call_args[0][0] == \"log.sampling.rate\", (\n            \"Must emit 'log.sampling.rate' metric for operational monitoring\"\n        )\n>       assert call_args[0][1] == 66.67, (\n               ^^^^^^^^^^^^^^^\n            \"Metric value must be the computed rate (66.67)\"\n        )\nE       IndexError: tuple index out of range\n\ntests/unit/test_bug67.py:49: IndexError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug67.py::test_bug_67_sampling_round_and_metric - Inde...\n1 failed in 0.17s\n",
+    "stderr": "",
+    "duration_ms": 1441,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

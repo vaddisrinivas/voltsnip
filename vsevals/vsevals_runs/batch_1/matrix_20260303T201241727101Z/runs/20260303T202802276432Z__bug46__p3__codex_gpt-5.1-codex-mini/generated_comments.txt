@@ -1,0 +1,1 @@
+Use exact float boundary subtraction so requests near the window edge aren’t dropped.

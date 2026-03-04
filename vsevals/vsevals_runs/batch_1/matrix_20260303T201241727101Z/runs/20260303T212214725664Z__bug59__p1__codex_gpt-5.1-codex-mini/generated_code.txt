@@ -1,0 +1,5 @@
+    if 400 <= status_code < 500:
+        return "client_error"
+    if 500 <= status_code < 600:
+        return "server_error"
+    return "unknown"

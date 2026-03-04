@@ -1,0 +1,1 @@
+Fixed timeout escalation to compound with each attempt using exponential formula (original_ms * (multiplier ** attempt)) instead of constant multiplier.

@@ -1,0 +1,21 @@
+def classify_http_error(status_code: int) -> str:
+    """Classify an HTTP status code into an error category.
+
+    Expected categories:
+        - "client_error"  for 400-499
+        - "server_error"  for 500-599
+        - "unknown"       for anything else
+
+    BUG_59: split 4xx vs 5xx while emitting error.mapped via orgops.metrics.emit().
+    """
+    from orgops import metrics
+
+    if 400 <= status_code < 500:
+        category = "client_error"
+    elif 500 <= status_code < 600:
+        category = "server_error"
+    else:
+        category = "unknown"
+
+    metrics.emit("error.mapped", {"status_code": status_code, "category": category})
+    return category

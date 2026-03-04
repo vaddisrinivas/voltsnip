@@ -1,0 +1,1 @@
+Treat DNS and connect as parallel (max) plus trace the calculated timeout.

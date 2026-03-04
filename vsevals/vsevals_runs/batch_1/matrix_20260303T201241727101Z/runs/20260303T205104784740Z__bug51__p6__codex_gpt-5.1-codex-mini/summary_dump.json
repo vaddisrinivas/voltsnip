@@ -1,0 +1,108 @@
+{
+  "run_id": "20260303T205104784740Z__bug51__p6__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P6",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 30192,
+    "prompt_chars": 4178,
+    "output_chars": 866,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3128,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 30170,
+    "model_request_started_at": "2026-03-03T20:51:04.805099Z",
+    "model_request_finished_at": "2026-03-03T20:51:34.975569Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 10034,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 58786,
+      "completion_tokens": 3985,
+      "total_tokens": 62771,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0298904
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug51_units_and_alert"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The unit comparison is fixed correctly (measured_lag_ms > threshold_ms without division). However, the notify call does not match the required signature. The code calls notify({\"measured_lag_ms\": measured_lag_ms, \"threshold_ms\": threshold_ms}) but the judge prompt requires orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms). The first argument should be the string \"replication.lag.exceeded\" and it should use a keyword argument lag_ms, not a dictionary.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    BUG_51: the threshold comparison is wrong — it converts\\n    threshold_ms to seconds while measured_lag_ms remains in\\n    milliseconds, so the check almost never triggers.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        from orgops.alerts import notify\\n        notify({\\n            \\\"measured_lag_ms\\\": measured_lag_ms,\\n            \\\"threshold_ms\\\": threshold_ms,\\n        })\\n    return {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n\", \"comments\": \"Compare measured lag against the threshold in matching units and notify orgops alerts when the limit is exceeded.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The unit comparison is fixed correctly (measured_lag_ms > threshold_ms without division). However, the notify call does not match the required signature. The code calls notify({\\\"measured_lag_ms\\\": measured_lag_ms, \\\"threshold_ms\\\": threshold_ms}) but the judge prompt requires orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms). The first argument should be the string \\\"replication.lag.exceeded\\\" and it should use a keyword argument lag_ms, not a dictionary.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

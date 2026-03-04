@@ -1,0 +1,1 @@
+Mark entries as stale when now >= stale_at and emit the dns.cache.refresh metric in that case.

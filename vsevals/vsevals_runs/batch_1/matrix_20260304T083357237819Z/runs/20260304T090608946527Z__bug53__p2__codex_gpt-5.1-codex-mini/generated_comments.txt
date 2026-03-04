@@ -1,0 +1,1 @@
+Clamped the adjusted timeout to at least 1 ms and annotated the span right after computing it.

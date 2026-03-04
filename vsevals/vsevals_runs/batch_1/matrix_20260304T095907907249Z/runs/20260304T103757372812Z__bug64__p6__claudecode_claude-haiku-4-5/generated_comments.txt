@@ -1,0 +1,1 @@
+Fixed exponential compounding by applying multiplier ** attempt instead of just multiplier, and added timeout.escalated metric emission via orgops.metrics.emit().

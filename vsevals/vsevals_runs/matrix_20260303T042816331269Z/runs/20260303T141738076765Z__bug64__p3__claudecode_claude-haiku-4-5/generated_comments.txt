@@ -1,0 +1,1 @@
+Fixed compound escalation formula from original_ms * multiplier to original_ms * (multiplier ** attempt), and added orgops.metrics.emit("timeout.escalated", new_timeout_ms) for required metric emission per alerting system requirements.

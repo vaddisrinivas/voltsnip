@@ -1,0 +1,1 @@
+Fix parallel DNS/connect timeout using max(ct, dt) + rt and annotate span via orgops.tracing for observability.

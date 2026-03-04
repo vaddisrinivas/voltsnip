@@ -1,0 +1,1 @@
+Apply time-decay formula (access_count / (1 + age_hours)) to compute_lfu_score to prevent older entries from hogging the cache based on historical popularity.

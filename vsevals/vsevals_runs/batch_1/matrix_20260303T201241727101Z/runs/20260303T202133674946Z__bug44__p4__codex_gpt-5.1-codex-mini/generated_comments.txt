@@ -1,0 +1,1 @@
+Fixes the stale comparison and emits the dns.cache.refresh metric when an entry should be refreshed.

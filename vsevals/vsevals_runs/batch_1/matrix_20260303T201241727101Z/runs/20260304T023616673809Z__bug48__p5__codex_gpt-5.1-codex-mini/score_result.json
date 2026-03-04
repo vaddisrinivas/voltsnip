@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in the numeric_version() helper function which is used as the key for sorting, ensuring '10' > '9' numerically. (2) It iterates through sorted_candidates and calls orgops.auditing.write_event('migration.applied', version=version) for each migration in the list before returning them.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared numerically so \\\"10\\\" sorts after \\\"2\\\".\\n        Each migration destined for execution is audit-logged as applied.\\n        \\\"\\\"\\\"\\n        import orgops\\n\\n        def numeric_version(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        if not self.applied_versions:\\n            sorted_candidates = sorted(\\n                self.available_migrations,\\n                key=numeric_version,\\n            )\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = [\\n                m\\n                for m in self.available_migrations\\n                if numeric_version(m) > max_applied\\n            ]\\n            sorted_candidates = sorted(pending, key=numeric_version)\\n\\n        for migration in sorted_candidates:\\n            version = str(migration[\\\"version\\\"])\\n            orgops.auditing.write_event(\\\"migration.applied\\\", version=version)\\n\\n        return sorted_candidates\\n\", \"comments\": \"Switch pending detection to numeric ordering and emit an orgops audit event for each migration returned.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in the numeric_version() helper function which is used as the key for sorting, ensuring '10' > '9' numerically. (2) It iterates through sorted_candidates and calls orgops.auditing.write_event('migration.applied', version=version) for each migration in the list before returning them.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

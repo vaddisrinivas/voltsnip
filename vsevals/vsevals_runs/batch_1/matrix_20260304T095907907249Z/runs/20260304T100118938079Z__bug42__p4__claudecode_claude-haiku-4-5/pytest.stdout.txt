@@ -1,0 +1,47 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_42_circuit_probe_and_health _____________________
+
+    def test_bug_42_circuit_probe_and_health() -> None:
+        """CircuitGuard.should_allow_probe must:
+        1. Allow probes when probe_count < max_probes (fix inverted comparison)
+        2. Report circuit.half_open degradation via orgops.health.report_degradation()
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from net.circuit_guard import CircuitGuard
+    
+        guard = CircuitGuard(service_name="payments-api", max_probes=3)
+        guard.state = "half_open"
+        guard.probe_count = 0
+    
+        with patch("orgops.health.report_degradation") as mock_report:
+            # First probe: count is 0, under max_probes (3) — should be allowed
+            result = guard.should_allow_probe()
+    
+        assert result is True, (
+            "Probe must be allowed when probe_count < max_probes (got False)"
+        )
+    
+        # Must also report health degradation when a probe is allowed
+>       mock_report.assert_called_once()
+
+tests/unit/test_bug42.py:29: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='report_degradation' id='281473799310320'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'report_degradation' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug42.py::test_bug_42_circuit_probe_and_health - Asser...
+1 failed in 0.24s

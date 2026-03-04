@@ -1,0 +1,1 @@
+Compound timeout exponentially using (multiplier ** attempt) and emit timeout.escalated metric.

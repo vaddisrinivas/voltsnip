@@ -1,0 +1,1 @@
+Use the exact float boundary so sliding windows include sub-second timestamps without truncation.

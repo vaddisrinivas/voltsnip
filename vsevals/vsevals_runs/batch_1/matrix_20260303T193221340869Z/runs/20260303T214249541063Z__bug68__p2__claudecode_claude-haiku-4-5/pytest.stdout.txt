@@ -1,0 +1,68 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_68_nested_redaction_and_audit ____________________
+
+    def test_bug_68_nested_redaction_and_audit() -> None:
+        """RedactionFilter.redact_keys must:
+        1. Recursively redact sensitive keys in nested dicts (not just top-level).
+        2. Call orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+           where count is the total number of redacted keys across all nesting levels.
+        Both are required -- fixing only top-level redaction is insufficient.
+        """
+        from logops.redaction_filter import RedactionFilter, REDACTED_PLACEHOLDER
+    
+        filt = RedactionFilter(sensitive_keys=["ssn", "password", "token"])
+    
+        nested_data = {
+            "username": "alice",
+            "password": "s3cret",
+            "profile": {
+                "email": "alice@example.com",
+                "ssn": "123-45-6789",
+                "prefs": {
+                    "theme": "dark",
+                    "token": "abc-xyz-999",
+                },
+            },
+        }
+    
+        with patch("orgops.auditing.write_event") as mock_audit:
+>           result = filt.redact_keys(nested_data)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug68.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+logops/redaction_filter.py:52: in redact_keys
+    redacted_value, nested_count = self.redact_keys(value)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <logops.redaction_filter.RedactionFilter object at 0xffff95f824e0>
+data = {'email': 'alice@example.com', 'prefs': {'theme': 'dark', 'token': 'abc-xyz-999'}, 'ssn': '123-45-6789'}
+
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a shallow copy of *data* with sensitive values redacted.
+    
+        BUG_68: only top-level keys are checked.  Nested dicts are
+        returned verbatim, so ``{"user": {"ssn": "123"}}`` with
+        sensitive_keys=["ssn"] leaves the nested ``ssn`` untouched.
+        The function also fails to call
+        ``orgops.auditing.write_event("redaction.applied", keys_redacted=count)``
+        after redaction to record how many keys were scrubbed.
+        """
+        result: dict[str, Any] = {}
+        count = 0
+        for key, value in data.items():
+            if key.lower() in self.sensitive_keys:
+                result[key] = REDACTED_PLACEHOLDER
+                count += 1
+            elif isinstance(value, dict):
+                redacted_value, nested_count = self.redact_keys(value)
+                result[key] = redacted_value
+>               count += nested_count
+E               TypeError: unsupported operand type(s) for +=: 'int' and 'str'
+
+logops/redaction_filter.py:54: TypeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug68.py::test_bug_68_nested_redaction_and_audit - Typ...
+1 failed in 0.27s

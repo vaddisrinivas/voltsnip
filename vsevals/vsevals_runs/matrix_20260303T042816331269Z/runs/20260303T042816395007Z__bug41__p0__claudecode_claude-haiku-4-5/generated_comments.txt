@@ -1,0 +1,1 @@
+Changed linear to exponential backoff (2**attempt), added max_delay capping, and emit retry.backoff.applied metric.

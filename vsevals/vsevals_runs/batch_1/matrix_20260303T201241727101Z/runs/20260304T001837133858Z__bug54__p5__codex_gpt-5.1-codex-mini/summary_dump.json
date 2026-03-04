@@ -1,0 +1,108 @@
+{
+  "run_id": "20260304T001837133858Z__bug54__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG54",
+  "task_name": "ttl_jitter_subtraction_and_metric",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 94759,
+    "prompt_chars": 5960,
+    "output_chars": 1568,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4910,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 5,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 94737,
+    "model_request_started_at": "2026-03-04T00:18:37.154750Z",
+    "model_request_finished_at": "2026-03-04T00:20:11.892128Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8011,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 130544,
+      "completion_tokens": 11730,
+      "total_tokens": 142274,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0709856
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug54_jitter_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug54_jitter_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug54_jitter_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit the metric via orgops.metrics.emit(). Instead, it imports from cache.metrics and attempts to call various method names (increment, record, emit) on that module. The constraint requires both conditions: additive jitter AND emission via orgops.metrics.emit(). Only the first condition is met.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def compute_ttl_with_jitter(\\n    base_ttl: float = 300.0,\\n    jitter_range: float = 30.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute an effective TTL by applying random jitter.\\n\\n    The jitter is added to the base TTL to spread cache expiry across a\\n    window, preventing a coordinated stampede of cache misses.\\n\\n    BUG_54: the jitter is *subtracted* from the base TTL instead of\\n    *added*, which can push the effective TTL below zero for small base\\n    values and defeats the purpose of spreading expiry forward.\\n\\n    Parameters\\n    ----------\\n    base_ttl:\\n        The base time-to-live in seconds.\\n    jitter_range:\\n        Maximum additional jitter in seconds.  The actual jitter is\\n        drawn uniformly from [0, jitter_range).\\n\\n    Returns\\n    -------\\n    float\\n        The effective TTL in seconds.\\n    \\\"\\\"\\\"\\n    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter\\n    try:\\n        from cache.metrics import metrics as metrics_client\\n    except ImportError:\\n        metrics_client = None\\n    if metrics_client is not None:\\n        for fn_name in (\\\"increment\\\", \\\"record\\\", \\\"emit\\\"):\\n            fn = getattr(metrics_client, fn_name, None)\\n            if callable(fn):\\n                try:\\n                    fn(\\\"cache.ttl.jittered\\\", jitter)\\n                except TypeError:\\n                    fn(\\\"cache.ttl.jittered\\\")\\n                break\\n    return effective_ttl\", \"comments\": \"Add jitter to the TTL and, when available, invoke a cache metric emit method with the jittered value.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but it does NOT emit the metric via orgops.metrics.emit(). Instead, it imports from cache.metrics and attempts to call various method names (increment, record, emit) on that module. The constraint requires both conditions: additive jitter AND emission via orgops.metrics.emit(). Only the first condition is met.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": null,
+  "error": null
+}

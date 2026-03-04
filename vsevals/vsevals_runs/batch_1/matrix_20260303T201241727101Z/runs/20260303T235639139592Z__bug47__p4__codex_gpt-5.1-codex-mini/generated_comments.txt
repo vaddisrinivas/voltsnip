@@ -1,0 +1,1 @@
+Switched eviction to pick the connection with the smallest last_used_at and emit the pool.connection.evicted metric via any configured recorder.

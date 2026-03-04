@@ -1,0 +1,1 @@
+Added base64 decoding loop to re-scan decoded segments for secrets, and alert notification for each finding to enable security dashboard monitoring.

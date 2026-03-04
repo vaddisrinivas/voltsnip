@@ -1,0 +1,23 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection and report the eviction.
+
+        The oldest ``last_used_at`` value determines which connection to drop, and
+        the event is emitted so the org metrics pipeline sees connection churn.
+        """
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+
+        metrics = getattr(self, "metrics", None)
+        if metrics is not None:
+            emit = getattr(metrics, "emit", None)
+            if emit is not None:
+                emit("pool.connection.evicted", idle_seconds=idle_seconds)
+
+        return evicted

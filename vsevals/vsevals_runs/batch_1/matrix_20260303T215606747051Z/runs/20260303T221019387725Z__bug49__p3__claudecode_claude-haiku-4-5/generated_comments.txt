@@ -1,0 +1,1 @@
+Add RELEASE SAVEPOINT after rollback and trace annotation to fix resource leak and enable observability.

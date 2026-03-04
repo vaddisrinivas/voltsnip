@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both requirements: (1) Version comparison is fixed using int() throughout - int_version lambda, sorted with key=int_version, max_applied uses int(), and pending filter uses int_version(m) > max_applied ensuring numeric ordering (10 > 9). (2) Audit logging is present - imports orgops, iterates through pending migrations, and calls orgops.auditing.write_event('migration.applied', version=version) for each one.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        int_version = lambda m: int(m[\\\"version\\\"])\\n        sorted_available = sorted(self.available_migrations, key=int_version)\\n        if not self.applied_versions:\\n            pending = sorted_available\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = [m for m in sorted_available if int_version(m) > max_applied]\\n        orgops = __import__(\\\"orgops\\\")\\n        for migration in pending:\\n            version = int_version(migration)\\n            orgops.auditing.write_event(\\\"migration.applied\\\", version=version)\\n        return pending\\n\", \"comments\": \"Normalize version handling with ints, audit-log each pending (soon to be applied) migration, and keep the sorted list numeric.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) Version comparison is fixed using int() throughout - int_version lambda, sorted with key=int_version, max_applied uses int(), and pending filter uses int_version(m) > max_applied ensuring numeric ordering (10 > 9). (2) Audit logging is present - imports orgops, iterates through pending migrations, and calls orgops.auditing.write_event('migration.applied', version=version) for each one.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

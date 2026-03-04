@@ -1,0 +1,1 @@
+Decode and rescan base64 segments for secrets and notify orgops alerts for each finding.

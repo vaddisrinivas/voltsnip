@@ -1,0 +1,1 @@
+Split 4xx (client_error) from 5xx (server_error) and emit error.mapped metric to satisfy both composition requirements.

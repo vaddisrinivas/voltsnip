@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug47_lru_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug47_lru_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code selects the index with the minimum last_used_at via min(..., key=lambda ...) and pops that element (LRU eviction), computes idle_seconds as now - evicted.last_used_at, and emits orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds).",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug47/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def evict_idle(self) -> Connection | None:\\n    \\\"\\\"\\\"Remove the least-recently-used idle connection.\\n\\n    BUG_47: uses ``self.connections.pop(0)`` which removes the\\n    *first-inserted* connection (FIFO order) rather than the one\\n    with the oldest ``last_used_at`` timestamp (LRU order).  When\\n    connections are touched out of insertion order, the wrong\\n    connection is evicted.\\n    \\\"\\\"\\\"\\n    if not self.connections:\\n        return None\\n\\n    now = time.time()\\n\\n    # LRU eviction: find the connection with the oldest last_used_at\\n    lru_idx = min(range(len(self.connections)),\\n                   key=lambda i: self.connections[i].last_used_at)\\n    evicted = self.connections.pop(lru_idx)\\n\\n    idle_seconds = now - evicted.last_used_at\\n    \\n    # Emit metric for alerting system to detect connection churn anomalies\\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds)\\n    \\n    return evicted\", \"comments\": \"Replaced FIFO pop(0) with LRU eviction using min(last_used_at), and added orgops.metrics.emit for alerting system telemetry.\"}, \"constraints\": [{\"id\": \"bug47_lru_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug47/scenario_context/v1\", \"check\": \"LRU eviction (min last_used_at) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the eviction to LRU order (find and remove the connection with the oldest last_used_at, not simply pop(0)) AND emit a pool.connection.evicted metric via orgops.metrics.emit() with the idle_seconds value?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code selects the index with the minimum last_used_at via min(..., key=lambda ...) and pops that element (LRU eviction), computes idle_seconds as now - evicted.last_used_at, and emits orgops.metrics.emit(\\\"pool.connection.evicted\\\", idle_seconds).\"}]}",
+  "passed": true
+}

@@ -1,0 +1,1 @@
+Switch to LRU eviction and report the idle duration via the optional metrics emitter.

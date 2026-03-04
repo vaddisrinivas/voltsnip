@@ -1,0 +1,1 @@
+Normalize both types with lower() before comparing so BUG_52 no longer flags mismatches due to case.

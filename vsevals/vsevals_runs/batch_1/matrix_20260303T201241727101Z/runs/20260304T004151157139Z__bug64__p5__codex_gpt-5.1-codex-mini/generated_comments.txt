@@ -1,0 +1,1 @@
+Compound the timeout escalation per attempt and emit the timeout.escalated metric.

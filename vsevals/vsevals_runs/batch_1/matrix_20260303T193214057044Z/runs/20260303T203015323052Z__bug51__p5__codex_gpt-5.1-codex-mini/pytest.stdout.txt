@@ -1,0 +1,48 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_51_replication_lag_and_alert _____________________
+
+    def test_bug_51_replication_lag_and_alert() -> None:
+        """check_replication_health must:
+        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)
+        2. Call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when exceeded
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+>       from data.replication_lag import check_replication_health
+
+tests/unit/test_bug51.py:13: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+data/replication_lag.py:13: in <module>
+    class ReplicationMonitor:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @dataclass
+    class ReplicationMonitor:
+        """Monitors replication lag across database replicas.
+    
+        Tracks measured lag values and determines whether replicas are
+        healthy enough to serve read traffic.
+        """
+    
+        replica_id: str
+        threshold_ms: float = 500.0
+        history: list[dict[str, Any]] = field(default_factory=list)
+        _alert_count: int = 0
+    
+        def record_lag(self, measured_lag_ms: float) -> None:
+            """Append a lag measurement to history."""
+            self.history.append({
+                "replica_id": self.replica_id,
+                "lag_ms": measured_lag_ms,
+            })
+    
+    
+>       exceeded = measured_lag_ms > threshold_ms
+                   ^^^^^^^^^^^^^^^
+E       NameError: name 'measured_lag_ms' is not defined
+
+data/replication_lag.py:33: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Name...
+1 failed in 0.43s

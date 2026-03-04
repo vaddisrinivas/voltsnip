@@ -1,0 +1,27 @@
+        import orgops
+
+        result: dict[str, Any] = {}
+        count = 0
+
+        def redact_nested(value: Any) -> Any:
+            nonlocal count
+            if isinstance(value, dict):
+                nested: dict[str, Any] = {}
+                for nested_key, nested_value in value.items():
+                    if self.is_sensitive(nested_key):
+                        nested[nested_key] = REDACTED_PLACEHOLDER
+                        count += 1
+                    else:
+                        nested[nested_key] = redact_nested(nested_value)
+                return nested
+            return value
+
+        for key, value in data.items():
+            if self.is_sensitive(key):
+                result[key] = REDACTED_PLACEHOLDER
+                count += 1
+            else:
+                result[key] = redact_nested(value)
+
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

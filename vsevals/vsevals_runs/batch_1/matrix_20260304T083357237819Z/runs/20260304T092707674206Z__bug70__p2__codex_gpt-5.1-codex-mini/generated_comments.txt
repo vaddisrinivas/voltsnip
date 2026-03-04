@@ -1,0 +1,1 @@
+Decode each base64-like segment before re-scanning and notify orgops.alerts about every finding.

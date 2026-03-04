@@ -1,0 +1,3 @@
+    boundary = now - window_seconds  # BUG_46: keep the floating boundary to preserve sub-second precision
+    idx = bisect.bisect_left(timestamps, boundary)
+    return len(timestamps) - idx

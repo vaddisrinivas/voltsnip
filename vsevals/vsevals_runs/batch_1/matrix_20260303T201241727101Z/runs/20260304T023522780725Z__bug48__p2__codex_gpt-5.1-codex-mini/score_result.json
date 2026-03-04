@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly uses int() for numeric version comparison (fixing the \"10\" vs \"9\" bug) via the _version_number helper function, AND calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each migration in the pending list.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        from orgops import auditing\\n\\n        def _version_number(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        sorted_migrations = sorted(\\n            self.available_migrations,\\n            key=_version_number,\\n        )\\n\\n        if not self.applied_versions:\\n            pending = sorted_migrations\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = [\\n                m\\n                for m in sorted_migrations\\n                if _version_number(m) > max_applied\\n            ]\\n\\n        for migration in pending:\\n            auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n        return pending\", \"comments\": \"Compare versions numerically, sort pending migrations accordingly, and log each pending migration via orgops auditing before handing the list back.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "Looking at this code, I need to evaluate whether it meets the constraint requirements:\n\n## Constraint Analysis\n\n**Requirement 1: Numeric version comparison using int()**\n- ✅ The code defines `_version_number(migration)` that returns `int(migration[\"version\"])`\n- ✅ Uses this function as the sort key: `sorted(..., key=_version_number)`\n- ✅ Compares versions numerically: `max(int(v) for v in self.applied_versions)` and `_version_number(m) > max_applied`\n- This correctly fixes the bug where \"10\" would sort before \"9\" in string comparison\n\n**Requirement 2: Call orgops.auditing.write_event for each migration**\n- ✅ Imports `from orgops import auditing`\n- ✅ Loops through pending migrations: `for migration in pending:`\n- ✅ Calls `auditing.write_event(\"migration.applied\", version=str(migration[\"version\"]))`\n- ✅ This is done for each migration in the pending list\n\n**Note about the wording**: The constraint says \"for each migration applied\" but the code logs \"for each migration in pending\". The function returns *pending* migrations (not yet applied), and logs them before returning. This appears to be logging migrations that are *about to be* applied or are pending application, which aligns with the function's purpose of returning pending migrations and the audit event name \"migration.applied\".\n\nBoth requirements are clearly met in the implementation.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses int() for numeric version comparison (fixing the \\\"10\\\" vs \\\"9\\\" bug) via the _version_number helper function, AND calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each migration in the pending list.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

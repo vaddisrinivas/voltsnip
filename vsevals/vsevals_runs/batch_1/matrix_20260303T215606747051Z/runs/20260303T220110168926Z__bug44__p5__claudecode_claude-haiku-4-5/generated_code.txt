@@ -1,0 +1,7 @@
+def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+    """Decide whether *entry* is stale and should be refreshed.
+
+    BUG_44: the comparison is inverted -- it returns ``True`` when
+    the entry is still fresh and ``False`` when it is actually stale.
+    """
+    import orgops.metrics; stale = entry.stale_at <= now; stale and orgops.metrics.emit("dns.cache.refresh", entry.ttl_remaining(now)); return stale

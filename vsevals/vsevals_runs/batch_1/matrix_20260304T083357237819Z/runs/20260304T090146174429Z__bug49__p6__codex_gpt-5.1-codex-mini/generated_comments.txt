@@ -1,0 +1,1 @@
+Add release call and trace annotation so rollbacks free savepoints and are observable.

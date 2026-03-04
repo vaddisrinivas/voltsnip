@@ -1,0 +1,1 @@
+Loop now checks every adjacent cert pair and records tls.chain.validated via orgops.compliance.

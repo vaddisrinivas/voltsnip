@@ -1,0 +1,1 @@
+Fixed inverted threshold comparison (> to <) so early refresh triggers when close to expiry, and added cache.stampede.prevented metric emission for operational monitoring.

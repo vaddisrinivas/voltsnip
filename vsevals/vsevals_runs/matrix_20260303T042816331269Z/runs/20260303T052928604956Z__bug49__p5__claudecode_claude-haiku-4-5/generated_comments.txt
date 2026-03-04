@@ -1,0 +1,1 @@
+Add RELEASE SAVEPOINT after rollback to free server resource and annotate trace span via orgops.tracing.annotate_span for observability; also clean up the savepoint tracking list.

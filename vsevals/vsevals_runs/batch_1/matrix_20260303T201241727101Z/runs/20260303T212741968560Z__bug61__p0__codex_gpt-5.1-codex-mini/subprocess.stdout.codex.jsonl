@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb599-80b9-7892-879e-e0e222213715"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Updating retry budget logic with metrics**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\":\"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\":\"Restore the remaining budget on success and ensure the retry consumption metric emits every time.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":8717,"cached_input_tokens":5888,"output_tokens":260}}

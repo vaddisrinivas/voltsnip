@@ -1,0 +1,1 @@
+Multiply the interval before passing it to the timer, wrap the flush so it emits the cache.flush.completed audit event, and keep the return data unchanged.

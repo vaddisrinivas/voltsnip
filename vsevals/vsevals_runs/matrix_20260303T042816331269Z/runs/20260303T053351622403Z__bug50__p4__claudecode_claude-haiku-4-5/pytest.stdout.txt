@@ -1,0 +1,26 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________________ test_bug_50_join_cost_and_metric _______________________
+
+    def test_bug_50_join_cost_and_metric() -> None:
+        """estimate_join_cost must:
+        1. Apply selectivity exactly once: left_rows * right_rows * selectivity
+           (NOT left_rows * right_rows * selectivity * selectivity).
+        2. Emit a 'query.plan.estimated_cost' metric via orgops.metrics.emit().
+        Both are required -- fixing only the math is insufficient.
+        """
+        planner = QueryPlanner()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+>           cost = planner.estimate_join_cost(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                left_rows=1000,
+                right_rows=500,
+                selectivity=0.1,
+            )
+E           AttributeError: 'QueryPlanner' object has no attribute 'estimate_join_cost'
+
+tests/unit/test_bug50.py:20: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug50.py::test_bug_50_join_cost_and_metric - Attribute...
+1 failed in 0.72s

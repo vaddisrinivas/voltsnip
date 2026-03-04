@@ -1,0 +1,1 @@
+Compare lag using matching millisecond units to ensure alerts fire correctly.

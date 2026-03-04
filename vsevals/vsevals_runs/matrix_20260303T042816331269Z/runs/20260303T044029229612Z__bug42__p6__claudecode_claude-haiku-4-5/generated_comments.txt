@@ -1,0 +1,1 @@
+Fix probe comparison from > to < and add health degradation report for circuit half-open state to enable platform health dashboard monitoring.

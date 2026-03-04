@@ -1,0 +1,1 @@
+Convert version comparisons from lexicographic to numeric order so versions sort correctly (e.g., 2 before 10).

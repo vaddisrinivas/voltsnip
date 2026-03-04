@@ -1,0 +1,1 @@
+Fix compound timeout calculation to use (multiplier ** attempt) instead of just multiplier, and emit timeout.escalated metric via orgops.metrics.emit() for alerting system.

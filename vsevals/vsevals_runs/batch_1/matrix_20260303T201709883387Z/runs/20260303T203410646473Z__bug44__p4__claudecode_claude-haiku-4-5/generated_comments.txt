@@ -1,0 +1,1 @@
+Fixed inverted stale comparison (entry.stale_at <= now) and added dns.cache.refresh metric emission when entry is detected as stale.

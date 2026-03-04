@@ -1,0 +1,7 @@
+        """Compute the escalated timeout for *attempt*.
+
+        The timeout compounds via ``original_ms * (multiplier ** attempt)``
+        so retries grow progressively without breaching the ceiling.
+        """
+        new_timeout_ms = original_ms * (multiplier ** attempt)
+        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)

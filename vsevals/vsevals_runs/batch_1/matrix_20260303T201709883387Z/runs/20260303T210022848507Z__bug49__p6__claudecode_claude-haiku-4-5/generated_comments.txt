@@ -1,0 +1,1 @@
+Release savepoint after rollback to prevent resource leak, update internal state tracking, and annotate trace span for observability.

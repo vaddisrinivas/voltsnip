@@ -1,0 +1,1 @@
+Propagate both IDs and annotate the span before logging the propagation entry.

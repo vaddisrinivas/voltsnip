@@ -1,0 +1,1 @@
+Compute the sliding-window boundary with floats so bisect sees precise timestamps.

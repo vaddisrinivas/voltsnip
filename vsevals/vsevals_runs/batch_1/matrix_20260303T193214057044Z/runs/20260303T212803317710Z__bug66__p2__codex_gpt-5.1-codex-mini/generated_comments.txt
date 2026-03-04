@@ -1,0 +1,1 @@
+Child context now includes both identifiers and annotates the trace span with the parent correlation_id.

@@ -1,0 +1,1 @@
+Fix the probe allowance check and report circuit.half_open degradation when probes are blocked.

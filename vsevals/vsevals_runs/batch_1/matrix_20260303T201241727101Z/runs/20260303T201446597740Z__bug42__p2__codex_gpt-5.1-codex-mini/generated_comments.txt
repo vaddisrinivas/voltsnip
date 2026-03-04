@@ -1,0 +1,1 @@
+Limit half-open probes to below the cap and report a degradation when the probe quota is exhausted.

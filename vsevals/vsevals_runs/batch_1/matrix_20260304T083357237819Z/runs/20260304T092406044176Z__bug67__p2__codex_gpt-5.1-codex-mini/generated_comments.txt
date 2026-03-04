@@ -1,0 +1,1 @@
+Use rounded percentage and emit the log.sampling.rate metric before recording rate history.

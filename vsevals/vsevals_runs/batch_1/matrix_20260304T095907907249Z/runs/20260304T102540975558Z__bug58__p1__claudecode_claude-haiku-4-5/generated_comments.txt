@@ -1,0 +1,1 @@
+Fixed off-by-one bug: removed +1 from modulus to ensure partition_id returns values in valid range [0, num_partitions).

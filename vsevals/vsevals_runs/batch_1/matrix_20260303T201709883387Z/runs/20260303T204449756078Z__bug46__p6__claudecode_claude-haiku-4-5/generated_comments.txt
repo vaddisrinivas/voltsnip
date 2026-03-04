@@ -1,0 +1,1 @@
+Remove int() truncation to use exact float arithmetic for sliding window boundary calculation.

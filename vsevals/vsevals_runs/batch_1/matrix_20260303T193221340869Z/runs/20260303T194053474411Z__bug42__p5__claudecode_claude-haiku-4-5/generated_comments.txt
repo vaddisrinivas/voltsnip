@@ -1,0 +1,1 @@
+Fix inverted probe comparison (< instead of >) and report circuit.half_open degradation to health dashboard.

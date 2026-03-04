@@ -1,0 +1,1 @@
+Splits 4xx (client_error) from 5xx (server_error) classification and emits error.mapped metric for operational monitoring.

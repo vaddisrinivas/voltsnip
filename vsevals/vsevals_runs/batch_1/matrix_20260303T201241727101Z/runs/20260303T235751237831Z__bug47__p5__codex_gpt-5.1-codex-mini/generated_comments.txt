@@ -1,0 +1,1 @@
+Evicts the idle connection with the oldest last_used_at timestamp, pops it by index, and reports a pool.connection.evicted metric when a compatible emitter is attached.

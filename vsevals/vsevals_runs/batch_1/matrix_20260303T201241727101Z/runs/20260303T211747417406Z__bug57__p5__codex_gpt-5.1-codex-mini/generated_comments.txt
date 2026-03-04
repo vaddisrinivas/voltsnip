@@ -1,0 +1,1 @@
+Convert the scheduling interval to milliseconds and wrap the flush callback to emit a cache.flush.completed audit event after each flush.

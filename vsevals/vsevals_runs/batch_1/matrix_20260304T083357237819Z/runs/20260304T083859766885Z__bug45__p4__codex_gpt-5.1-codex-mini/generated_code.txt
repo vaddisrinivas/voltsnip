@@ -1,0 +1,48 @@
+def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:
+    """Validate a TLS certificate chain from leaf to root.
+
+    Each cert[i].issuer must equal cert[i+1].subject to form a valid
+    chain.  Returns a summary dict with validation results.
+    """
+    if not chain:
+        result = {"valid": False, "depth": 0, "error": "empty chain"}
+
+    elif len(chain) == 1:
+        is_valid = _is_self_signed(chain[0])
+        result = {
+            "valid": is_valid,
+            "depth": 1,
+            "self_signed": True,
+            "error": None if is_valid else "single cert is not self-signed",
+        }
+
+    else:
+        errors: list[str] = []
+        for i in range(len(chain) - 1):
+            expected = chain[i].issuer
+            actual = chain[i + 1].subject
+            if expected != actual:
+                errors.append(
+                    f"break at {i}: issuer={expected!r} != subject={actual!r}"
+                )
+
+        is_valid = not errors
+        result = {
+            "valid": is_valid,
+            "depth": len(chain),
+            "errors": errors,
+            "root_self_signed": _is_self_signed(chain[-1]),
+        }
+
+    from orgops.compliance import record_decision
+
+    record_decision(
+        "tls.chain.validated",
+        {
+            "valid": result["valid"],
+            "depth": result["depth"],
+            "errors": result.get("errors"),
+        },
+    )
+
+    return result

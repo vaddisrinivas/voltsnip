@@ -1,0 +1,1 @@
+Release the savepoint post-rollback and annotate the trace span per the savepoint rollback contract.

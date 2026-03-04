@@ -1,0 +1,1 @@
+Keep the sliding-window boundary as the precise float difference so sub-second timestamps are counted correctly.

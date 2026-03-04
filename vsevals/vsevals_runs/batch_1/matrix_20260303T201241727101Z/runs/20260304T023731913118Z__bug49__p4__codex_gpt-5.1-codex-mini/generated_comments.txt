@@ -1,0 +1,1 @@
+Release the savepoint after rollback, annotate the trace span, and drop it from the active list.

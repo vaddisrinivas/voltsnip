@@ -1,0 +1,1 @@
+Changed compute_backoff_delay to use exponential backoff (2**attempt) instead of linear, cap the delay at max_delay, and emit the retry.backoff.applied metric.

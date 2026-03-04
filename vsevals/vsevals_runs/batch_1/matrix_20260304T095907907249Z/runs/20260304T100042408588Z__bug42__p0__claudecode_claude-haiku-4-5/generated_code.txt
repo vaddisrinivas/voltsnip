@@ -1,0 +1,10 @@
+    def should_allow_probe(self) -> bool:
+        """Allow a probe request in the half-open state if under the limit.
+
+        BUG_42: the comparison is inverted, allowing probes when the count
+        has already exceeded the maximum and blocking them when under the limit.
+        """
+        if self.probe_count < self.max_probes:  # BUG_42: should be < not >
+            self.probe_count += 1
+            return True
+        return False

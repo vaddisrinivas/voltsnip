@@ -1,0 +1,1 @@
+Fixes the threshold comparison so refreshes fire near expiry and documents that incrementing the counter backs the cache.stampede.prevented metric.

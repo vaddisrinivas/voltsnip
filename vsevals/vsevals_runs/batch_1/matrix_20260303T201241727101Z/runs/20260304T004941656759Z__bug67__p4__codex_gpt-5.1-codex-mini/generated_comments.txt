@@ -1,0 +1,1 @@
+Round the computed rate to two decimals, emit the log.sampling.rate metric, and keep all history/rate handling consistent with the new float value.

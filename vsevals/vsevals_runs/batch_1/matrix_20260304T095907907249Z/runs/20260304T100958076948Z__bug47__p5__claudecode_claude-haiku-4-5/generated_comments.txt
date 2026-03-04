@@ -1,0 +1,1 @@
+Fixed LRU eviction by replacing FIFO pop(0) with min(last_used_at) selection and added pool.connection.evicted metric emission.

@@ -1,0 +1,1 @@
+Bound probe attempts with < and report circuit.half_open degradation once the cap is reached.

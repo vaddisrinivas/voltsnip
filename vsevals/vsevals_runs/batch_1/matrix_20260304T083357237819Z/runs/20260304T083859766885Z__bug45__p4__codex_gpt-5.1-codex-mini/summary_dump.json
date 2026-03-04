@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T083859766885Z__bug45__p4__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG45",
+  "task_name": "tls_chain_range_and_compliance",
+  "variant_id": "P4",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 89798,
+    "prompt_chars": 6697,
+    "output_chars": 1690,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5647,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 4,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 4,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 89777,
+    "model_request_started_at": "2026-03-04T08:38:59.786928Z",
+    "model_request_finished_at": "2026-03-04T08:40:29.564251Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 8207,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 69939,
+      "completion_tokens": 12626,
+      "total_tokens": 82565,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0481772
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug45_chain_range_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug45_chain_range_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses range(len(chain) - 1) for the loop (lines 19-24) and records a compliance decision via orgops.compliance.record_decision with event 'tls.chain.validated' including depth=result['depth'] (which equals len(chain)) before returning (lines 36-44).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        result = {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    elif len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        result = {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    else:\\n        errors: list[str] = []\\n        for i in range(len(chain) - 1):\\n            expected = chain[i].issuer\\n            actual = chain[i + 1].subject\\n            if expected != actual:\\n                errors.append(\\n                    f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n                )\\n\\n        is_valid = not errors\\n        result = {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": len(chain),\\n            \\\"errors\\\": errors,\\n            \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n        }\\n\\n    from orgops.compliance import record_decision\\n\\n    record_decision(\\n        \\\"tls.chain.validated\\\",\\n        {\\n            \\\"valid\\\": result[\\\"valid\\\"],\\n            \\\"depth\\\": result[\\\"depth\\\"],\\n            \\\"errors\\\": result.get(\\\"errors\\\"),\\n        },\\n    )\\n\\n    return result\\n\", \"comments\": \"Validate every adjacent certificate pair and log the tls.chain.validated decision via orgops.compliance.record_decision before returning.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+    },
+    "judge_raw_response": "Looking at this code, I need to check two specific things:\n\n1. **Loop range**: Does it use `range(len(chain) - 1)` instead of `range(1, len(chain))`?\n2. **Compliance recording**: Does it call `orgops.compliance.record_decision()` with the event \"tls.chain.validated\" and include depth in the data?\n\nLet me examine the code:\n\n**Loop range check:**\n```python\nfor i in range(len(chain) - 1):\n    expected = chain[i].issuer\n    actual = chain[i + 1].subject\n```\n✓ The loop uses `range(len(chain) - 1)`, which is correct. This iterates from 0 to len(chain)-2, allowing `chain[i+1]` to access up to the last element.\n\n**Compliance recording check:**\n```python\nfrom orgops.compliance import record_decision\n\nrecord_decision(\n    \"tls.chain.validated\",\n    {\n        \"valid\": result[\"valid\"],\n        \"depth\": result[\"depth\"],\n        \"errors\": result.get(\"errors\"),\n    },\n)\n```\n✓ The code imports and calls `record_decision` from `orgops.compliance`\n✓ It uses the event name \"tls.chain.validated\"\n✓ It includes `\"depth\": result[\"depth\"]` which equals `len(chain)` in the multi-certificate case\n✓ The call happens before returning the result\n\nBoth requirements are satisfied.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses range(len(chain) - 1) for the loop (lines 19-24) and records a compliance decision via orgops.compliance.record_decision with event 'tls.chain.validated' including depth=result['depth'] (which equals len(chain)) before returning (lines 36-44).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F.                                                                       [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_45_tls_chain_and_compliance _____________________\n\n    def test_bug_45_tls_chain_and_compliance() -> None:\n        \"\"\"validate_cert_chain must:\n        1. Check every adjacent pair in the chain — range(len(chain) - 1),\n           NOT range(1, len(chain)) which skips the leaf-to-intermediate link.\n        2. Record a compliance decision via orgops.compliance.record_decision\n           with decision_type=\"tls.chain.validated\" and depth=len(chain).\n        Both are required — fixing only the loop is insufficient.\n        \"\"\"\n        leaf = Certificate(subject=\"leaf.example.com\", issuer=\"Intermediate CA\")\n        intermediate = Certificate(subject=\"Intermediate CA\", issuer=\"Root CA\")\n        root = Certificate(subject=\"Root CA\", issuer=\"Root CA\")\n    \n        valid_chain = [leaf, intermediate, root]\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            result = validate_cert_chain(valid_chain)\n    \n        # --- Requirement 1: correct chain validation ---\n        assert result[\"valid\"] is True, (\n            \"A valid leaf -> intermediate -> root chain must pass validation. \"\n            \"The loop must use range(len(chain) - 1) to check chain[0].issuer == chain[1].subject.\"\n        )\n        assert result[\"depth\"] == 3\n    \n        # --- Requirement 2: compliance decision recording ---\n        mock_record.assert_called_once()\n        call_args = mock_record.call_args\n        assert call_args[0][0] == \"tls.chain.validated\", (\n            \"Must record a 'tls.chain.validated' compliance decision via \"\n            \"orgops.compliance.record_decision\"\n        )\n>       assert call_args[1][\"depth\"] == 3, (\n               ^^^^^^^^^^^^^^^^^^^^^\n            \"Must pass depth=len(chain) to record_decision\"\n        )\nE       KeyError: 'depth'\n\ntests/unit/test_bug45.py:41: KeyError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug45.py::test_bug_45_tls_chain_and_compliance - KeyEr...\n1 failed, 1 passed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 798,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Compare versions numerically when filtering and sorting pending migrations to preserve the intended order.

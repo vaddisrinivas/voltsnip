@@ -1,0 +1,1 @@
+Replenish remaining token count on success, decrement on failure, and emit retry budget metric after every outcome.

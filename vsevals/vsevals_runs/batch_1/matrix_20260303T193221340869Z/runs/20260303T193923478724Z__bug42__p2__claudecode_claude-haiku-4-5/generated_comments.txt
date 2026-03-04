@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < so probes are allowed when under the limit, not when exceeded

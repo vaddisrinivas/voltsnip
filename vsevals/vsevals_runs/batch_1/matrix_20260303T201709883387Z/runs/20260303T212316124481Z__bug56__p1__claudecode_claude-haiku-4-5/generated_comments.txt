@@ -1,0 +1,1 @@
+Apply time-decay formula score = access_count / (1 + age_hours) to prevent stale entries from monopolizing cache.

@@ -1,0 +1,1 @@
+Fixed loop range from range(1, len(chain)) to range(len(chain) - 1) to validate every adjacent pair; simplified conditional body; added compliance recording via orgops.compliance.record_decision("tls.chain.validated", ...) for audit trail.

@@ -1,0 +1,1 @@
+Inverted the comparison from `>` to `<=` so the method correctly returns True when an entry is stale (now >= stale_at) and needs refresh.

@@ -1,0 +1,1 @@
+Rollback now releases the savepoint and annotates the trace per the bug report.

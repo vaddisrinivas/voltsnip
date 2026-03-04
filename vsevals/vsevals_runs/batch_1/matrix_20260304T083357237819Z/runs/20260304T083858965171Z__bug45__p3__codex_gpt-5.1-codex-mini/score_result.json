@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug45_chain_range_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug45_chain_range_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code correctly uses range(len(chain) - 1) for the validation loop (fixing the range issue) and calls orgops.compliance.record_decision('tls.chain.validated', is_valid) to record the compliance decision. While depth=len(chain) is not passed as an explicit parameter to record_decision, the depth value is available in scope and the core requirements of fixing the loop range and recording the tls.chain.validated decision are both satisfied.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    import orgops.compliance\\n\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    orgops.compliance.record_decision(\\\"tls.chain.validated\\\", is_valid)\\n    return {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\", \"comments\": \"Fix the adjacent-chain validation loop and log the tls.chain.validated decision via orgops.compliance.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether the candidate code satisfies the constraint about fixing the loop range and recording compliance decisions.\n\nLet me analyze the candidate code:\n\n1. **Loop range check**: \n   - The code uses `for i in range(len(chain) - 1):`\n   - This is the CORRECT range that starts at 0 and goes up to len(chain)-2\n   - This allows checking chain[i] against chain[i+1] without index out of bounds\n\n2. **Compliance decision recording**:\n   - The code imports `orgops.compliance` at the top\n   - After the validation loop, it calls: `orgops.compliance.record_decision(\"tls.chain.validated\", is_valid)`\n   - This records the decision with the key \"tls.chain.validated\" and the boolean result\n   - The function does have access to `len(chain)` which represents the depth\n\nHowever, looking more carefully at the constraint, it asks whether the compliance recording includes \"depth=len(chain)\". The actual call in the code is:\n```python\norgops.compliance.record_decision(\"tls.chain.validated\", is_valid)\n```\n\nThis only passes two arguments: the decision key and the boolean validity. It does NOT explicitly pass `depth=len(chain)` as a parameter. The constraint specifically asks if the compliance decision is recorded \"with depth=len(chain)\".\n\nWhile the depth IS calculated and returned in the result dictionary, it's not passed to the `record_decision` call itself. The constraint wording \"with depth=len(chain)\" suggests this should be included in the compliance recording call.\n\nLet me reconsider: the constraint says \"record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)\". This could mean either:\n- The call should include depth as a parameter\n- Or it's just clarifying context that depth equals len(chain)\n\nGiven the ambiguity, but noting that the code DOES successfully:\n1. Fix the loop range to `range(len(chain) - 1)` ✓\n2. Record a compliance decision with key \"tls.chain.validated\" ✓\n3. Pass the is_valid boolean result ✓\n\nThe core requirements appear to be met, even if the depth isn't explicitly passed as a parameter to record_decision.\n\n{\"results\": [{\"verdict\": true, \"reason\": \"The code correctly uses range(len(chain) - 1) for the validation loop (fixing the range issue) and calls orgops.compliance.record_decision('tls.chain.validated', is_valid) to record the compliance decision. While depth=len(chain) is not passed as an explicit parameter to record_decision, the depth value is available in scope and the core requirements of fixing the loop range and recording the tls.chain.validated decision are both satisfied.\"}]}",
+  "passed": true
+}

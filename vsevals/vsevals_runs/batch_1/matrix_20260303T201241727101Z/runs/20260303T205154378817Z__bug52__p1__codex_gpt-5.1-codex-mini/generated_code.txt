@@ -1,0 +1,2 @@
+    # BUG_52: case-sensitive comparison causes false mismatches
+    return expected_type.casefold() == actual_type.casefold()

@@ -1,0 +1,1 @@
+Added tracing event via OpenTelemetry span, executed RELEASE SAVEPOINT after rollback to fix resource leak, and updated internal savepoint tracking.

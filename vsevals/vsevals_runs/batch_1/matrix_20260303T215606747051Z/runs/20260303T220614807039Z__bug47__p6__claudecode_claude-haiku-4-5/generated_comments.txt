@@ -1,0 +1,1 @@
+Fix LRU eviction by finding min last_used_at instead of pop(0), and emit pool.connection.evicted metric for alerting system.

@@ -1,0 +1,1 @@
+Clamp the lock timeout to ≥1 ms and annotate the span before storing the lock information.

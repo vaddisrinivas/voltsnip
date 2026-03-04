@@ -1,0 +1,1 @@
+Case-insensitive type comparison using .upper() AND compliance decision recording via orgops.compliance.record_decision for SOC2 audit trail.

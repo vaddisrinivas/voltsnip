@@ -1,0 +1,1 @@
+Compare the lag and threshold in the same units and call orgops.alerts.notify whenever the check reports an exceeded condition.

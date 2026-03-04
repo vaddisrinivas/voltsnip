@@ -1,0 +1,1 @@
+Propagate both IDs to the child context and annotate the tracing span.

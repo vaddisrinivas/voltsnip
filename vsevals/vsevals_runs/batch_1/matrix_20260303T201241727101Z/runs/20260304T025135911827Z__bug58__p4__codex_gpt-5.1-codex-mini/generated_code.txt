@@ -1,0 +1,11 @@
+        """Return the partition ID for *key*.
+
+        BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can
+        return ``num_partitions`` itself -- an out-of-range value
+        (valid range is ``0 .. num_partitions - 1``).  The fix must
+        use ``hash(key) % num_partitions`` instead.
+        """
+        n = num_partitions if num_partitions is not None else self._config.num_partitions
+        # BUG_58: off-by-one in modulus -- can return n itself
+        partition_id = _stable_hash(key) % n
+        return partition_id

@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug57_interval_units_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug57_interval_units_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "It does multiply interval_seconds by 1000 before passing to _start_timer, but it does not call orgops.auditing.write_event() nor emit a cache.flush.completed event with items_flushed=len(buffer); it only returns an audit_event dict with type 'flush_scheduled'.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: passes interval_seconds directly to _start_timer which\\n        expects milliseconds.  A 5-second interval is misinterpreted as\\n        5 ms, causing the buffer to flush ~1000x too frequently.\\n        \\\"\\\"\\\"\\n        self._timer_handle = _start_timer(\\n            interval_seconds * 1000,  # BUG_57: convert seconds to milliseconds\\n            callback=lambda: self._do_flush(buffer),\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n            \\\"audit_event\\\": {\\n                \\\"type\\\": \\\"flush_scheduled\\\",\\n                \\\"interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            },\\n        }\", \"comments\": \"Convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer, and emit flush audit event in return dict.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"It does multiply interval_seconds by 1000 before passing to _start_timer, but it does not call orgops.auditing.write_event() nor emit a cache.flush.completed event with items_flushed=len(buffer); it only returns an audit_event dict with type 'flush_scheduled'.\"}]}",
+  "passed": false
+}

@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb599-ff98-7402-a9cb-b76f423d914b"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Replacing method lines with metric emission and budget update**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        import orgops.metrics\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenish the budget on success, decrement on failure, and emit the retry budget metric after every call.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9229,"cached_input_tokens":5888,"output_tokens":1321}}

@@ -1,0 +1,1 @@
+Fixed timer interval bug by multiplying interval_seconds by 1000 to convert from seconds to milliseconds.

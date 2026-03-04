@@ -1,0 +1,1 @@
+Remove int() truncation to preserve sub-second precision in the sliding window boundary calculation.

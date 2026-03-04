@@ -1,0 +1,1 @@
+Made column type comparison case-insensitive using .upper() to handle varying database engine case conventions.

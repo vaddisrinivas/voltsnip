@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug70_base64_decode_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug70_base64_decode_and_alert",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation satisfies both required behaviors: (1) It decodes base64-encoded segments by finding matches with _BASE64_RE.finditer(text), calling _try_decode_base64() on each match, and then re-scanning the decoded content with _scan_plaintext(decoded). (2) It imports orgops.alerts and calls alerts.notify(finding) for every finding in self.findings. While the exact signature differs slightly from the example in the judge_prompt (notify(finding) vs notify('secret.detected', pattern_type=pattern_type)), the implementation does call orgops.alerts.notify for each detected secret, fulfilling the core requirement of alerting via orgops.alerts.notify.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug70/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def scan_for_secrets(self, text: str) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return a list of findings for every secret detected in *text*.\\n\\n        BUG_70: Only plaintext patterns are checked.  Base64-encoded\\n        segments are never decoded and re-scanned, so an encoded\\n        ``AKIA...`` key or ``ghp_`` token slips through undetected.\\n        \\\"\\\"\\\"\\n        self.findings = []\\n        self._scan_plaintext(text)\\n\\n        decoded_segments: set[str] = set()\\n        for match in _BASE64_RE.finditer(text):\\n            decoded = self._try_decode_base64(match.group())\\n            if decoded and decoded not in decoded_segments:\\n                decoded_segments.add(decoded)\\n                self._scan_plaintext(decoded)\\n\\n        from orgops import alerts\\n        for finding in self.findings:\\n            alerts.notify(finding)\\n\\n        return list(self.findings)\\n\", \"comments\": \"Decode Base64 segments before rescanning and notify orgops alerts for every finding.\"}, \"constraints\": [{\"id\": \"bug70_base64_decode_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug70/scenario_context/v1\", \"check\": \"Base64 decode + re-scan AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both decode base64-encoded segments in the text and re-scan the decoded content for secret patterns AND call orgops.alerts.notify(\\\"secret.detected\\\", pattern_type=pattern_type) for each detected secret?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both required behaviors: (1) It decodes base64-encoded segments by finding matches with _BASE64_RE.finditer(text), calling _try_decode_base64() on each match, and then re-scanning the decoded content with _scan_plaintext(decoded). (2) It imports orgops.alerts and calls alerts.notify(finding) for every finding in self.findings. While the exact signature differs slightly from the example in the judge_prompt (notify(finding) vs notify('secret.detected', pattern_type=pattern_type)), the implementation does call orgops.alerts.notify for each detected secret, fulfilling the core requirement of alerting via orgops.alerts.notify.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

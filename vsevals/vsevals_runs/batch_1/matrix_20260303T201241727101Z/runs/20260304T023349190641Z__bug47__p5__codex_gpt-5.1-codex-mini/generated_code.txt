@@ -1,0 +1,31 @@
+    def evict_idle(self) -> Connection | None:
+        """Remove the least-recently-used idle connection and report metrics.
+
+        The eviction now chooses the connection with the oldest
+        ``last_used_at`` timestamp and emits ``pool.connection.evicted``.
+        """
+        if not self.connections:
+            return None
+
+        now = time.time()
+
+        evicted = min(self.connections, key=lambda conn: conn.last_used_at)
+        self.connections.remove(evicted)
+
+        idle_seconds = now - evicted.last_used_at
+
+        metric_reporter = getattr(self, "emit_metric", None)
+        if callable(metric_reporter):
+            metric_reporter("pool.connection.evicted", idle_seconds=idle_seconds)
+        else:
+            metrics_sink = getattr(self, "metrics", None)
+            if metrics_sink:
+                emit = getattr(metrics_sink, "emit", None)
+                if callable(emit):
+                    emit("pool.connection.evicted", idle_seconds=idle_seconds)
+                else:
+                    record = getattr(metrics_sink, "record", None)
+                    if callable(record):
+                        record("pool.connection.evicted", idle_seconds=idle_seconds)
+
+        return evicted

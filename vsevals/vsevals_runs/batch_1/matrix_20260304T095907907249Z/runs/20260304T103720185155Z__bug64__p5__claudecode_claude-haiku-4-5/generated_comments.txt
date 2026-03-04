@@ -1,0 +1,1 @@
+Fixed compounding calculation to use original_ms * (multiplier ** attempt) and added timeout.escalated metric emission via orgops.metrics.emit.

@@ -1,0 +1,1 @@
+Treat DNS/connect as parallel via max + read and emit an orgops tracing annotation.

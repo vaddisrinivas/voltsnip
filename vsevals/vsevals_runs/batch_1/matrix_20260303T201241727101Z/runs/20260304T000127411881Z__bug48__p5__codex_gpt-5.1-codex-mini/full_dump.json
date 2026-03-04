@@ -1,0 +1,310 @@
+{
+  "run_id": "20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 36,
+  "task_line_end": 55,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug48/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG48\nTask Name: migration_version_lexicographic_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.\n\nTarget File: data/migration_runner.py\n\nTarget Lines:\n36-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 36-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug48.py -k bug_48\n\nContext Code:\n```python\ndef get_pending_migrations(self) -> list[dict[str, Any]]:\n    \"\"\"Return migrations not yet applied, sorted by version.\n\n    BUG_48: versions are compared as *strings* so lexicographic\n    ordering causes \"10\" to sort before \"2\" and pending detection\n    incorrectly skips higher single-digit versions.\n    \"\"\"\n    if not self.applied_versions:\n        return sorted(\n            self.available_migrations,\n            key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n        )\n\n    max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n    pending = [\n        m\n        for m in self.available_migrations\n        if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n    ]\n    return sorted(pending, key=lambda m: str(m[\"version\"]))\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Database schema migration runner.\n\nDiscovers pending migrations by comparing applied versions against the\navailable migration manifests, then executes them in version order.\nEach applied migration must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Sequence\n\n\nclass MigrationRunner:\n    \"\"\"Run pending schema migrations in version order.\n\n    Parameters\n    ----------\n    applied_versions:\n        Set of version strings that have already been applied to the database.\n    available_migrations:\n        Sequence of dicts with ``\"version\"`` (string like ``\"1\"``, ``\"2\"``,\n        ``\"10\"``) and ``\"sql\"`` keys describing each migration.\n    \"\"\"\n\n    def __init__(\n        self,\n        applied_versions: set[str],\n        available_migrations: Sequence[dict[str, Any]],\n    ) -> None:\n        self.applied_versions = applied_versions\n        self.available_migrations = available_migrations\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n            )\n\n        max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n        pending = [\n            m\n            for m in self.available_migrations\n            if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n        ]\n        return sorted(pending, key=lambda m: str(m[\"version\"]))\n\n    def apply_pending(self, executor: Any) -> list[str]:\n        \"\"\"Apply all pending migrations and return the applied versions.\n\n        Parameters\n        ----------\n        executor:\n            Object with an ``execute(sql)`` method used to run each\n            migration's SQL statement.\n\n        Returns\n        -------\n        list[str]\n            Version strings of migrations that were applied.\n        \"\"\"\n        pending = self.get_pending_migrations()\n        applied: list[str] = []\n        for migration in pending:\n            version = str(migration[\"version\"])\n            executor.execute(migration[\"sql\"])\n            self.applied_versions.add(version)\n            applied.append(version)\n        return applied\n```\n\nExpected Output:\nUse int() for version comparison and sorting AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug48/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG48\nTask Name: migration_version_lexicographic_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.\n\nTarget File: data/migration_runner.py\n\nTarget Lines:\n36-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 36-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug48.py -k bug_48\n\nContext Code:\n```python\ndef get_pending_migrations(self) -> list[dict[str, Any]]:\n    \"\"\"Return migrations not yet applied, sorted by version.\n\n    BUG_48: versions are compared as *strings* so lexicographic\n    ordering causes \"10\" to sort before \"2\" and pending detection\n    incorrectly skips higher single-digit versions.\n    \"\"\"\n    if not self.applied_versions:\n        return sorted(\n            self.available_migrations,\n            key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n        )\n\n    max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n    pending = [\n        m\n        for m in self.available_migrations\n        if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n    ]\n    return sorted(pending, key=lambda m: str(m[\"version\"]))\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Database schema migration runner.\n\nDiscovers pending migrations by comparing applied versions against the\navailable migration manifests, then executes them in version order.\nEach applied migration must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Sequence\n\n\nclass MigrationRunner:\n    \"\"\"Run pending schema migrations in version order.\n\n    Parameters\n    ----------\n    applied_versions:\n        Set of version strings that have already been applied to the database.\n    available_migrations:\n        Sequence of dicts with ``\"version\"`` (string like ``\"1\"``, ``\"2\"``,\n        ``\"10\"``) and ``\"sql\"`` keys describing each migration.\n    \"\"\"\n\n    def __init__(\n        self,\n        applied_versions: set[str],\n        available_migrations: Sequence[dict[str, Any]],\n    ) -> None:\n        self.applied_versions = applied_versions\n        self.available_migrations = available_migrations\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n            )\n\n        max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n        pending = [\n            m\n            for m in self.available_migrations\n            if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n        ]\n        return sorted(pending, key=lambda m: str(m[\"version\"]))\n\n    def apply_pending(self, executor: Any) -> list[str]:\n        \"\"\"Apply all pending migrations and return the applied versions.\n\n        Parameters\n        ----------\n        executor:\n            Object with an ``execute(sql)`` method used to run each\n            migration's SQL statement.\n\n        Returns\n        -------\n        list[str]\n            Version strings of migrations that were applied.\n        \"\"\"\n        pending = self.get_pending_migrations()\n        applied: list[str] = []\n        for migration in pending:\n            version = str(migration[\"version\"])\n            executor.execute(migration[\"sql\"])\n            self.applied_versions.add(version)\n            applied.append(version)\n        return applied\n```\n\nExpected Output:\nUse int() for version comparison and sorting AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug48/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG48\nTask Name: migration_version_lexicographic_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.\n\nTarget File: data/migration_runner.py\n\nTarget Lines:\n36-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 36-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug48.py -k bug_48\n\nContext Code:\n```python\ndef get_pending_migrations(self) -> list[dict[str, Any]]:\n    \"\"\"Return migrations not yet applied, sorted by version.\n\n    BUG_48: versions are compared as *strings* so lexicographic\n    ordering causes \"10\" to sort before \"2\" and pending detection\n    incorrectly skips higher single-digit versions.\n    \"\"\"\n    if not self.applied_versions:\n        return sorted(\n            self.available_migrations,\n            key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n        )\n\n    max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n    pending = [\n        m\n        for m in self.available_migrations\n        if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n    ]\n    return sorted(pending, key=lambda m: str(m[\"version\"]))\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Database schema migration runner.\n\nDiscovers pending migrations by comparing applied versions against the\navailable migration manifests, then executes them in version order.\nEach applied migration must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Sequence\n\n\nclass MigrationRunner:\n    \"\"\"Run pending schema migrations in version order.\n\n    Parameters\n    ----------\n    applied_versions:\n        Set of version strings that have already been applied to the database.\n    available_migrations:\n        Sequence of dicts with ``\"version\"`` (string like ``\"1\"``, ``\"2\"``,\n        ``\"10\"``) and ``\"sql\"`` keys describing each migration.\n    \"\"\"\n\n    def __init__(\n        self,\n        applied_versions: set[str],\n        available_migrations: Sequence[dict[str, Any]],\n    ) -> None:\n        self.applied_versions = applied_versions\n        self.available_migrations = available_migrations\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n            )\n\n        max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n        pending = [\n            m\n            for m in self.available_migrations\n            if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n        ]\n        return sorted(pending, key=lambda m: str(m[\"version\"]))\n\n    def apply_pending(self, executor: Any) -> list[str]:\n        \"\"\"Apply all pending migrations and return the applied versions.\n\n        Parameters\n        ----------\n        executor:\n            Object with an ``execute(sql)`` method used to run each\n            migration's SQL statement.\n\n        Returns\n        -------\n        list[str]\n            Version strings of migrations that were applied.\n        \"\"\"\n        pending = self.get_pending_migrations()\n        applied: list[str] = []\n        for migration in pending:\n            version = str(migration[\"version\"])\n            executor.execute(migration[\"sql\"])\n            self.applied_versions.add(version)\n            applied.append(version)\n        return applied\n```\n\nExpected Output:\nUse int() for version comparison and sorting AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        def _version_key(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        available_sorted = sorted(self.available_migrations, key=_version_key)\\n\\n        if not self.applied_versions:\\n            pending = available_sorted\\n        else:\\n            max_applied = max(int(version) for version in self.applied_versions)\\n            pending = [\\n                migration\\n                for migration in available_sorted\\n                if _version_key(migration) > max_applied\\n            ]\\n\\n        from orgops import auditing\\n\\n        for migration in pending:\\n            auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n\\n        return pending\\n\",\"comments\":\"Uses numeric version comparisons and auditable logging for each pending migration.\"}"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__codex__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.316982Z",
+      "finished_at": "2026-03-04T00:03:00.316984Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__codex__list_mcp_resource_templates",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.317129Z",
+      "finished_at": "2026-03-04T00:03:00.317129Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "mcp__codex__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.317147Z",
+      "finished_at": "2026-03-04T00:03:00.317147Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 4,
+      "tool_name": "mcp__mcp__voltsnip__search_memory__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0",
+        "server": "mcp__voltsnip__search_memory"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.317174Z",
+      "finished_at": "2026-03-04T00:03:00.317174Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 5,
+      "tool_name": "mcp__mcp__voltsnip__search_memory__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0",
+        "server": "mcp__voltsnip__search_memory",
+        "uri": ""
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.317190Z",
+      "finished_at": "2026-03-04T00:03:00.317190Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 6,
+      "tool_name": "mcp__codex__list_mcp_resources",
+      "tool_call_id": null,
+      "tool_args": {
+        "cursor": "0"
+      },
+      "tool_result": {
+        "raw": ""
+      },
+      "error": null,
+      "started_at": "2026-03-04T00:03:00.317204Z",
+      "finished_at": "2026-03-04T00:03:00.317205Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "{\"code\":\"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        def _version_key(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        available_sorted = sorted(self.available_migrations, key=_version_key)\\n\\n        if not self.applied_versions:\\n            pending = available_sorted\\n        else:\\n            max_applied = max(int(version) for version in self.applied_versions)\\n            pending = [\\n                migration\\n                for migration in available_sorted\\n                if _version_key(migration) > max_applied\\n            ]\\n\\n        from orgops import auditing\\n\\n        for migration in pending:\\n            auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n\\n        return pending\\n\",\"comments\":\"Uses numeric version comparisons and auditable logging for each pending migration.\"}",
+  "parsed_output": {
+    "code": "    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        def _version_key(migration: dict[str, Any]) -> int:\n            return int(migration[\"version\"])\n\n        available_sorted = sorted(self.available_migrations, key=_version_key)\n\n        if not self.applied_versions:\n            pending = available_sorted\n        else:\n            max_applied = max(int(version) for version in self.applied_versions)\n            pending = [\n                migration\n                for migration in available_sorted\n                if _version_key(migration) > max_applied\n            ]\n\n        from orgops import auditing\n\n        for migration in pending:\n            auditing.write_event(\n                \"migration.applied\",\n                version=str(migration[\"version\"]),\n            )\n\n        return pending\n",
+    "comments": "Uses numeric version comparisons and auditable logging for each pending migration."
+  },
+  "token_usage": {
+    "prompt_tokens": 140966,
+    "completion_tokens": 9699,
+    "total_tokens": 150665,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0719048
+  },
+  "timings": {
+    "started_at": "2026-03-04T00:01:27.412070Z",
+    "finished_at": "2026-03-04T00:03:00.681512Z",
+    "latency_ms": 93269
+  },
+  "summary_metrics": {
+    "latency_ms": 93269,
+    "prompt_chars": 5713,
+    "output_chars": 1249,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4663,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 6,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 6,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 93245,
+    "model_request_started_at": "2026-03-04T00:01:27.434427Z",
+    "model_request_finished_at": "2026-03-04T00:03:00.680266Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6978,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 140966,
+      "completion_tokens": 9699,
+      "total_tokens": 150665,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0719048
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260303T201241727101Z/runs/20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in _version_key() function and when computing max_applied, ensuring '10' correctly sorts after '9'. (2) It calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each pending migration in the loop.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        def _version_key(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        available_sorted = sorted(self.available_migrations, key=_version_key)\\n\\n        if not self.applied_versions:\\n            pending = available_sorted\\n        else:\\n            max_applied = max(int(version) for version in self.applied_versions)\\n            pending = [\\n                migration\\n                for migration in available_sorted\\n                if _version_key(migration) > max_applied\\n            ]\\n\\n        from orgops import auditing\\n\\n        for migration in pending:\\n            auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n\\n        return pending\\n\", \"comments\": \"Uses numeric version comparisons and auditable logging for each pending migration.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in _version_key() function and when computing max_applied, ensuring '10' correctly sorts after '9'. (2) It calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each pending migration in the loop.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": null,
+  "error": null
+}

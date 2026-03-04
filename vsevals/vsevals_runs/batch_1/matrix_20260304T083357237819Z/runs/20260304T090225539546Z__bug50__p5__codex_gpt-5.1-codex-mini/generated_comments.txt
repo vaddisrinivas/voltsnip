@@ -1,0 +1,1 @@
+Apply selectivity once, keep the history entry, and emit the query.plan.estimated_cost metric when a metrics emitter is available.

@@ -1,0 +1,1 @@
+Use datetime.now(timezone.utc) for UTC timestamp and record compliance decision for cross-region consistency.

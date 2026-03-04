@@ -1,0 +1,1 @@
+Convert version comparisons from lexicographic (string) to numeric (int) to fix sorting of versions like "2" vs "10" and pending detection

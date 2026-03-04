@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug59_classification_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug59_classification_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code correctly splits 400-499 into 'client_error' and 500-599 into 'server_error' (fixing the bug that lumped them together), and it emits the 'error.mapped' metric via orgops.metrics.emit() with appropriate data including status_code and category.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    from orgops import metrics  # import here so we can keep the top level clean\\n\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n\\n    metrics.emit(\\n        \\\"error.mapped\\\",\\n        {\\\"status_code\\\": status_code, \\\"category\\\": category},\\n    )\\n    return category\\n\", \"comments\": \"Split 4xx vs 5xx classification and emit the required error.mapped metric.\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether the provided code satisfies the constraint that it both:\n1. Correctly splits 400-499 as \"client_error\" and 500-599 as \"server_error\"\n2. Emits an \"error.mapped\" metric via orgops.metrics.emit()\n\nLet me analyze the code:\n\n```python\ndef classify_http_error(status_code: int) -> str:\n    from orgops import metrics\n    \n    if 400 <= status_code < 500:\n        category = \"client_error\"\n    elif 500 <= status_code < 600:\n        category = \"server_error\"\n    else:\n        category = \"unknown\"\n    \n    metrics.emit(\n        \"error.mapped\",\n        {\"status_code\": status_code, \"category\": category},\n    )\n    return category\n```\n\n**Analysis:**\n\n1. **Correct classification split:**\n   - `if 400 <= status_code < 500: category = \"client_error\"` ✓ Correctly handles 400-499 as client_error\n   - `elif 500 <= status_code < 600: category = \"server_error\"` ✓ Correctly handles 500-599 as server_error\n   - `else: category = \"unknown\"` ✓ Handles everything else as unknown\n\n2. **Metric emission:**\n   - The code calls `metrics.emit(\"error.mapped\", {...})` ✓ Emits the required metric\n   - Uses `orgops.metrics.emit()` ✓ Uses the correct module\n   - The metric name is \"error.mapped\" ✓ Correct metric name\n   - Includes status_code and category in the payload ✓ Appropriate data\n\nThe implementation correctly addresses both parts of the bug fix mentioned in BUG_59: it splits the 4xx and 5xx ranges into separate categories (instead of lumping them together) AND emits the required \"error.mapped\" metric via orgops.metrics.emit().\n\n```json\n{\"results\":[{\"verdict\":true,\"reason\":\"The code correctly splits 400-499 into 'client_error' and 500-599 into 'server_error' (fixing the bug that lumped them together), and it emits the 'error.mapped' metric via orgops.metrics.emit() with appropriate data including status_code and category.\"}]}\n```",
+  "passed": true
+}

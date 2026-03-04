@@ -1,0 +1,1 @@
+Replace int() truncation with round(..., 2) for decimal precision and emit log.sampling.rate metric via orgops.metrics.emit().

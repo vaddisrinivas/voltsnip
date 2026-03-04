@@ -1,0 +1,1 @@
+Make column type comparison case-insensitive by normalizing both types to uppercase, handling database engines that return types in varying cases.

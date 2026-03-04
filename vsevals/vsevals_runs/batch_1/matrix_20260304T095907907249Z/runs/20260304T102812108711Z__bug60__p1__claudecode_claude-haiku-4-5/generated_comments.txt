@@ -1,0 +1,1 @@
+Changed early return to append error to list, allowing all validation errors to be collected instead of short-circuiting on the first error.

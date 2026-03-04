@@ -1,0 +1,1 @@
+Limit probes by checking for fewer than the max, incrementing the counter, and reporting the half-open degradation via orgops.health before allowing the probe.

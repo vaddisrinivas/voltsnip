@@ -1,0 +1,1 @@
+Fixes BUG_58 by ensuring the hash is taken modulo the actual number of partitions so the return value stays within range.

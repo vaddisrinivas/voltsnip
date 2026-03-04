@@ -1,0 +1,1 @@
+Changed int() to round(..., 2) for proper 2-decimal precision; removed outdated bug documentation.

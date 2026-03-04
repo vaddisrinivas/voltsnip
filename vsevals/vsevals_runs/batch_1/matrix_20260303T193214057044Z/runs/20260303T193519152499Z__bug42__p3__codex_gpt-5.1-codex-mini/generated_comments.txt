@@ -1,0 +1,1 @@
+Limit probe count with `< max_probes` and report half-open degradation via orgops.health.

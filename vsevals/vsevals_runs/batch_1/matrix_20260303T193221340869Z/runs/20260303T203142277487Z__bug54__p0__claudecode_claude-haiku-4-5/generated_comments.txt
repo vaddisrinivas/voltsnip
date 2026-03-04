@@ -1,0 +1,1 @@
+Changed jitter operation from subtraction to addition on line 53 to properly spread cache expiry forward instead of reducing TTL.

@@ -1,0 +1,1 @@
+After rollback, release the savepoint to free server resources, remove from active list, and trace the event for observability.

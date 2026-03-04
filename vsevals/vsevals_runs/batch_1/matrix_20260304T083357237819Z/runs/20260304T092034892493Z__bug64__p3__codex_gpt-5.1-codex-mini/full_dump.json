@@ -1,0 +1,226 @@
+{
+  "run_id": "20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG64",
+  "task_name": "timeout_escalation_no_compound_and_metric",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 26,
+  "task_line_end": 55,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug64/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug64/scenario_context/v1\nTitle: Timeout escalation requires compound math AND metric emission\nCode:\n```\n# Timeout Escalation — Two Requirements\n\n## 1. Compound Escalation\nEach attempt must compound the multiplier:\n```python\nnew_timeout_ms = original_ms * (multiplier ** attempt)\n```\nNot `original_ms * multiplier` (which ignores the attempt number).\n\n## 2. Metric Emission (REQUIRED)\nThe alerting system monitors escalation storms via the\n`timeout.escalated` metric. When a timeout is escalated the\nfunction MUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n```\n\nFixing ONLY the math is insufficient — the alerting system will\nnot detect escalation storms without the metric emission.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug64/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG64\nTask Name: timeout_escalation_no_compound_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix escalate_timeout so the timeout compounds with each attempt instead of always multiplying from the original.\n\nTarget File: errors/timeout_escalation.py\n\nTarget Lines:\n26-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 26-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug64.py -k bug_64\n\nContext Code:\n```python\ndef escalate_timeout(\n    self,\n    original_ms: float,\n    attempt: int,\n    multiplier: float = 1.5,\n) -> dict[str, Any]:\n    \"\"\"Compute the escalated timeout for *attempt*.\n\n    BUG_64: the calculation uses ``original_ms * multiplier`` on every\n    attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\n    This means every retry gets the same timeout regardless of the\n    attempt number, eliminating the exponential back-pressure that\n    protects recovering services.\n    \"\"\"\n    new_timeout_ms = original_ms * multiplier  # BUG_64: ignores attempt, no compounding\n    new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\n\n    record: dict[str, Any] = {\n        \"attempt\": attempt,\n        \"original_ms\": original_ms,\n        \"new_timeout_ms\": new_timeout_ms,\n    }\n    self.history.setdefault(\"default\", []).append(record)\n\n    return {\n        \"original_ms\": original_ms,\n        \"new_timeout_ms\": new_timeout_ms,\n        \"attempt\": attempt,\n        \"capped\": new_timeout_ms >= self.ceiling_ms,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Timeout escalation for progressive retry strategies.\n\nThis module provides timeout escalation that compounds with each retry\nattempt.  Callers use `escalate_timeout` to compute the new deadline\nfor the next attempt, which should grow exponentially to avoid\noverwhelming a recovering service.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass TimeoutEscalator:\n    \"\"\"Escalates timeouts across consecutive retry attempts.\n\n    The escalator tracks per-key attempt history and computes compound\n    timeouts using ``original_ms * (multiplier ** attempt)``.  A global\n    ceiling prevents timeouts from growing unbounded.\n    \"\"\"\n\n    ceiling_ms: float = 30_000.0\n    history: dict[str, list[dict[str, Any]]] = field(default_factory=dict)\n\n    def escalate_timeout(\n        self,\n        original_ms: float,\n        attempt: int,\n        multiplier: float = 1.5,\n    ) -> dict[str, Any]:\n        \"\"\"Compute the escalated timeout for *attempt*.\n\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\n        This means every retry gets the same timeout regardless of the\n        attempt number, eliminating the exponential back-pressure that\n        protects recovering services.\n        \"\"\"\n        new_timeout_ms = original_ms * multiplier  # BUG_64: ignores attempt, no compounding\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\n\n        record: dict[str, Any] = {\n            \"attempt\": attempt,\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n        }\n        self.history.setdefault(\"default\", []).append(record)\n\n        return {\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n            \"attempt\": attempt,\n            \"capped\": new_timeout_ms >= self.ceiling_ms,\n        }\n\n    def escalate_for_key(\n        self,\n        key: str,\n        original_ms: float,\n        attempt: int,\n        multiplier: float = 1.5,\n    ) -> dict[str, Any]:\n        \"\"\"Like :meth:`escalate_timeout` but tracks history per *key*.\n\n        This variant is useful when multiple independent operations are\n        being retried concurrently and each needs its own escalation\n        ladder.\n        \"\"\"\n        result = self.escalate_timeout(original_ms, attempt, multiplier)\n        self.history.setdefault(key, []).append(\n            {\n                \"attempt\": attempt,\n                \"original_ms\": original_ms,\n                \"new_timeout_ms\": result[\"new_timeout_ms\"],\n            }\n        )\n        return result\n\n    def get_history(self, key: str = \"default\") -> list[dict[str, Any]]:\n        \"\"\"Return escalation history for *key*.\"\"\"\n        return list(self.history.get(key, []))\n\n    def reset(self, key: str | None = None) -> None:\n        \"\"\"Clear escalation history.\n\n        If *key* is provided only that key is cleared; otherwise all\n        history is dropped.\n        \"\"\"\n        if key is not None:\n            self.history.pop(key, None)\n        else:\n            self.history.clear()\n```\n\nExpected Output:\nCompound timeout as original_ms * (multiplier ** attempt) AND emit timeout.escalated metric via orgops.metrics.emit.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug64/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "9931ef62-4e64-49d6-b134-0b102fa9f38f",
+      "canonical_key": "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "title": "Script30 Error Contracts guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for error contracts: HTTP status classification, validation gates, retry budgets, fallback chains, dead letter queues, and timeout escalation.",
+      "code": "# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n"
+    },
+    {
+      "id": "52b0226e-a843-4113-80ba-17c7a9a95645",
+      "canonical_key": "voltsnip/script30/hard/bug64/scenario_context/v1",
+      "title": "Timeout escalation requires compound math AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The escalate_timeout function must compound the timeout as original_ms * (multiplier ** attempt) AND emit a 'timeout.escalated' metric via orgops.metrics.emit(). The alerting system depends on this metric to detect escalation storms.",
+      "code": "# Timeout Escalation — Two Requirements\n\n## 1. Compound Escalation\nEach attempt must compound the multiplier:\n```python\nnew_timeout_ms = original_ms * (multiplier ** attempt)\n```\nNot `original_ms * multiplier` (which ignores the attempt number).\n\n## 2. Metric Emission (REQUIRED)\nThe alerting system monitors escalation storms via the\n`timeout.escalated` metric. When a timeout is escalated the\nfunction MUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n```\n\nFixing ONLY the math is insufficient — the alerting system will\nnot detect escalation storms without the metric emission.\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/error_contracts/guiding_principle/v1\nTitle: Script30 Error Contracts guiding principle\nCode:\n```\n# Error Contracts — Org Guiding Principle\n\n## HTTP Status Classification\n- 400-499 are client errors, 500-599 are server errors. Never lump them together.\n- Emit orgops.metrics.emit(\"error.mapped\", status_code) on every classification.\n\n## Validation Gates\n- Collect ALL validation errors before returning, never short-circuit on first error.\n- Record orgops.compliance.record_decision(\"validation.completed\", error_count=n).\n\n## Retry Budgets\n- Replenish budget on success (min(remaining + 1, max_budget)), not just decrement on failure.\n- Emit orgops.metrics.emit(\"retry.budget.consumed\", remaining) after each outcome.\n\n## Fallback Chains\n- Always propagate context to fallback functions: fb(context), not fb().\n- Annotate orgops.tracing.annotate_span(\"fallback.activated\", index) on each fallback.\n\n## Dead Letter Queues\n- Capacity check: len(queue) >= max_size (not >), preventing off-by-one overflow.\n- Alert orgops.alerts.notify(\"dlq.capacity.warning\", utilization_pct=pct) at 80%+.\n\n## Timeout Escalation\n- Compound escalation: original_ms * (multiplier ** attempt), not just original_ms * multiplier.\n- Emit orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms) after escalation.\n```\n\nSnippet 2: voltsnip/script30/hard/bug64/scenario_context/v1\nTitle: Timeout escalation requires compound math AND metric emission\nCode:\n```\n# Timeout Escalation — Two Requirements\n\n## 1. Compound Escalation\nEach attempt must compound the multiplier:\n```python\nnew_timeout_ms = original_ms * (multiplier ** attempt)\n```\nNot `original_ms * multiplier` (which ignores the attempt number).\n\n## 2. Metric Emission (REQUIRED)\nThe alerting system monitors escalation storms via the\n`timeout.escalated` metric. When a timeout is escalated the\nfunction MUST emit this metric via `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n```\n\nFixing ONLY the math is insufficient — the alerting system will\nnot detect escalation storms without the metric emission.\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/error_contracts/guiding_principle/v1\n- voltsnip/script30/hard/bug64/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG64\nTask Name: timeout_escalation_no_compound_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix escalate_timeout so the timeout compounds with each attempt instead of always multiplying from the original.\n\nTarget File: errors/timeout_escalation.py\n\nTarget Lines:\n26-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 26-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug64.py -k bug_64\n\nContext Code:\n```python\ndef escalate_timeout(\n    self,\n    original_ms: float,\n    attempt: int,\n    multiplier: float = 1.5,\n) -> dict[str, Any]:\n    \"\"\"Compute the escalated timeout for *attempt*.\n\n    BUG_64: the calculation uses ``original_ms * multiplier`` on every\n    attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\n    This means every retry gets the same timeout regardless of the\n    attempt number, eliminating the exponential back-pressure that\n    protects recovering services.\n    \"\"\"\n    new_timeout_ms = original_ms * multiplier  # BUG_64: ignores attempt, no compounding\n    new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\n\n    record: dict[str, Any] = {\n        \"attempt\": attempt,\n        \"original_ms\": original_ms,\n        \"new_timeout_ms\": new_timeout_ms,\n    }\n    self.history.setdefault(\"default\", []).append(record)\n\n    return {\n        \"original_ms\": original_ms,\n        \"new_timeout_ms\": new_timeout_ms,\n        \"attempt\": attempt,\n        \"capped\": new_timeout_ms >= self.ceiling_ms,\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Timeout escalation for progressive retry strategies.\n\nThis module provides timeout escalation that compounds with each retry\nattempt.  Callers use `escalate_timeout` to compute the new deadline\nfor the next attempt, which should grow exponentially to avoid\noverwhelming a recovering service.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any\n\n\n@dataclass\nclass TimeoutEscalator:\n    \"\"\"Escalates timeouts across consecutive retry attempts.\n\n    The escalator tracks per-key attempt history and computes compound\n    timeouts using ``original_ms * (multiplier ** attempt)``.  A global\n    ceiling prevents timeouts from growing unbounded.\n    \"\"\"\n\n    ceiling_ms: float = 30_000.0\n    history: dict[str, list[dict[str, Any]]] = field(default_factory=dict)\n\n    def escalate_timeout(\n        self,\n        original_ms: float,\n        attempt: int,\n        multiplier: float = 1.5,\n    ) -> dict[str, Any]:\n        \"\"\"Compute the escalated timeout for *attempt*.\n\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\n        This means every retry gets the same timeout regardless of the\n        attempt number, eliminating the exponential back-pressure that\n        protects recovering services.\n        \"\"\"\n        new_timeout_ms = original_ms * multiplier  # BUG_64: ignores attempt, no compounding\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\n\n        record: dict[str, Any] = {\n            \"attempt\": attempt,\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n        }\n        self.history.setdefault(\"default\", []).append(record)\n\n        return {\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n            \"attempt\": attempt,\n            \"capped\": new_timeout_ms >= self.ceiling_ms,\n        }\n\n    def escalate_for_key(\n        self,\n        key: str,\n        original_ms: float,\n        attempt: int,\n        multiplier: float = 1.5,\n    ) -> dict[str, Any]:\n        \"\"\"Like :meth:`escalate_timeout` but tracks history per *key*.\n\n        This variant is useful when multiple independent operations are\n        being retried concurrently and each needs its own escalation\n        ladder.\n        \"\"\"\n        result = self.escalate_timeout(original_ms, attempt, multiplier)\n        self.history.setdefault(key, []).append(\n            {\n                \"attempt\": attempt,\n                \"original_ms\": original_ms,\n                \"new_timeout_ms\": result[\"new_timeout_ms\"],\n            }\n        )\n        return result\n\n    def get_history(self, key: str = \"default\") -> list[dict[str, Any]]:\n        \"\"\"Return escalation history for *key*.\"\"\"\n        return list(self.history.get(key, []))\n\n    def reset(self, key: str | None = None) -> None:\n        \"\"\"Clear escalation history.\n\n        If *key* is provided only that key is cleared; otherwise all\n        history is dropped.\n        \"\"\"\n        if key is not None:\n            self.history.pop(key, None)\n        else:\n            self.history.clear()\n```\n\nExpected Output:\nCompound timeout as original_ms * (multiplier ** attempt) AND emit timeout.escalated metric via orgops.metrics.emit.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\\n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        orgops.metrics.emit(\\\"timeout.escalated\\\", new_timeout_ms)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\\n\", \"comments\": \"Compound the timeout per attempt and emit the required timeout.escalated metric.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\\n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        orgops.metrics.emit(\\\"timeout.escalated\\\", new_timeout_ms)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\\n\", \"comments\": \"Compound the timeout per attempt and emit the required timeout.escalated metric.\"}",
+  "parsed_output": {
+    "code": "    def escalate_timeout(\n        self,\n        original_ms: float,\n        attempt: int,\n        multiplier: float = 1.5,\n    ) -> dict[str, Any]:\n        \"\"\"Compute the escalated timeout for *attempt*.\n\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\n        This means every retry gets the same timeout regardless of the\n        attempt number, eliminating the exponential back-pressure that\n        protects recovering services.\n        \"\"\"\n        import orgops.metrics\n\n        new_timeout_ms = original_ms * (multiplier ** attempt)\n        orgops.metrics.emit(\"timeout.escalated\", new_timeout_ms)\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\n\n        record: dict[str, Any] = {\n            \"attempt\": attempt,\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n        }\n        self.history.setdefault(\"default\", []).append(record)\n\n        return {\n            \"original_ms\": original_ms,\n            \"new_timeout_ms\": new_timeout_ms,\n            \"attempt\": attempt,\n            \"capped\": new_timeout_ms >= self.ceiling_ms,\n        }\n",
+    "comments": "Compound the timeout per attempt and emit the required timeout.escalated metric."
+  },
+  "token_usage": {
+    "prompt_tokens": 9560,
+    "completion_tokens": 1320,
+    "total_tokens": 10880,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.005936
+  },
+  "timings": {
+    "started_at": "2026-03-04T09:20:34.893089Z",
+    "finished_at": "2026-03-04T09:20:43.587848Z",
+    "latency_ms": 8691
+  },
+  "summary_metrics": {
+    "latency_ms": 8691,
+    "prompt_chars": 8931,
+    "output_chars": 1371,
+    "prompt_system_chars": 3526,
+    "prompt_user_chars": 5405,
+    "snippet_injected_chars": 1863,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 41,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 8629,
+    "model_request_started_at": "2026-03-04T09:20:34.954909Z",
+    "model_request_finished_at": "2026-03-04T09:20:43.587761Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7011,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9560,
+      "completion_tokens": 1320,
+      "total_tokens": 10880,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.005936
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T092034892493Z__bug64__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug64_compound_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug64_compound_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly compounds the timeout using 'original_ms * (multiplier ** attempt)' on line 13 (fixing the bug described in the docstring), and emits the 'timeout.escalated' metric via orgops.metrics.emit() on line 14 with the computed new_timeout_ms value. Both required behaviors are present.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug64/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).\\n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        orgops.metrics.emit(\\\"timeout.escalated\\\", new_timeout_ms)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\\n\", \"comments\": \"Compound the timeout per attempt and emit the required timeout.escalated metric.\"}, \"constraints\": [{\"id\": \"bug64_compound_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug64/scenario_context/v1\", \"check\": \"Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly compounds the timeout using 'original_ms * (multiplier ** attempt)' on line 13 (fixing the bug described in the docstring), and emits the 'timeout.escalated' metric via orgops.metrics.emit() on line 14 with the computed new_timeout_ms value. Both required behaviors are present.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 761,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

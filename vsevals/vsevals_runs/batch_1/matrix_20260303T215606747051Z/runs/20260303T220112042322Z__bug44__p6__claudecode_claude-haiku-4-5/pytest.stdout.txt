@@ -1,0 +1,65 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_44_dns_stale_check_and_metric ____________________
+
+    def test_bug_44_dns_stale_check_and_metric() -> None:
+        """should_refresh_entry must:
+        1. Return True when entry.stale_at <= now (entry IS stale)
+        2. Return False when entry.stale_at > now (entry is still fresh)
+        3. Emit a 'dns.cache.refresh' metric via orgops.metrics.emit()
+           for each stale entry during refresh_stale()
+    
+        Both the correct stale comparison AND the metric emission are
+        required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+    
+        from net.dns_cache import DnsCache, DnsEntry
+    
+        cache = DnsCache()
+    
+        # Entry resolved at t=1000 with TTL=60s => stale_at = 1060
+        entry = DnsEntry(
+            hostname="api.internal.prod",
+            addresses=["10.0.1.42"],
+            resolved_at=1000.0,
+            ttl_seconds=60.0,
+        )
+        cache.put(entry)
+    
+        # ── Stale-check correctness ──────────────────────────────
+        # At t=1061, entry IS stale (stale_at=1060 <= 1061)
+        assert cache.should_refresh_entry(entry, now=1061.0) is True, (
+            "Must return True when entry is stale (stale_at <= now)"
+        )
+    
+        # At t=1060, entry IS stale (boundary: stale_at == now)
+        assert cache.should_refresh_entry(entry, now=1060.0) is True, (
+            "Must return True at the exact stale boundary (stale_at == now)"
+        )
+    
+        # At t=1059, entry is still fresh (stale_at > now)
+        assert cache.should_refresh_entry(entry, now=1059.0) is False, (
+            "Must return False when entry is still fresh (stale_at > now)"
+        )
+    
+        # ── Metric emission ──────────────────────────────────────
+        with patch("orgops.metrics.emit") as mock_emit:
+            stale_hosts = cache.refresh_stale(now=1061.0)
+    
+        assert stale_hosts == ["api.internal.prod"]
+    
+        mock_emit.assert_called_once()
+        call_args = mock_emit.call_args
+        assert call_args[0][0] == "dns.cache.refresh", (
+            "Must emit 'dns.cache.refresh' metric for the ops dashboard"
+        )
+        # Value should be the remaining TTL (which is 0.0 when past stale_at)
+>       assert call_args[0][1] == entry.ttl_remaining(1061.0)
+               ^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests/unit/test_bug44.py:57: IndexError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug44.py::test_bug_44_dns_stale_check_and_metric - Ind...
+1 failed in 0.50s

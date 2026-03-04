@@ -1,0 +1,1 @@
+Fixed double-selectivity bug by applying selectivity exactly once; added orgops.metrics.emit for query.plan.estimated_cost metric emission per composition pattern.

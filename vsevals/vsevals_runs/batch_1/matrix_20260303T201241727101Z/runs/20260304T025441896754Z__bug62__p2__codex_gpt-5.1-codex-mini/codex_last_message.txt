@@ -1,0 +1,1 @@
+{"code": "        for _idx, fb in enumerate(self.fallbacks):\n            try:\n                orgops.tracing.annotate_span(\"fallback.activated\", _idx)\n                return fb(self.context)\n            except Exception:\n                continue", "comments": "Annotates each fallback activation and invokes the fallback with the preserved context."}

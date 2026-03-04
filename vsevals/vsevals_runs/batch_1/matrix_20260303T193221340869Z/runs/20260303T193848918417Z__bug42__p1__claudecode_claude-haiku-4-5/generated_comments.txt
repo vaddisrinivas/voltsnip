@@ -1,0 +1,1 @@
+Fixed inverted probe limit comparison from > to < to correctly allow probes when under maximum.

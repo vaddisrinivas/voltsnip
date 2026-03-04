@@ -1,0 +1,1 @@
+Changed line 80 from returning on first error to appending all validation errors to the list.

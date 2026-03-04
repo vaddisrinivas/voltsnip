@@ -1,0 +1,118 @@
+{
+  "run_id": "20260303T052406971787Z__bug49__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG49",
+  "task_name": "savepoint_release_leak_and_trace",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 53282,
+    "prompt_chars": 4710,
+    "output_chars": 966,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3660,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 53281,
+    "model_request_started_at": "2026-03-03T05:24:06.972562Z",
+    "model_request_finished_at": "2026-03-03T05:25:00.254519Z",
+    "model_request_id": "c75e505c-d0df-493d-b837-3c247c176dba",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1588,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 18599,
+      "thinking_tokens": null,
+      "cost_usd": 0.00149992
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug49_release_and_trace"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug49_release_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug49_release_and_trace",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The code does execute RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT, but it annotates the span with key \"savepoint_rollback\" instead of the required \"txn.savepoint.rolled_back\" via orgops.tracing.annotate_span().",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"from orgops import tracing\\n\\n    def rollback_to_savepoint(self, savepoint_id: str) -> None:\\n        \\\"\\\"\\\"Rollback to a named savepoint.\\n\\n        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on\\n        the server but is never released, leaking the resource.  The\\n        function also does not annotate the trace span with the rollback\\n        event for observability.\\n        \\\"\\\"\\\"\\n        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )\\n        self.session.execute(\\n            f\\\"RELEASE SAVEPOINT {savepoint_id}\\\"\\n        )\\n        tracing.annotate_span(\\\"savepoint_rollback\\\", {\\\"savepoint_id\\\": savepoint_id})\\n        if savepoint_id in self._active_savepoints:\\n            self._active_savepoints.remove(savepoint_id)\", \"comments\": \"Release savepoint after rollback to free server resource, annotate trace span for observability, and update local state.\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code does execute RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT, but it annotates the span with key \\\"savepoint_rollback\\\" instead of the required \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span().\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_49_savepoint_release_and_trace ____________________\n\n    def test_bug_49_savepoint_release_and_trace() -> None:\n        \"\"\"rollback_to_savepoint must:\n        1. Execute ROLLBACK TO SAVEPOINT <id>.\n        2. Execute RELEASE SAVEPOINT <id> afterwards to free the resource.\n        3. Annotate the trace span via orgops.tracing.annotate_span(\n               \"txn.savepoint.rolled_back\", savepoint_id).\n        All three are required -- rolling back without releasing leaks the\n        savepoint, and omitting the trace annotation breaks observability.\n        \"\"\"\n>       from data.txn_manager import TransactionManager\nE         File \"/workspace/data/txn_manager.py\", line 34\nE           def rollback_to_savepoint(self, savepoint_id: str) -> None:\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug49.py:17: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug49.py::test_bug_49_savepoint_release_and_trace -   ...\n1 failed in 0.49s\n",
+    "stderr": "",
+    "duration_ms": 4699,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

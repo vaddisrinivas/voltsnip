@@ -1,0 +1,1 @@
+Fixed inverted probe count comparison from > to < to correctly limit probes in half-open state.

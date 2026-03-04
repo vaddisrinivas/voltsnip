@@ -1,0 +1,1 @@
+Fixes BUG_44 by returning True when current time has reached or passed stale_at, so stale entries are refreshed.

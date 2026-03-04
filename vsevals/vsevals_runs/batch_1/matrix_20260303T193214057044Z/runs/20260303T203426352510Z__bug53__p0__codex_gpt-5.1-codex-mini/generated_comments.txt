@@ -1,0 +1,1 @@
+Clamp the adjusted timeout to zero so clock skew never makes it negative prior to storing/returning it.

@@ -1,0 +1,1 @@
+Range now covers every adjacent certificate pair and the compliance decision is recorded via orgops.

@@ -1,0 +1,1 @@
+Enforce the max_size cap with >= and trigger the dlq.capacity.warning alert once utilization reaches 80%.

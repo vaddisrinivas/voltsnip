@@ -1,0 +1,1 @@
+Added correlation_id to child context and trace annotation to enable cross-request log correlation in async fan-outs.

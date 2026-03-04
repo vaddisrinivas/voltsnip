@@ -1,0 +1,10 @@
+{"type":"thread.started","thread_id":"019cb6c3-bcb6-7ba1-815d-3b6929771391"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Analyzing patch requirements and compliance logging**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"**Listing files with filesystem commands**"}}
+{"type":"item.started","item":{"id":"item_2","type":"mcp_tool_call","server":"anon","tool":"read_mcp_resource","arguments":{"server":"anon","uri":"/"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"mcp_tool_call","server":"anon","tool":"read_mcp_resource","arguments":{"server":"anon","uri":"/"},"result":null,"error":{"message":"resources/read failed: unknown MCP server 'anon'"},"status":"failed"}}
+{"type":"item.completed","item":{"id":"item_3","type":"reasoning","text":"**Reasoning about command execution limits and compliance recording**"}}
+{"type":"item.completed","item":{"id":"item_4","type":"reasoning","text":"**Preparing JSON patch with full error collection**\n\nI'll produce the edited lines as a JSON snippet that returns all validation errors collected, including a concise comment noting it enables full compliance decision context."}}
+{"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"{\"code\": \"    errors: list[ValidationError] = []\\n    for rule in schema:\\n        value = payload.get(rule.field_name)\\n        error = _check_field(value, rule)\\n        if error is not None:\\n            errors.append(error)\\n    return errors\", \"comments\": \"Collect and return every validation error so the validation.completed compliance decision has full context.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":31529,"cached_input_tokens":21504,"output_tokens":4742}}

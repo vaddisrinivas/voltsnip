@@ -1,0 +1,1 @@
+Fixed inverted comparison operator: changed > to < so probes are allowed when probe_count is under the max_probes limit.

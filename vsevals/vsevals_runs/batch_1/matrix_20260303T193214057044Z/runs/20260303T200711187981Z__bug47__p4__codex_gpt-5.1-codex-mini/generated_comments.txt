@@ -1,0 +1,1 @@
+Switch to LRU eviction, emit the required metric, and keep the idle duration calculation in place.

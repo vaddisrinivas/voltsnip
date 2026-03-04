@@ -1,0 +1,14 @@
+        ct = connect_timeout if connect_timeout is not None else self.connect_timeout
+        dt = dns_timeout if dns_timeout is not None else self.dns_timeout
+        rt = read_timeout if read_timeout is not None else self.read_timeout
+
+        # BUG_43: DNS resolution and the TCP connect happen in parallel, so
+        # take the max of the two before adding read timeout.
+        transport_phase = max(ct, dt)
+        total_timeout = transport_phase + rt
+
+        from orgops.tracing import annotate_span
+        annotate_span("request_pool.timeout.transport", transport_phase)
+        annotate_span("request_pool.timeout.read", rt)
+        annotate_span("request_pool.timeout.total", total_timeout)
+        return total_timeout

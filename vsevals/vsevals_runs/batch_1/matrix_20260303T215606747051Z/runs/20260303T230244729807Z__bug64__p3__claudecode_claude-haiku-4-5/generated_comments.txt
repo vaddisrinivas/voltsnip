@@ -1,0 +1,1 @@
+Apply compound timeout escalation (original_ms * (multiplier ** attempt)) and emit timeout.escalated metric for alerting systems.

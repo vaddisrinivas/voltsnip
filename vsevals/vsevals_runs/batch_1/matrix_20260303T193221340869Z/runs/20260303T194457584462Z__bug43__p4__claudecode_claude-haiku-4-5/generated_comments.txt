@@ -1,0 +1,1 @@
+Replace sequential sum (ct + dt + rt) with parallel max(ct, dt) + rt; add trace annotation for observability platform timeout correlation.

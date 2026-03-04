@@ -1,0 +1,1 @@
+Fixed numeric version comparison: convert to int() instead of string comparison for sorting and max() lookup, so version 3 correctly sorts before 10

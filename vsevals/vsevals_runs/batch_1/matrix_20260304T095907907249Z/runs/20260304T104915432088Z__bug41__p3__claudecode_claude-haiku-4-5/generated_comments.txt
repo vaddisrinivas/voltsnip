@@ -1,0 +1,1 @@
+Changed linear backoff (base_delay * attempt) to exponential (base_delay * 2**attempt), added max_delay cap, and import metrics module.

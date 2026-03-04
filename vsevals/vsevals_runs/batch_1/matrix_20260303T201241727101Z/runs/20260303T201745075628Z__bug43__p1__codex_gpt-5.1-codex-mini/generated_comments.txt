@@ -1,0 +1,1 @@
+Sum the read timeout with the longer of DNS or connect so those phases overlap instead of stacking.

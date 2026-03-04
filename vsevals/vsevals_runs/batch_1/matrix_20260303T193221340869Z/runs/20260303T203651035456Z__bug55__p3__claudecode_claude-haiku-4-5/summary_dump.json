@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T203651035456Z__bug55__p3__claudecode_claude-haiku-4-5",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P3",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 30365,
+    "prompt_chars": 8082,
+    "output_chars": 1113,
+    "prompt_system_chars": 4040,
+    "prompt_user_chars": 4042,
+    "snippet_injected_chars": 2358,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 49,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 30295,
+    "model_request_started_at": "2026-03-03T20:36:51.105801Z",
+    "model_request_finished_at": "2026-03-03T20:37:21.401271Z",
+    "model_request_id": "e17c81dc-21de-4fe4-bfba-204f816fce5e",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1327,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5,
+      "total_tokens": 15,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 2.8e-05
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug55_threshold_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug55_threshold_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code computes ratio = time_remaining/ttl, triggers refresh when ratio < self.threshold, and emits orgops.metrics.emit(\"cache.stampede.prevented\", key_name) when triggering.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug55/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:\\n            self.refreshes_triggered += 1\\n            orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name)\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted threshold comparison (< instead of >) and added cache.stampede.prevented metric emission for operational monitoring of stampede prevention events.\"}, \"constraints\": [{\"id\": \"bug55_threshold_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug55/scenario_context/v1\", \"check\": \"Correct threshold comparison (<) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the threshold comparison to < (not >) so early refresh triggers when time_remaining/ttl is below the threshold AND emit a cache.stampede.prevented metric via orgops.metrics.emit() with the key_name?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code computes ratio = time_remaining/ttl, triggers refresh when ratio < self.threshold, and emits orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name) when triggering.\"}]}",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.27s\n",
+    "stderr": "",
+    "duration_ms": 3877,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

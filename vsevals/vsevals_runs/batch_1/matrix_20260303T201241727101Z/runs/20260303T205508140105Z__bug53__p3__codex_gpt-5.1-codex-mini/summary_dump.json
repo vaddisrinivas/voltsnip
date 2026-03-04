@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T205508140105Z__bug53__p3__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG53",
+  "task_name": "lock_timeout_negative_and_trace",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 7709,
+    "prompt_chars": 7042,
+    "output_chars": 634,
+    "prompt_system_chars": 3192,
+    "prompt_user_chars": 3850,
+    "snippet_injected_chars": 1526,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 45,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 7643,
+    "model_request_started_at": "2026-03-03T20:55:08.206424Z",
+    "model_request_finished_at": "2026-03-03T20:55:15.850119Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6025,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9187,
+      "completion_tokens": 688,
+      "total_tokens": 9875,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0047756
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug53_timeout_clamp_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug53_timeout_clamp_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code satisfies both requirements: (1) it clamps effective_timeout using max(timeout_ms - clock_skew_ms, 1) to ensure minimum 1 ms, and (2) it annotates the trace span by calling orgops.tracing.annotate_span(\"lock.acquired\", key) on successful lock acquisition.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug53/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        import orgops.tracing\\n\\n        effective_timeout = max(timeout_ms - clock_skew_ms, 1)\\n        orgops.tracing.annotate_span(\\\"lock.acquired\\\", key)\\n        self.store[key] = {\\n            \\\"acquired_at\\\": time.monotonic(),\\n            \\\"timeout_ms\\\": effective_timeout,\\n        }\\n        self.held_keys.add(key)\\n        return {\\n            \\\"key\\\": key,\\n            \\\"effective_timeout_ms\\\": effective_timeout,\\n            \\\"acquired\\\": True,\\n        }\\n\", \"comments\": \"Clamp the effective timeout to at least 1 ms and annotate the lock acquisition span while preserving the existing return structure.\"}, \"constraints\": [{\"id\": \"bug53_timeout_clamp_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug53/scenario_context/v1\", \"check\": \"Effective timeout clamped to >= 1 AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both clamp the effective timeout to a minimum of 1 ms (using max(timeout_ms - clock_skew_ms, 1)) AND annotate the trace span with \\\"lock.acquired\\\" via orgops.tracing.annotate_span() on successful lock acquisition?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The code satisfies both requirements: (1) it clamps effective_timeout using max(timeout_ms - clock_skew_ms, 1) to ensure minimum 1 ms, and (2) it annotates the trace span by calling orgops.tracing.annotate_span(\\\"lock.acquired\\\", key) on successful lock acquisition.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________\n\n    def test_bug_53_lock_timeout_clamp_and_trace() -> None:\n        \"\"\"acquire_lock must:\n        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).\n        2. Annotate the current trace span via orgops.tracing.annotate_span()\n           with (\"lock.acquired\", key) on successful acquisition.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n>       from cache.distributed_lock import DistributedLock\nE         File \"/workspace/cache/distributed_lock.py\", line 21\nE           import orgops.tracing\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug53.py:15: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace -  ...\n1 failed in 0.59s\n",
+    "stderr": "",
+    "duration_ms": 3907,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

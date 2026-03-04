@@ -1,0 +1,261 @@
+{
+  "run_id": "20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs",
+  "task_id": "BUG45",
+  "task_name": "tls_chain_range_and_compliance",
+  "variant_id": "P2",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 44,
+  "task_line_end": 82,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug45/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG45\nTask Name: tls_chain_range_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_cert_chain so every adjacent pair in the certificate chain is validated.\n\nTarget File: net/tls_validator.py\n\nTarget Lines:\n44-82 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 44-82 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug45.py -k bug_45\n\nContext Code:\n```python\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"TLS certificate chain validation.\n\nValidates that each certificate in a chain was issued by the next\ncertificate in the chain (leaf -> intermediate(s) -> root).\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, List\n\n\n@dataclass\nclass Certificate:\n    \"\"\"Represents an X.509 certificate with minimal fields for chain validation.\"\"\"\n\n    subject: str\n    issuer: str\n    serial_number: str = \"\"\n    not_after: str = \"\"\n    key_usage: list[str] = field(default_factory=list)\n\n    def __repr__(self) -> str:\n        return f\"Certificate(subject={self.subject!r}, issuer={self.issuer!r})\"\n\n\nclass ChainValidationError(Exception):\n    \"\"\"Raised when a certificate chain fails validation.\"\"\"\n\n    def __init__(self, index: int, expected_issuer: str, actual_subject: str) -> None:\n        self.index = index\n        self.expected_issuer = expected_issuer\n        self.actual_subject = actual_subject\n        super().__init__(\n            f\"Chain break at index {index}: \"\n            f\"cert.issuer={expected_issuer!r} != next.subject={actual_subject!r}\"\n        )\n\n\ndef _is_self_signed(cert: Certificate) -> bool:\n    \"\"\"Return True if the certificate is self-signed (subject == issuer).\"\"\"\n    return cert.subject == cert.issuer\n\n\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n\n\ndef format_chain_summary(chain: List[Certificate]) -> str:\n    \"\"\"Return a human-readable one-line summary of the certificate chain.\"\"\"\n    if not chain:\n        return \"<empty chain>\"\n    subjects = [c.subject for c in chain]\n    return \" -> \".join(subjects)\n\n\ndef extract_leaf(chain: List[Certificate]) -> Certificate | None:\n    \"\"\"Return the leaf (end-entity) certificate, or None for empty chains.\"\"\"\n    return chain[0] if chain else None\n```\n\nExpected Output:\nFix loop range from range(1, len(chain)) to range(len(chain) - 1) AND record tls.chain.validated compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug45/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG45\nTask Name: tls_chain_range_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_cert_chain so every adjacent pair in the certificate chain is validated.\n\nTarget File: net/tls_validator.py\n\nTarget Lines:\n44-82 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 44-82 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug45.py -k bug_45\n\nContext Code:\n```python\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"TLS certificate chain validation.\n\nValidates that each certificate in a chain was issued by the next\ncertificate in the chain (leaf -> intermediate(s) -> root).\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, List\n\n\n@dataclass\nclass Certificate:\n    \"\"\"Represents an X.509 certificate with minimal fields for chain validation.\"\"\"\n\n    subject: str\n    issuer: str\n    serial_number: str = \"\"\n    not_after: str = \"\"\n    key_usage: list[str] = field(default_factory=list)\n\n    def __repr__(self) -> str:\n        return f\"Certificate(subject={self.subject!r}, issuer={self.issuer!r})\"\n\n\nclass ChainValidationError(Exception):\n    \"\"\"Raised when a certificate chain fails validation.\"\"\"\n\n    def __init__(self, index: int, expected_issuer: str, actual_subject: str) -> None:\n        self.index = index\n        self.expected_issuer = expected_issuer\n        self.actual_subject = actual_subject\n        super().__init__(\n            f\"Chain break at index {index}: \"\n            f\"cert.issuer={expected_issuer!r} != next.subject={actual_subject!r}\"\n        )\n\n\ndef _is_self_signed(cert: Certificate) -> bool:\n    \"\"\"Return True if the certificate is self-signed (subject == issuer).\"\"\"\n    return cert.subject == cert.issuer\n\n\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n\n\ndef format_chain_summary(chain: List[Certificate]) -> str:\n    \"\"\"Return a human-readable one-line summary of the certificate chain.\"\"\"\n    if not chain:\n        return \"<empty chain>\"\n    subjects = [c.subject for c in chain]\n    return \" -> \".join(subjects)\n\n\ndef extract_leaf(chain: List[Certificate]) -> Certificate | None:\n    \"\"\"Return the leaf (end-entity) certificate, or None for empty chains.\"\"\"\n    return chain[0] if chain else None\n```\n\nExpected Output:\nFix loop range from range(1, len(chain)) to range(len(chain) - 1) AND record tls.chain.validated compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug45/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG45\nTask Name: tls_chain_range_and_compliance\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix validate_cert_chain so every adjacent pair in the certificate chain is validated.\n\nTarget File: net/tls_validator.py\n\nTarget Lines:\n44-82 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 44-82 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug45.py -k bug_45\n\nContext Code:\n```python\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n```\n\nTarget File Content (full file):\n```python\n\"\"\"TLS certificate chain validation.\n\nValidates that each certificate in a chain was issued by the next\ncertificate in the chain (leaf -> intermediate(s) -> root).\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass, field\nfrom typing import Any, List\n\n\n@dataclass\nclass Certificate:\n    \"\"\"Represents an X.509 certificate with minimal fields for chain validation.\"\"\"\n\n    subject: str\n    issuer: str\n    serial_number: str = \"\"\n    not_after: str = \"\"\n    key_usage: list[str] = field(default_factory=list)\n\n    def __repr__(self) -> str:\n        return f\"Certificate(subject={self.subject!r}, issuer={self.issuer!r})\"\n\n\nclass ChainValidationError(Exception):\n    \"\"\"Raised when a certificate chain fails validation.\"\"\"\n\n    def __init__(self, index: int, expected_issuer: str, actual_subject: str) -> None:\n        self.index = index\n        self.expected_issuer = expected_issuer\n        self.actual_subject = actual_subject\n        super().__init__(\n            f\"Chain break at index {index}: \"\n            f\"cert.issuer={expected_issuer!r} != next.subject={actual_subject!r}\"\n        )\n\n\ndef _is_self_signed(cert: Certificate) -> bool:\n    \"\"\"Return True if the certificate is self-signed (subject == issuer).\"\"\"\n    return cert.subject == cert.issuer\n\n\ndef validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # BUG_45: wrong range — skips chain[0].issuer vs chain[1].subject\n    for i in range(1, len(chain)):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject if i + 1 < len(chain) else chain[i].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    return {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n\n\ndef format_chain_summary(chain: List[Certificate]) -> str:\n    \"\"\"Return a human-readable one-line summary of the certificate chain.\"\"\"\n    if not chain:\n        return \"<empty chain>\"\n    subjects = [c.subject for c in chain]\n    return \" -> \".join(subjects)\n\n\ndef extract_leaf(chain: List[Certificate]) -> Certificate | None:\n    \"\"\"Return the leaf (end-entity) certificate, or None for empty chains.\"\"\"\n    return chain[0] if chain else None\n```\n\nExpected Output:\nFix loop range from range(1, len(chain)) to range(len(chain) - 1) AND record tls.chain.validated compliance decision via orgops.compliance.record_decision.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nTools available, zero guidance — agent decides what to retrieve.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n\\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\\n    the leaf-to-first-intermediate check.  Should be\\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    # Fixed: validate every adjacent pair starting from chain[0] vs chain[1]\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    result = {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n    \\n    # Record compliance decision\\n    try:\\n        from orgops import compliance\\n        compliance.record_decision(\\\"tls.chain.validated\\\", is_valid)\\n    except ImportError:\\n        pass\\n    \\n    return result\", \"comments\": \"Fixed loop range to range(len(chain) - 1) to validate chain[0] vs chain[1] pair, simplified validation logic, and added compliance recording via orgops.compliance.record_decision.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_014hTCe2PCjtky1Y1eWHQTVW",
+      "tool_args": {
+        "query": "BUG45 tls validation compliance",
+        "k": 3
+      },
+      "tool_result": {
+        "retrieved": 0
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:06:24.968449Z",
+      "finished_at": "2026-03-04T10:06:24.968492Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "ReadMcpResourceTool",
+      "tool_call_id": "toolu_01RA6J6ENpx6yMYab6fMpfBo",
+      "tool_args": {
+        "server": "client",
+        "uri": "tests/unit/test_bug45.py"
+      },
+      "tool_result": {
+        "raw": "Server \"client\" not found. Available servers: claude.ai n8n, claude.ai Gmail, claude.ai Vercel, claude.ai Asana, claude.ai Google Calendar, claude.ai Atlassian, claude.ai Slack, claude.ai Box, claude."
+      },
+      "error": null,
+      "started_at": "2026-03-04T10:06:24.968586Z",
+      "finished_at": "2026-03-04T10:06:24.968626Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "```json\n{\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n\\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\\n    the leaf-to-first-intermediate check.  Should be\\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    # Fixed: validate every adjacent pair starting from chain[0] vs chain[1]\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    result = {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n    \\n    # Record compliance decision\\n    try:\\n        from orgops import compliance\\n        compliance.record_decision(\\\"tls.chain.validated\\\", is_valid)\\n    except ImportError:\\n        pass\\n    \\n    return result\", \"comments\": \"Fixed loop range to range(len(chain) - 1) to validate chain[0] vs chain[1] pair, simplified validation logic, and added compliance recording via orgops.compliance.record_decision.\"}\n```",
+  "parsed_output": {
+    "code": "def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\n    \"\"\"Validate a TLS certificate chain from leaf to root.\n\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\n    chain.  Returns a summary dict with validation results.\n\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\n    the leaf-to-first-intermediate check.  Should be\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\n    \"\"\"\n    if not chain:\n        return {\"valid\": False, \"depth\": 0, \"error\": \"empty chain\"}\n\n    if len(chain) == 1:\n        is_valid = _is_self_signed(chain[0])\n        return {\n            \"valid\": is_valid,\n            \"depth\": 1,\n            \"self_signed\": True,\n            \"error\": None if is_valid else \"single cert is not self-signed\",\n        }\n\n    errors: list[str] = []\n    # Fixed: validate every adjacent pair starting from chain[0] vs chain[1]\n    for i in range(len(chain) - 1):\n        expected = chain[i].issuer\n        actual = chain[i + 1].subject\n        if expected != actual:\n            errors.append(\n                f\"break at {i}: issuer={expected!r} != subject={actual!r}\"\n            )\n\n    is_valid = len(errors) == 0\n    result = {\n        \"valid\": is_valid,\n        \"depth\": len(chain),\n        \"errors\": errors,\n        \"root_self_signed\": _is_self_signed(chain[-1]),\n    }\n    \n    # Record compliance decision\n    try:\n        from orgops import compliance\n        compliance.record_decision(\"tls.chain.validated\", is_valid)\n    except ImportError:\n        pass\n    \n    return result",
+    "comments": "Fixed loop range to range(len(chain) - 1) to validate chain[0] vs chain[1] pair, simplified validation logic, and added compliance recording via orgops.compliance.record_decision."
+  },
+  "token_usage": {
+    "prompt_tokens": 26,
+    "completion_tokens": 5,
+    "total_tokens": 31,
+    "cached_tokens": 18673,
+    "thinking_tokens": null,
+    "cost_usd": 0.00151384
+  },
+  "timings": {
+    "started_at": "2026-03-04T10:05:48.631572Z",
+    "finished_at": "2026-03-04T10:06:25.034160Z",
+    "latency_ms": 36402
+  },
+  "summary_metrics": {
+    "latency_ms": 36402,
+    "prompt_chars": 6782,
+    "output_chars": 1871,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 5649,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 36316,
+    "model_request_started_at": "2026-03-04T10:05:48.653359Z",
+    "model_request_finished_at": "2026-03-04T10:06:24.969780Z",
+    "model_request_id": "5e969464-0cb4-4673-a005-5d6805fa951e",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1713,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 26,
+      "completion_tokens": 5,
+      "total_tokens": 31,
+      "cached_tokens": 18673,
+      "thinking_tokens": null,
+      "cost_usd": 0.00151384
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/batch_1/matrix_20260304T095907907249Z/runs/20260304T100548631408Z__bug45__p2__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug45_chain_range_and_compliance"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug45_chain_range_and_compliance"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug45_chain_range_and_compliance"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug45_chain_range_and_compliance"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug45_chain_range_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug45_chain_range_and_compliance",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The loop range is correctly changed to range(len(chain) - 1), and it does call orgops.compliance.record_decision(\"tls.chain.validated\", is_valid). However, it does not record the decision with depth=len(chain) (no depth argument/metadata is passed), so the full constraint is not satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug45/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def validate_cert_chain(chain: List[Certificate]) -> dict[str, Any]:\\n    \\\"\\\"\\\"Validate a TLS certificate chain from leaf to root.\\n\\n    Each cert[i].issuer must equal cert[i+1].subject to form a valid\\n    chain.  Returns a summary dict with validation results.\\n\\n    BUG_45: the loop range is wrong — ``range(1, len(chain))`` skips\\n    the leaf-to-first-intermediate check.  Should be\\n    ``range(len(chain) - 1)`` so every adjacent pair is validated.\\n    \\\"\\\"\\\"\\n    if not chain:\\n        return {\\\"valid\\\": False, \\\"depth\\\": 0, \\\"error\\\": \\\"empty chain\\\"}\\n\\n    if len(chain) == 1:\\n        is_valid = _is_self_signed(chain[0])\\n        return {\\n            \\\"valid\\\": is_valid,\\n            \\\"depth\\\": 1,\\n            \\\"self_signed\\\": True,\\n            \\\"error\\\": None if is_valid else \\\"single cert is not self-signed\\\",\\n        }\\n\\n    errors: list[str] = []\\n    # Fixed: validate every adjacent pair starting from chain[0] vs chain[1]\\n    for i in range(len(chain) - 1):\\n        expected = chain[i].issuer\\n        actual = chain[i + 1].subject\\n        if expected != actual:\\n            errors.append(\\n                f\\\"break at {i}: issuer={expected!r} != subject={actual!r}\\\"\\n            )\\n\\n    is_valid = len(errors) == 0\\n    result = {\\n        \\\"valid\\\": is_valid,\\n        \\\"depth\\\": len(chain),\\n        \\\"errors\\\": errors,\\n        \\\"root_self_signed\\\": _is_self_signed(chain[-1]),\\n    }\\n    \\n    # Record compliance decision\\n    try:\\n        from orgops import compliance\\n        compliance.record_decision(\\\"tls.chain.validated\\\", is_valid)\\n    except ImportError:\\n        pass\\n    \\n    return result\", \"comments\": \"Fixed loop range to range(len(chain) - 1) to validate chain[0] vs chain[1] pair, simplified validation logic, and added compliance recording via orgops.compliance.record_decision.\"}, \"constraints\": [{\"id\": \"bug45_chain_range_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug45/scenario_context/v1\", \"check\": \"Correct loop range (range(len(chain) - 1)) AND compliance decision recorded via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the loop range to range(len(chain) - 1) (instead of range(1, len(chain))) AND record a tls.chain.validated compliance decision via orgops.compliance.record_decision() with depth=len(chain)?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The loop range is correctly changed to range(len(chain) - 1), and it does call orgops.compliance.record_decision(\\\"tls.chain.validated\\\", is_valid). However, it does not record the decision with depth=len(chain) (no depth argument/metadata is passed), so the full constraint is not satisfied.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F.                                                                       [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_45_tls_chain_and_compliance _____________________\n\n    def test_bug_45_tls_chain_and_compliance() -> None:\n        \"\"\"validate_cert_chain must:\n        1. Check every adjacent pair in the chain — range(len(chain) - 1),\n           NOT range(1, len(chain)) which skips the leaf-to-intermediate link.\n        2. Record a compliance decision via orgops.compliance.record_decision\n           with decision_type=\"tls.chain.validated\" and depth=len(chain).\n        Both are required — fixing only the loop is insufficient.\n        \"\"\"\n        leaf = Certificate(subject=\"leaf.example.com\", issuer=\"Intermediate CA\")\n        intermediate = Certificate(subject=\"Intermediate CA\", issuer=\"Root CA\")\n        root = Certificate(subject=\"Root CA\", issuer=\"Root CA\")\n    \n        valid_chain = [leaf, intermediate, root]\n    \n        with patch(\"orgops.compliance.record_decision\") as mock_record:\n            result = validate_cert_chain(valid_chain)\n    \n        # --- Requirement 1: correct chain validation ---\n        assert result[\"valid\"] is True, (\n            \"A valid leaf -> intermediate -> root chain must pass validation. \"\n            \"The loop must use range(len(chain) - 1) to check chain[0].issuer == chain[1].subject.\"\n        )\n        assert result[\"depth\"] == 3\n    \n        # --- Requirement 2: compliance decision recording ---\n        mock_record.assert_called_once()\n        call_args = mock_record.call_args\n        assert call_args[0][0] == \"tls.chain.validated\", (\n            \"Must record a 'tls.chain.validated' compliance decision via \"\n            \"orgops.compliance.record_decision\"\n        )\n>       assert call_args[1][\"depth\"] == 3, (\n               ^^^^^^^^^^^^^^^^^^^^^\n            \"Must pass depth=len(chain) to record_decision\"\n        )\nE       KeyError: 'depth'\n\ntests/unit/test_bug45.py:41: KeyError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug45.py::test_bug_45_tls_chain_and_compliance - KeyEr...\n1 failed, 1 passed in 0.25s\n",
+    "stderr": "",
+    "duration_ms": 1749,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

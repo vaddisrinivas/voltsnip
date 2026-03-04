@@ -1,0 +1,1 @@
+Make type comparison case-insensitive using .upper() and record validation decision to orgops.compliance for SOC2 audit trail.

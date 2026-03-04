@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T203015323052Z__bug51__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG51",
+  "task_name": "replication_lag_units_and_alert",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 56582,
+    "prompt_chars": 4190,
+    "output_chars": 327,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3140,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 56563,
+    "model_request_started_at": "2026-03-03T20:30:15.342820Z",
+    "model_request_finished_at": "2026-03-03T20:31:11.906145Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5838,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 141853,
+      "completion_tokens": 5568,
+      "total_tokens": 147421,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.06565
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug51_units_and_alert"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug51_units_and_alert",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly compares measured_lag_ms directly against threshold_ms (fixing the unit comparison by removing the /1000 division) AND calls orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) when the lag exceeds the threshold. Both requirements are satisfied.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    exceeded = measured_lag_ms > threshold_ms\\n    if exceeded:\\n        import orgops\\n        orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms)\\n\", \"comments\": \"Fixes the threshold comparison and fires the orgops alert when the lag exceeds the threshold (sandbox prevented writing the file).\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly compares measured_lag_ms directly against threshold_ms (fixing the unit comparison by removing the /1000 division) AND calls orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) when the lag exceeds the threshold. Both requirements are satisfied.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_51_replication_lag_and_alert _____________________\n\n    def test_bug_51_replication_lag_and_alert() -> None:\n        \"\"\"check_replication_health must:\n        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)\n        2. Call orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms) when exceeded\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from unittest.mock import patch\n>       from data.replication_lag import check_replication_health\n\ntests/unit/test_bug51.py:13: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ndata/replication_lag.py:13: in <module>\n    class ReplicationMonitor:\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n    @dataclass\n    class ReplicationMonitor:\n        \"\"\"Monitors replication lag across database replicas.\n    \n        Tracks measured lag values and determines whether replicas are\n        healthy enough to serve read traffic.\n        \"\"\"\n    \n        replica_id: str\n        threshold_ms: float = 500.0\n        history: list[dict[str, Any]] = field(default_factory=list)\n        _alert_count: int = 0\n    \n        def record_lag(self, measured_lag_ms: float) -> None:\n            \"\"\"Append a lag measurement to history.\"\"\"\n            self.history.append({\n                \"replica_id\": self.replica_id,\n                \"lag_ms\": measured_lag_ms,\n            })\n    \n    \n>       exceeded = measured_lag_ms > threshold_ms\n                   ^^^^^^^^^^^^^^^\nE       NameError: name 'measured_lag_ms' is not defined\n\ndata/replication_lag.py:33: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Name...\n1 failed in 0.43s\n",
+    "stderr": "",
+    "duration_ms": 3540,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

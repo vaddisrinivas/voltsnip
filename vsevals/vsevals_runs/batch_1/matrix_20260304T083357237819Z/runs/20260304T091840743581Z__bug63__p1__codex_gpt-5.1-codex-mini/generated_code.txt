@@ -1,0 +1,12 @@
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+
+        import logging
+        if self.utilization_pct >= 80:
+            logging.warning(
+                "Dead-letter queue utilization %.1f%% reached 80%% threshold",
+                self.utilization_pct,
+            )
+        return True

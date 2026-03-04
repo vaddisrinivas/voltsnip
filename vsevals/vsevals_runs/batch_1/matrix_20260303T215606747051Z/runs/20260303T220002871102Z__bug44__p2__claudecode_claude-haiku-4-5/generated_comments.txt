@@ -1,0 +1,1 @@
+Fixed inverted stale comparison from > to <= and added metric emission when entry is identified as stale.

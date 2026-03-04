@@ -1,0 +1,1 @@
+Convert version comparisons to integers so numeric ordering is preserved.

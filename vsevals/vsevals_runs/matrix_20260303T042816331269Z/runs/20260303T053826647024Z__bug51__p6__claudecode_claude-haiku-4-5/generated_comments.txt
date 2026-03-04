@@ -1,0 +1,1 @@
+Fix unit mismatch by comparing measured_lag_ms directly against threshold_ms (both in ms) and notify alerting pipeline when lag exceeds threshold.

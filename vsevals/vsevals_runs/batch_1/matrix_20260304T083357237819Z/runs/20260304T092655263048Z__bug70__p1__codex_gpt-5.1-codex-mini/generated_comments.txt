@@ -1,0 +1,1 @@
+Scan decoded base64 segments for secrets in addition to the original plaintext to catch encoded credentials.

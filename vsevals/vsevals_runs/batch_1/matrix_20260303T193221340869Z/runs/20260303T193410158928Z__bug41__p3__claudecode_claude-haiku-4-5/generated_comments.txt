@@ -1,0 +1,1 @@
+Replace linear backoff with exponential backoff (2**attempt), cap at max_delay, and import orgops.metrics for metric emission on lines 62-63.

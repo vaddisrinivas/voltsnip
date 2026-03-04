@@ -1,0 +1,1 @@
+Adjust the loop to cover every adjacent certificate pair and report the validation via orgops compliance.

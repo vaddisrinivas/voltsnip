@@ -1,0 +1,1 @@
+Replace short-circuit return on first error with append to collect all validation errors.

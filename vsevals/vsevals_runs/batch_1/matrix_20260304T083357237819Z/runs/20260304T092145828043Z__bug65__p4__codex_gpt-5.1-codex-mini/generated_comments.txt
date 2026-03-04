@@ -1,0 +1,1 @@
+Use a regex that allows plus-addressed email local parts before counting/redacting them.

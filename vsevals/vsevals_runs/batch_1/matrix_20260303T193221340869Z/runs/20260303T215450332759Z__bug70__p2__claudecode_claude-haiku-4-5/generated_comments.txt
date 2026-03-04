@@ -1,0 +1,1 @@
+Decode base64 segments using _BASE64_RE, attempt to decode each segment, re-scan decoded content for secrets, and notify for each new finding discovered from base64-encoded sources.

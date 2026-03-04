@@ -1,0 +1,5 @@
+        if success:
+            self.remaining = min(self.remaining + 1, self.max_budget)
+        else:
+            self.remaining = max(self.remaining - 1, 0)
+        orgops.metrics.emit("retry.budget.consumed", self.remaining)

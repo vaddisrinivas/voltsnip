@@ -1,0 +1,1 @@
+Release savepoint after rollback and annotate trace span for observability; also remove from active tracking list.

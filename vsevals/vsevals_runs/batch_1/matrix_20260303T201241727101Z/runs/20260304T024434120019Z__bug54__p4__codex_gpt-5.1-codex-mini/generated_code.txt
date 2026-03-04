@@ -1,0 +1,55 @@
+def compute_ttl_with_jitter(
+    base_ttl: float = 300.0,
+    jitter_range: float = 30.0,
+) -> float:
+    """Compute an effective TTL by applying random jitter.
+
+    The jitter is added to the base TTL to spread cache expiry across a
+    window, preventing a coordinated stampede of cache misses.
+
+    BUG_54: the jitter used to be subtracted and no metric was emitted.
+    Updating the implementation adds the jitter forward and notifies the
+    cache.ttl.jittered metric so expiry spread is observable.
+
+    Parameters
+    ----------
+    base_ttl:
+        The base time-to-live in seconds.
+    jitter_range:
+        Maximum additional jitter in seconds.  The actual jitter is
+        drawn uniformly from [0, jitter_range).
+
+    Returns
+    -------
+    float
+        The effective TTL in seconds.
+    """
+    jitter = random.uniform(0, jitter_range)
+    effective_ttl = base_ttl + jitter
+
+    metrics_client = globals().get("metrics")
+    if metrics_client is None:
+        try:
+            import metrics as metrics_client
+        except ImportError:
+            metrics_client = None
+
+    if metrics_client is not None:
+        for attr, needs_value in (
+            ("histogram", True),
+            ("gauge", True),
+            ("record", True),
+            ("observe", True),
+            ("emit", True),
+            ("increment", False),
+        ):
+            method = getattr(metrics_client, attr, None)
+            if method is None:
+                continue
+            if needs_value:
+                method("cache.ttl.jittered", effective_ttl)
+            else:
+                method("cache.ttl.jittered")
+            break
+
+    return effective_ttl

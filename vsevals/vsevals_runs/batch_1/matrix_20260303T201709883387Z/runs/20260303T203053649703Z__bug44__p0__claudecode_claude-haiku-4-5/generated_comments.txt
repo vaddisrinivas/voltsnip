@@ -1,0 +1,1 @@
+Inverted comparison operator to correctly identify stale entries when now >= entry.stale_at.

@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019cb583-7065-7081-9e2b-60653e68733e"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Replacing budget adjustment logic and metric emission**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"{\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Adjust budget on both success and failure, then emit the retry consumption metric.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":9169,"cached_input_tokens":4864,"output_tokens":317}}

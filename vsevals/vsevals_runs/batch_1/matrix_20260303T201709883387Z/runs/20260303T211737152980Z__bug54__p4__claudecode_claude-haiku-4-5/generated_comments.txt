@@ -1,0 +1,1 @@
+Fixed BUG_54: changed jitter subtraction to addition and added metric emission for operational monitoring.

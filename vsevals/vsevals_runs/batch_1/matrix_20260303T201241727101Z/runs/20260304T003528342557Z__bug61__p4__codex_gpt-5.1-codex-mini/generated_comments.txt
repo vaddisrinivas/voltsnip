@@ -1,0 +1,1 @@
+Adjust remaining tokens for both outcomes and emit the retry budget metric every time.

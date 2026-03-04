@@ -1,0 +1,1 @@
+Apply the decay formula for LFU scoring and emit the cache.eviction.lfu metric.

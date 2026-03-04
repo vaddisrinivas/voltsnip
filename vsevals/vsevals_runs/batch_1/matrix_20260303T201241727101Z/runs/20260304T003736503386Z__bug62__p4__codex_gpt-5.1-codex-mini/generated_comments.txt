@@ -1,0 +1,1 @@
+Pass the shared context to each fallback and emit a fallback.activated span before invoking it so downstream tracing and request metadata stay intact.

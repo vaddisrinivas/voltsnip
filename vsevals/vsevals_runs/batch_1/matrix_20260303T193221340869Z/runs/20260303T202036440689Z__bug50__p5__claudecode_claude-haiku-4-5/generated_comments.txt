@@ -1,0 +1,1 @@
+Fix selectivity applied once (not twice) and emit query.plan.estimated_cost metric for optimizer dashboard monitoring.

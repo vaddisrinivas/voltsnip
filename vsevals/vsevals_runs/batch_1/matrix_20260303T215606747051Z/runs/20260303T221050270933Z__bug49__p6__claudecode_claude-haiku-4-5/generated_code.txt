@@ -1,0 +1,16 @@
+    def rollback_to_savepoint(self, savepoint_id: str) -> None:
+        """Rollback to a named savepoint.
+
+        BUG_49: After ROLLBACK TO SAVEPOINT the savepoint still exists on
+        the server but is never released, leaking the resource.  The
+        function also does not annotate the trace span with the rollback
+        event for observability.
+        """
+        import orgops.tracing
+        self.session.execute(
+            f"ROLLBACK TO SAVEPOINT {savepoint_id}"
+        )
+        self.session.execute(f"RELEASE SAVEPOINT {savepoint_id}")
+        if savepoint_id in self._active_savepoints:
+            self._active_savepoints.remove(savepoint_id)
+        orgops.tracing.annotate_span("savepoint.rollback", savepoint_id)

@@ -1,0 +1,1 @@
+Fixes BUG_57 by scheduling the timer with milliseconds and emitting an audit event summarizing the scheduled flush.

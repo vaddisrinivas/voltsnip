@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the code correctly uses int() for numeric version comparison and does call orgops.auditing.write_event('migration.applied', version=...), it logs these events for PENDING migrations that have not actually been applied yet. The function get_pending_migrations() only identifies and returns pending migrations without applying them, so the audit events are semantically incorrect - they claim migrations were applied when they were only discovered as pending.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions were compared as strings so lexicographic\\n        ordering caused \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        skipped higher single-digit versions.\\n        \\\"\\\"\\\"\\n        if not self.applied_versions:\\n            pending = sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = sorted(\\n                (\\n                    m\\n                    for m in self.available_migrations\\n                    if int(m[\\\"version\\\"]) > max_applied\\n                ),\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n        audit = __import__(\\\"orgops\\\").auditing.write_event\\n        for migration in pending:\\n            audit(\\\"migration.applied\\\", version=str(migration[\\\"version\\\"]))\\n        return pending\", \"comments\": \"Sort versions numerically and audit-log each pending migration when discovered.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the code correctly uses int() for numeric version comparison and does call orgops.auditing.write_event('migration.applied', version=...), it logs these events for PENDING migrations that have not actually been applied yet. The function get_pending_migrations() only identifies and returns pending migrations without applying them, so the audit events are semantically incorrect - they claim migrations were applied when they were only discovered as pending.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

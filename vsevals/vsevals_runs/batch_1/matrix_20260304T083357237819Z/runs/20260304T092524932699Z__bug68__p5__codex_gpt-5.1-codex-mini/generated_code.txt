@@ -1,0 +1,25 @@
+    def redact_keys(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return a redacted copy of *data* that recurses into nested dicts.
+
+        Each redaction is also recorded in the compliance audit log.
+        """
+        from orgops import auditing
+
+        def _redact(current: dict[str, Any]) -> tuple[dict[str, Any], int]:
+            result: dict[str, Any] = {}
+            redacted = 0
+            for key, value in current.items():
+                if self.is_sensitive(key):
+                    result[key] = REDACTED_PLACEHOLDER
+                    redacted += 1
+                elif isinstance(value, dict):
+                    nested, nested_count = _redact(value)
+                    result[key] = nested
+                    redacted += nested_count
+                else:
+                    result[key] = value
+            return result, redacted
+
+        result, count = _redact(data)
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

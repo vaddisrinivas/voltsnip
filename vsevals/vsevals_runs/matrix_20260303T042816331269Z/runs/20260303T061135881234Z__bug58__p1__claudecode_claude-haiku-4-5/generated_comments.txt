@@ -1,0 +1,1 @@
+Fix off-by-one error in assign_partition: change modulus from (n + 1) to n to ensure partition_id stays within [0, num_partitions) range.

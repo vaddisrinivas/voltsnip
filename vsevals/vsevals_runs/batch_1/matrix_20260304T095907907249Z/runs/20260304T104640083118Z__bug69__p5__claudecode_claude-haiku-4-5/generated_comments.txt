@@ -1,0 +1,1 @@
+Changed datetime.now() to datetime.now(timezone.utc) for UTC consistency, set utc flag to True, and added compliance.record_decision call to record the audit decision per SOC2 requirements.

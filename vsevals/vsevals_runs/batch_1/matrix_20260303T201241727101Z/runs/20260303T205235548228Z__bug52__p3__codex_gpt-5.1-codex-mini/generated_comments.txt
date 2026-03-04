@@ -1,0 +1,1 @@
+Use a case-insensitive comparison and record the schema validation pass decision for compliance tracking.

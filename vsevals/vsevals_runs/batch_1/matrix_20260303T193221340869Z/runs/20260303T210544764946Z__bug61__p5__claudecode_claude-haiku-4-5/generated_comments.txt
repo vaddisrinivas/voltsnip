@@ -1,0 +1,1 @@
+Adds success branch to replenish remaining via min(remaining+1, max_budget) and emits retry.budget.consumed metric after every call.

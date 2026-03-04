@@ -1,0 +1,11 @@
+        self.findings = []
+        import orgops.alerts  # keep local to avoid circular imports
+
+        self._scan_plaintext(text)
+        for segment in _BASE64_RE.findall(text):
+            decoded = self._try_decode_base64(segment)
+            if decoded:
+                self._scan_plaintext(decoded)
+        for finding in self.findings:
+            orgops.alerts.notify("secret.detected", pattern_type=finding["pattern_type"])
+        return list(self.findings)

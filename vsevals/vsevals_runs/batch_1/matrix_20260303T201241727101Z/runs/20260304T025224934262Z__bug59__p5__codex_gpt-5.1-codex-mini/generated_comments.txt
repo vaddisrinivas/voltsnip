@@ -1,0 +1,1 @@
+Distinguishes 4xx from 5xx classifications and emits the required error.mapped metric.

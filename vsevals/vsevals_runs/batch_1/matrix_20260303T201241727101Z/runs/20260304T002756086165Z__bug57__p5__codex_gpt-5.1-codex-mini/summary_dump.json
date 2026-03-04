@@ -1,0 +1,100 @@
+{
+  "run_id": "20260304T002756086165Z__bug57__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG57",
+  "task_name": "write_behind_interval_units_and_audit",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 38197,
+    "prompt_chars": 5755,
+    "output_chars": 1081,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4705,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 5,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 38178,
+    "model_request_started_at": "2026-03-04T00:27:56.104570Z",
+    "model_request_finished_at": "2026-03-04T00:28:34.283314Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 22038,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 102830,
+      "completion_tokens": 4502,
+      "total_tokens": 107332,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0483352
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug57_interval_units_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug57_interval_units_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) before passing to _start_timer. It also writes a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed data (the return value from _do_flush(buffer), which represents the count of flushed items). Both required behaviors are present.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: pass the interval in milliseconds to _start_timer and emit\\n        cache.flush.completed after each flush.\\n        \\\"\\\"\\\"\\n        from orgops.auditing import write_event\\n\\n        def flush_and_audit() -> None:\\n            flushed = self._do_flush(buffer)\\n            write_event(\\\"cache.flush.completed\\\", {\\\"items_flushed\\\": flushed})\\n\\n        interval_ms = interval_seconds * 1000\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=flush_and_audit,\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n\", \"comments\": \"Schedule flush in milliseconds and audit each cache.flush.completed event.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) before passing to _start_timer. It also writes a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed data (the return value from _do_flush(buffer), which represents the count of flushed items). Both required behaviors are present.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": null,
+  "error": null
+}

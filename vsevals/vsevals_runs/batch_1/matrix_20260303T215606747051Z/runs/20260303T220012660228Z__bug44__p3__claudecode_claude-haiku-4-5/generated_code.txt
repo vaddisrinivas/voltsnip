@@ -1,0 +1,22 @@
+    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+        """Decide whether *entry* is stale and should be refreshed.
+
+        BUG_44: the comparison is inverted -- it returns ``True`` when
+        the entry is still fresh and ``False`` when it is actually stale.
+        """
+        # BUG_44: inverted stale check -- returns True when NOT stale
+        return entry.stale_at <= now
+
+    def refresh_stale(self, now: Optional[float] = None) -> list[str]:
+        """Return hostnames whose entries need a background refresh.
+
+        Also emits a ``dns.cache.refresh`` metric for each stale entry
+        so the on-call dashboard tracks cache churn.
+        """
+        now = now if now is not None else time.time()
+        stale_hosts: list[str] = []
+        for hostname, entry in self._store.items():
+            if self.should_refresh_entry(entry, now):
+                orgops.metrics.emit("dns.cache.refresh", entry.ttl_remaining(now))
+                stale_hosts.append(hostname)
+        return stale_hosts

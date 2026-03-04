@@ -1,0 +1,1 @@
+Limit half-open probes to the configured max and report a circuit.half_open degradation once the cap is hit.

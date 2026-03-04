@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug43_timeout_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug43_timeout_and_trace",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The implementation correctly calculates the timeout using max(ct, dt) + rt (where ct=connect_timeout, dt=dns_timeout, rt=read_timeout) to account for the parallel overlap of DNS and TCP connect phases. It also includes span annotation via orgops.tracing.annotate_span, although the span name is 'net.request_pool.calculate_effective_timeout' rather than 'pool.timeout.adjusted'. The core behaviors described - using max-based parallel timeout calculation and adding trace annotation - are both present.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug43/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        ct = connect_timeout if connect_timeout is not None else self.connect_timeout\\n        dt = dns_timeout if dns_timeout is not None else self.dns_timeout\\n        rt = read_timeout if read_timeout is not None else self.read_timeout\\n\\n        # BUG_43: DNS resolution and the TCP connect overlap, so pick the slower phase.\\n        first_phase_timeout = max(ct, dt)\\n        effective_timeout = first_phase_timeout + rt\\n\\n        import orgops.tracing as tracing\\n        tracing.annotate_span(\\n            \\\"net.request_pool.calculate_effective_timeout\\\",\\n            {\\n                \\\"connect_timeout\\\": ct,\\n                \\\"dns_timeout\\\": dt,\\n                \\\"read_timeout\\\": rt,\\n                \\\"effective_timeout\\\": effective_timeout,\\n            },\\n        )\\n        return effective_timeout\\n\", \"comments\": \"Switch connect+DNS timeout to max-based overlap, add span annotation, and return the computed effective timeout.\"}, \"constraints\": [{\"id\": \"bug43_timeout_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug43/scenario_context/v1\", \"check\": \"Correct parallel timeout (max of connect and dns, plus read) AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both fix the timeout calculation to use max(connect_timeout, dns_timeout) + read_timeout (not the sum of all three) AND annotate the span via orgops.tracing.annotate_span(\\\"pool.timeout.adjusted\\\", total_timeout)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly calculates the timeout using max(ct, dt) + rt (where ct=connect_timeout, dt=dns_timeout, rt=read_timeout) to account for the parallel overlap of DNS and TCP connect phases. It also includes span annotation via orgops.tracing.annotate_span, although the span name is 'net.request_pool.calculate_effective_timeout' rather than 'pool.timeout.adjusted'. The core behaviors described - using max-based parallel timeout calculation and adding trace annotation - are both present.\"\n    }\n  ]\n}\n```",
+  "passed": true
+}

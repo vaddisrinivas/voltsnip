@@ -1,0 +1,6 @@
+        for _idx, fb in enumerate(self.fallbacks):
+            try:
+                orgops.tracing.annotate_span("fallback.activated", _idx)
+                return fb(self.context)
+            except Exception:
+                continue

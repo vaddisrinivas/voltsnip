@@ -1,0 +1,1 @@
+Clamp the effective timeout to at least 1 ms and annotate the lock acquisition span while preserving the existing return structure.

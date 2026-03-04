@@ -1,0 +1,1 @@
+Fixed audit timestamp to use UTC timezone instead of local time and added compliance decision recording for SOC2 audit trail normalization.

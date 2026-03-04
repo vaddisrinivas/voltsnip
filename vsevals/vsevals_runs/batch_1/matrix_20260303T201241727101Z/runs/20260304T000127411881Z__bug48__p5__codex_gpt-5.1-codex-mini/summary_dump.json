@@ -1,0 +1,100 @@
+{
+  "run_id": "20260304T000127411881Z__bug48__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 93269,
+    "prompt_chars": 5713,
+    "output_chars": 1249,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4663,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 6,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 6,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 93245,
+    "model_request_started_at": "2026-03-04T00:01:27.434427Z",
+    "model_request_finished_at": "2026-03-04T00:03:00.680266Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 6978,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 140966,
+      "completion_tokens": 9699,
+      "total_tokens": 150665,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0719048
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in _version_key() function and when computing max_applied, ensuring '10' correctly sorts after '9'. (2) It calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each pending migration in the loop.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        def _version_key(migration: dict[str, Any]) -> int:\\n            return int(migration[\\\"version\\\"])\\n\\n        available_sorted = sorted(self.available_migrations, key=_version_key)\\n\\n        if not self.applied_versions:\\n            pending = available_sorted\\n        else:\\n            max_applied = max(int(version) for version in self.applied_versions)\\n            pending = [\\n                migration\\n                for migration in available_sorted\\n                if _version_key(migration) > max_applied\\n            ]\\n\\n        from orgops import auditing\\n\\n        for migration in pending:\\n            auditing.write_event(\\n                \\\"migration.applied\\\",\\n                version=str(migration[\\\"version\\\"]),\\n            )\\n\\n        return pending\\n\", \"comments\": \"Uses numeric version comparisons and auditable logging for each pending migration.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It uses numeric version comparison via int() in _version_key() function and when computing max_applied, ensuring '10' correctly sorts after '9'. (2) It calls orgops.auditing.write_event('migration.applied', version=str(migration['version'])) for each pending migration in the loop.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": null,
+  "error": null
+}

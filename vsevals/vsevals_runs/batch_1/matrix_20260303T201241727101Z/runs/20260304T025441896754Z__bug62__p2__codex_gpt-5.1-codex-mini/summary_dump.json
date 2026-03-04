@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T025441896754Z__bug62__p2__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG62",
+  "task_name": "fallback_context_loss_and_trace",
+  "variant_id": "P2",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 17629,
+    "prompt_chars": 6300,
+    "output_chars": 357,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 5167,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 17598,
+    "model_request_started_at": "2026-03-04T02:54:41.926091Z",
+    "model_request_finished_at": "2026-03-04T02:54:59.525070Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2846,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 29231,
+      "completion_tokens": 1983,
+      "total_tokens": 31214,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0148652
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug62_context_and_trace"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug62_context_and_trace",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) It passes context to each fallback callable using fb(self.context) instead of fb(), and (2) It calls orgops.tracing.annotate_span(\"fallback.activated\", _idx) for each activated fallback where _idx is the 0-based index from enumerate(self.fallbacks).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug62/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        for _idx, fb in enumerate(self.fallbacks):\\n            try:\\n                orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx)\\n                return fb(self.context)\\n            except Exception:\\n                continue\", \"comments\": \"Annotates each fallback activation and invokes the fallback with the preserved context.\"}, \"constraints\": [{\"id\": \"bug62_context_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug62/scenario_context/v1\", \"check\": \"Context propagation to fallbacks AND tracing annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both pass context to each fallback callable (fb(self.context) instead of fb()) AND call orgops.tracing.annotate_span(\\\"fallback.activated\\\", index) for each activated fallback where index is 0-based?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) It passes context to each fallback callable using fb(self.context) instead of fb(), and (2) It calls orgops.tracing.annotate_span(\\\"fallback.activated\\\", _idx) for each activated fallback where _idx is the 0-based index from enumerate(self.fallbacks).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_bug_62_fallback_context_and_trace ____________________\n\n    def test_bug_62_fallback_context_and_trace() -> None:\n        \"\"\"FallbackChain.execute_with_fallback must:\n        1. Pass context dict to each fallback callable — fb(self.context).\n        2. Call orgops.tracing.annotate_span(\"fallback.activated\", index)\n           for each activated fallback (index is 0-based position).\n        Both are required -- fixing only the context propagation is insufficient.\n        \"\"\"\n>       from errors.fallback_chain import FallbackChain\nE         File \"/workspace/errors/fallback_chain.py\", line 34\nE           for _idx, fb in enumerate(self.fallbacks):\nE       IndentationError: unexpected indent\n\ntests/unit/test_bug62.py:15: IndentationError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug62.py::test_bug_62_fallback_context_and_trace -   F...\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 754,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

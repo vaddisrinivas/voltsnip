@@ -1,0 +1,1 @@
+Flip the ratio check so early refresh fires when the remaining time fraction falls below the threshold, keeping behavior deterministic.

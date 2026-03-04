@@ -1,0 +1,22 @@
+        """Return a deep copy of *data* with sensitive values redacted and log the audit event."""
+        count = 0
+
+        def walk(node: Any) -> Any:
+            nonlocal count
+            if isinstance(node, dict):
+                nested: dict[str, Any] = {}
+                for nested_key, nested_value in node.items():
+                    if self.is_sensitive(nested_key):
+                        nested[nested_key] = REDACTED_PLACEHOLDER
+                        count += 1
+                    else:
+                        nested[nested_key] = walk(nested_value)
+                return nested
+            if isinstance(node, list):
+                return [walk(element) for element in node]
+            return node
+
+        result = walk(data)
+        from orgops import auditing
+        auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

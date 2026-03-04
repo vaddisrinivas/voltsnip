@@ -1,0 +1,1 @@
+Use the correct modulus to keep partition IDs within 0..n-1 per BUG_58.

@@ -1,0 +1,1 @@
+Convert the interval to milliseconds, hook the timer to a wrapper that logs cache.flush.completed after each flush, and trigger an initial flush so the audit event fires immediately.

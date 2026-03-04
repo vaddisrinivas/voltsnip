@@ -1,0 +1,1 @@
+Fixed email regex to include + in local-part (user+tag@domain.com now redacted) and added compliance decision recording for SOC2 audit trail.

@@ -1,0 +1,1 @@
+Roll back, release the savepoint immediately, and annotate the span per BUG-49 guidance.

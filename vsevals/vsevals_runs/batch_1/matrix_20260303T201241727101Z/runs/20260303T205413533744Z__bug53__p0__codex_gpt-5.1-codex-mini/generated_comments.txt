@@ -1,0 +1,1 @@
+Clamp effective_timeout to at least zero before storing and returning it.

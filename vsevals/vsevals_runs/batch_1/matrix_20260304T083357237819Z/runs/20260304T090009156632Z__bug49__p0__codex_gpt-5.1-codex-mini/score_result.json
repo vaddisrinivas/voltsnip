@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug49_release_and_trace"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug49_release_and_trace"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug49_release_and_trace",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code does add RELEASE SAVEPOINT after ROLLBACK (via self.release_savepoint(savepoint_id)), but it does NOT annotate the trace span using orgops.tracing.annotate_span(). Instead, it uses trace_span.add_event() or self.session.trace_event() with the event name 'rollback_to_savepoint' rather than 'txn.savepoint.rolled_back'. The constraint requires BOTH conditions: RELEASE after ROLLBACK AND trace annotation via orgops.tracing.annotate_span() with the specific event name 'txn.savepoint.rolled_back'.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug49/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        self.session.execute(\\n            f\\\"ROLLBACK TO SAVEPOINT {savepoint_id}\\\"\\n        )  # BUG_49: missing RELEASE after ROLLBACK leaks savepoint resource\\n        self.release_savepoint(savepoint_id)\\n        trace_span = getattr(self.session, \\\"trace_span\\\", None)\\n        if trace_span is not None and hasattr(trace_span, \\\"add_event\\\"):\\n            trace_span.add_event(\\n                \\\"rollback_to_savepoint\\\",\\n                {\\\"savepoint_id\\\": savepoint_id},\\n            )\\n        elif callable(getattr(self.session, \\\"trace_event\\\", None)):\\n            self.session.trace_event(\\n                \\\"rollback_to_savepoint\\\",\\n                {\\\"savepoint_id\\\": savepoint_id},\\n            )\", \"comments\": \"Roll back, release the savepoint, and annotate whatever tracer API the session exposes so the span records the rollback event.\"}, \"constraints\": [{\"id\": \"bug49_release_and_trace\", \"voltsnip_key\": \"voltsnip/script30/hard/bug49/scenario_context/v1\", \"check\": \"RELEASE SAVEPOINT after ROLLBACK AND trace annotation via orgops.tracing.annotate_span.\", \"judge_prompt\": \"Does the implementation both add RELEASE SAVEPOINT after ROLLBACK TO SAVEPOINT AND annotate the trace span with \\\"txn.savepoint.rolled_back\\\" via orgops.tracing.annotate_span()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The code does add RELEASE SAVEPOINT after ROLLBACK (via self.release_savepoint(savepoint_id)), but it does NOT annotate the trace span using orgops.tracing.annotate_span(). Instead, it uses trace_span.add_event() or self.session.trace_event() with the event name 'rollback_to_savepoint' rather than 'txn.savepoint.rolled_back'. The constraint requires BOTH conditions: RELEASE after ROLLBACK AND trace annotation via orgops.tracing.annotate_span() with the specific event name 'txn.savepoint.rolled_back'.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

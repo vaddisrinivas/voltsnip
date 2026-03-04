@@ -1,0 +1,1 @@
+Fixed the stale check so entries are refreshed only after their stale_at timestamp.

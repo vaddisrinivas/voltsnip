@@ -1,0 +1,16 @@
+
+==================================== ERRORS ====================================
+__________________ ERROR collecting tests/unit/test_bug60.py ___________________
+ImportError while importing test module '/workspace/tests/unit/test_bug60.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/unit/test_bug60.py:5: in <module>
+    from errors.validation_gate import SchemaRule, validate_payload
+E   ImportError: cannot import name 'validate_payload' from 'errors.validation_gate' (/workspace/errors/validation_gate.py)
+=========================== short test summary info ============================
+ERROR tests/unit/test_bug60.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.77s

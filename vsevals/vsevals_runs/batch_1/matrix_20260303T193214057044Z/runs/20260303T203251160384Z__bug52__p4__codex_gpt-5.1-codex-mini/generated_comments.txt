@@ -1,0 +1,1 @@
+Normalize both types before comparing and report the outcome via orgops.compliance.record_decision to satisfy the compliance requirement.

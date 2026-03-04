@@ -1,0 +1,1 @@
+Fix probe comparison from > to < and report circuit.half_open degradation to platform health dashboard via orgops.health.report_degradation.

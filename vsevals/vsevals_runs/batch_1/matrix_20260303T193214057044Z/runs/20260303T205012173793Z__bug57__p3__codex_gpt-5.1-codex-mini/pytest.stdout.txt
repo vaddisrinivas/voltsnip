@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_57_flush_interval_units_and_audit __________________
+
+    def test_bug_57_flush_interval_units_and_audit() -> None:
+        """schedule_flush must:
+        1. Convert interval_seconds to milliseconds (interval_seconds * 1000)
+           before passing to _start_timer which expects ms.
+        2. Write a cache.flush.completed audit event via orgops.auditing.write_event()
+           with items_flushed=len(buffer) after each flush.
+        Both are required -- fixing only the unit conversion is insufficient.
+        """
+>       from cache.write_behind import WriteBehindBuffer
+E         File "/workspace/cache/write_behind.py", line 40
+E           def schedule_flush(
+E                             ^
+E       SyntaxError: '(' was never closed
+
+tests/unit/test_bug57.py:16: SyntaxError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug57.py::test_bug_57_flush_interval_units_and_audit
+1 failed in 0.43s

@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug52_case_insensitive_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug52_case_insensitive_and_compliance",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "The code compares expected_type.upper() == actual_type.upper(), making the comparison case-insensitive, and it calls orgops.compliance.record_decision(\"schema.validation.passed\", column_type=actual_type) when matched.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def validate_column_type(expected_type: str, actual_type: str) -> bool:\\n    \\\"\\\"\\\"Check whether *actual_type* matches *expected_type*.\\n\\n    BUG_52: the comparison is case-sensitive, so \\\"VARCHAR\\\" != \\\"varchar\\\".\\n    Database engines return types in varying cases (e.g. PostgreSQL uses\\n    lowercase, MySQL uses uppercase).  A case-insensitive comparison is\\n    required for cross-engine compatibility.\\n    \\\"\\\"\\\"\\n    import orgops.compliance\\n    matched = expected_type.upper() == actual_type.upper()\\n    if matched:\\n        orgops.compliance.record_decision(\\\"schema.validation.passed\\\", column_type=actual_type)\\n    return matched\", \"comments\": \"Apply case-insensitive type comparison (.upper()) and record compliance decision for SOC2 audit trail\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"The code compares expected_type.upper() == actual_type.upper(), making the comparison case-insensitive, and it calls orgops.compliance.record_decision(\\\"schema.validation.passed\\\", column_type=actual_type) when matched.\"}]}",
+  "passed": true
+}

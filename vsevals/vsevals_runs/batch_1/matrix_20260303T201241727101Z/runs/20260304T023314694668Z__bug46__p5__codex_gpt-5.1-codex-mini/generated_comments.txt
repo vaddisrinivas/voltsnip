@@ -1,0 +1,1 @@
+Boundary now uses the precise float difference so the sliding window no longer truncates sub-second timestamps.

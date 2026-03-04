@@ -1,0 +1,12 @@
+    def record_outcome(self, success: bool) -> None:
+        """Record the result of an operation and adjust the budget.
+
+        BUG_61: On failure the budget is correctly decremented, but on
+        success the budget is *not* replenished.  The fix must increment
+        ``self.remaining = min(self.remaining + 1, self.max_budget)``
+        when *success* is True.  Additionally, a metric must be emitted
+        via ``orgops.metrics.emit("retry.budget.consumed", self.remaining)``
+        after every call regardless of outcome.
+        """
+        self.remaining = max(self.remaining - 1, 0) if not success else min(self.remaining + 1, self.max_budget)
+        orgops.metrics.emit("retry.budget.consumed", self.remaining)

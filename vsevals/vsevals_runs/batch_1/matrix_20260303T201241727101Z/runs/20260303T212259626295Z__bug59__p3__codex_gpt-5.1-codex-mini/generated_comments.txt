@@ -1,0 +1,1 @@
+Categorize 4xx vs 5xx properly and emit the required error.mapped metric before returning.

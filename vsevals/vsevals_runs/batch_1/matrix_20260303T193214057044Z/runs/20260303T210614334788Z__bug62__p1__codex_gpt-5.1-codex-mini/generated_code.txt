@@ -1,0 +1,31 @@
+    def execute_with_fallback(self) -> Any:
+        """Try *primary_fn*, then each fallback in order.
+
+        BUG_62: Fallbacks are invoked as ``fb()`` without passing
+        *context*, so the downstream handler loses the request ID,
+        headers, and deadline.  The correct call is ``fb(self.context)``.
+
+        Additionally, each activated fallback must be annotated via
+        ``orgops.tracing.annotate_span("fallback.activated", index)``
+        where *index* is the 0-based position in the fallbacks list.
+        Neither the context propagation nor the tracing annotation is
+        present in the buggy implementation.
+        """
+        try:
+            return self.primary_fn(self.context)
+        except Exception:
+            pass
+
+        import orgops
+
+        for _idx, fb in enumerate(self.fallbacks):
+            try:
+                orgops.tracing.annotate_span("fallback.activated", _idx)
+                return fb(self.context)
+            except Exception:
+                continue
+
+        raise RuntimeError(
+            "All fallbacks exhausted: primary and "
+            f"{len(self.fallbacks)} fallback(s) failed"
+        )

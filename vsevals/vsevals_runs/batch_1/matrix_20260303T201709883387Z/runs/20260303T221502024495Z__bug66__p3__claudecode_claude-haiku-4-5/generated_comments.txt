@@ -1,0 +1,1 @@
+Copy correlation_id to child context and annotate trace span for proper async log correlation.

@@ -1,0 +1,1 @@
+Add release after rollback and annotate the trace span so the savepoint is cleaned up and observed.

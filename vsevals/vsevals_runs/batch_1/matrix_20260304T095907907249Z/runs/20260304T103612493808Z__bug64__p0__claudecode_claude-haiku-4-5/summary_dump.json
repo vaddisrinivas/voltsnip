@@ -1,0 +1,118 @@
+{
+  "run_id": "20260304T103612493808Z__bug64__p0__claudecode_claude-haiku-4-5",
+  "task_id": "BUG64",
+  "task_name": "timeout_escalation_no_compound_and_metric",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 11763,
+    "prompt_chars": 6419,
+    "output_chars": 1359,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 5369,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 11762,
+    "model_request_started_at": "2026-03-04T10:36:12.494831Z",
+    "model_request_finished_at": "2026-03-04T10:36:24.257813Z",
+    "model_request_id": "0bfb6444-5c92-42f6-ac26-64097eaecd46",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 1551,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 1,
+      "total_tokens": 11,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 1.2e-05
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug64_compound_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug64_compound_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug64_compound_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The timeout escalation is compounded using (multiplier ** attempt), but there is no call to orgops.metrics.emit() (or any metric emission) for a timeout.escalated metric with the computed timeout value.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug64/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def escalate_timeout(\\n        self,\\n        original_ms: float,\\n        attempt: int,\\n        multiplier: float = 1.5,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Compute the escalated timeout for *attempt*.\\n\\n        BUG_64: the calculation uses ``original_ms * multiplier`` on every\\n        attempt instead of compounding (``original_ms * (multiplier ** attempt)``)\\n        This means every retry gets the same timeout regardless of the\\n        attempt number, eliminating the exponential back-pressure that\\n        protects recovering services.\\n        \\\"\\\"\\\"\\n        new_timeout_ms = original_ms * (multiplier ** attempt)\\n        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)\\n\\n        record: dict[str, Any] = {\\n            \\\"attempt\\\": attempt,\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n        }\\n        self.history.setdefault(\\\"default\\\", []).append(record)\\n\\n        return {\\n            \\\"original_ms\\\": original_ms,\\n            \\\"new_timeout_ms\\\": new_timeout_ms,\\n            \\\"attempt\\\": attempt,\\n            \\\"capped\\\": new_timeout_ms >= self.ceiling_ms,\\n        }\", \"comments\": \"Changed timeout calculation from original_ms * multiplier to original_ms * (multiplier ** attempt) to enable compound exponential backoff across retry attempts.\"}, \"constraints\": [{\"id\": \"bug64_compound_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug64/scenario_context/v1\", \"check\": \"Compound timeout escalation (multiplier ** attempt) AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the timeout escalation to compound correctly (original_ms * (multiplier ** attempt) instead of original_ms * multiplier) AND emit a timeout.escalated metric via orgops.metrics.emit() with the computed timeout value?\"}]}"
+    },
+    "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The timeout escalation is compounded using (multiplier ** attempt), but there is no call to orgops.metrics.emit() (or any metric emission) for a timeout.escalated metric with the computed timeout value.\"}]}",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_64_timeout_compound_and_metric ____________________\n\n    def test_bug_64_timeout_compound_and_metric() -> None:\n        \"\"\"escalate_timeout must:\n        1. Compound the timeout: original_ms * (multiplier ** attempt), not original_ms * multiplier.\n        2. Emit a 'timeout.escalated' metric via orgops.metrics.emit() with the new timeout value.\n        Both are required -- fixing only the math is insufficient.\n        \"\"\"\n        from errors.timeout_escalation import TimeoutEscalator\n    \n        esc = TimeoutEscalator()\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            result = esc.escalate_timeout(\n                original_ms=100.0,\n                attempt=3,\n                multiplier=1.5,\n            )\n    \n        # --- Requirement 1: compound escalation ---\n        # 100 * (1.5 ** 3) = 100 * 3.375 = 337.5\n        expected = 100.0 * (1.5 ** 3)\n        assert result[\"new_timeout_ms\"] == expected, (\n            f\"Expected 100.0 * (1.5 ** 3) = {expected} (compound), \"\n            f\"got {result['new_timeout_ms']}. \"\n            \"Bug produces 100.0 * 1.5 = 150.0 on every attempt (no compounding).\"\n        )\n    \n        # --- Requirement 1b: attempt=1 still works correctly ---\n        with patch(\"orgops.metrics.emit\"):\n            r1 = esc.escalate_timeout(original_ms=100.0, attempt=1, multiplier=1.5)\n        assert r1[\"new_timeout_ms\"] == 150.0, (\n            f\"Expected 100.0 * 1.5 = 150.0 for attempt=1, got {r1['new_timeout_ms']}\"\n        )\n    \n        # --- Requirement 1c: ceiling cap is respected ---\n        with patch(\"orgops.metrics.emit\"):\n            capped = esc.escalate_timeout(\n                original_ms=1000.0,\n                attempt=10,\n                multiplier=2.0,\n            )\n        assert capped[\"new_timeout_ms\"] == 30_000.0, (\n            f\"Expected ceiling cap of 30000.0, got {capped['new_timeout_ms']} \"\n            \"(1000 * 2**10 = 1024000 exceeds ceiling)\"\n        )\n        assert capped[\"capped\"] is True\n    \n        # --- Requirement 2: metric emission ---\n>       mock_emit.assert_called_once()\n\ntests/unit/test_bug64.py:55: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <MagicMock name='emit' id='281473453142192'>\n\n    def assert_called_once(self):\n        \"\"\"assert that the mock was called only once.\n        \"\"\"\n        if not self.call_count == 1:\n            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"\n                   % (self._mock_name or 'mock',\n                      self.call_count,\n                      self._calls_repr()))\n>           raise AssertionError(msg)\nE           AssertionError: Expected 'emit' to have been called once. Called 0 times.\n\n/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug64.py::test_bug_64_timeout_compound_and_metric - As...\n1 failed in 0.35s\n",
+    "stderr": "",
+    "duration_ms": 1791,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

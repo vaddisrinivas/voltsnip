@@ -1,0 +1,8 @@
+        score = access_count / (1 + age_hours)
+        try:
+            from cache.metrics import emit_metric
+        except ImportError:
+            emit_metric = None
+        if emit_metric:
+            emit_metric("cache.eviction.lfu", value=score)
+        return float(score)

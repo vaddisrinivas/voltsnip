@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug51_units_and_alert"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug51_units_and_alert"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug51_units_and_alert"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug51_units_and_alert"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug51_units_and_alert"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug51_units_and_alert",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the implementation correctly fixes the unit comparison (direct ms vs ms without /1000), it fails to call orgops.alerts.notify with the correct signature. The code calls orgops.alerts.notify(health) passing a dictionary, but the constraint requires orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) with specific string constant and keyword argument.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug51/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:\\n    \\\"\\\"\\\"Check whether replication lag is within the acceptable threshold.\\n\\n    Both lag and threshold are measured in milliseconds.\\n    \\\"\\\"\\\"\\n    exceeded = measured_lag_ms > threshold_ms\\n    health = {\\n        \\\"measured_lag_ms\\\": measured_lag_ms,\\n        \\\"threshold_ms\\\": threshold_ms,\\n        \\\"exceeded\\\": exceeded,\\n    }\\n    if exceeded:\\n        import orgops\\n        orgops.alerts.notify(health)\\n    return health\\n\", \"comments\": \"Compare lag directly in milliseconds, record the result, and notify via orgops.alerts when the threshold is exceeded.\"}, \"constraints\": [{\"id\": \"bug51_units_and_alert\", \"voltsnip_key\": \"voltsnip/script30/hard/bug51/scenario_context/v1\", \"check\": \"Correct unit comparison (direct ms vs ms) AND alert via orgops.alerts.notify.\", \"judge_prompt\": \"Does the implementation both fix the unit comparison (remove / 1000 so measured_lag_ms is compared directly against threshold_ms) AND call orgops.alerts.notify(\\\"replication.lag.exceeded\\\", lag_ms=measured_lag_ms) when the lag exceeds the threshold?\"}]}"
+  },
+  "judge_raw_response": "Looking at this candidate implementation, I need to check two things:\n\n1. **Correct unit comparison**: Does it compare milliseconds directly without incorrect conversion?\n2. **Alert via orgops.alerts.notify**: Does it call `orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)` when threshold is exceeded?\n\nLet me analyze:\n\n**Unit comparison**: \n- The code does `exceeded = measured_lag_ms > threshold_ms`\n- This is a direct comparison without any `/1000` conversion\n- ✓ This part is correct\n\n**Alert call**:\n- When `exceeded` is true, the code calls `orgops.alerts.notify(health)`\n- However, the expected signature is `orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=measured_lag_ms)`\n- The actual call passes a dictionary `health` as a single positional argument, not the string `\"replication.lag.exceeded\"` as first argument and `lag_ms=measured_lag_ms` as a keyword argument\n- ✗ This does not match the expected call signature\n\nThe constraint requires BOTH conditions to be met. While the unit comparison is fixed, the alert call signature is incorrect.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the implementation correctly fixes the unit comparison (direct ms vs ms without /1000), it fails to call orgops.alerts.notify with the correct signature. The code calls orgops.alerts.notify(health) passing a dictionary, but the constraint requires orgops.alerts.notify('replication.lag.exceeded', lag_ms=measured_lag_ms) with specific string constant and keyword argument.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

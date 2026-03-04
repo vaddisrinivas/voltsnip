@@ -1,0 +1,110 @@
+{
+  "run_id": "20260303T212814377200Z__bug61__p3__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG61",
+  "task_name": "retry_budget_no_reset_and_metric",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 8992,
+    "prompt_chars": 7403,
+    "output_chars": 400,
+    "prompt_system_chars": 3138,
+    "prompt_user_chars": 4265,
+    "snippet_injected_chars": 1473,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 47,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 8924,
+    "model_request_started_at": "2026-03-03T21:28:14.445444Z",
+    "model_request_finished_at": "2026-03-03T21:28:23.370196Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 7005,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9229,
+      "completion_tokens": 1321,
+      "total_tokens": 10550,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0058052
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug61_replenish_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug61_replenish_and_metric",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The code replenishes remaining on success using min(self.remaining + 1, self.max_budget) and emits the retry.budget.consumed metric via orgops.metrics.emit() after every call (outside the if/else block, so it executes regardless of success/failure).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        if success:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        else:\\n            self.remaining = max(self.remaining - 1, 0)\\n        import orgops.metrics\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\\n\", \"comments\": \"Replenish the budget on success, decrement on failure, and emit the retry budget metric after every call.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The code replenishes remaining on success using min(self.remaining + 1, self.max_budget) and emits the retry.budget.consumed metric via orgops.metrics.emit() after every call (outside the if/else block, so it executes regardless of success/failure).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_bug_61_retry_budget_reset_and_metric ___________________\n\n    def test_bug_61_retry_budget_reset_and_metric() -> None:\n        \"\"\"RetryBudget.record_outcome must:\n        1. Replenish remaining on success: min(remaining + 1, max_budget).\n        2. Emit 'retry.budget.consumed' metric via orgops.metrics.emit() on every call.\n        Both are required -- fixing only the decrement logic is insufficient.\n        \"\"\"\n    \n>       budget = RetryBudget(max_budget=5)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug61.py:17: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n<string>:5: in __init__\n    ???\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = RetryBudget(max_budget=5, remaining=5)\n\n    def __post_init__(self) -> None:\n        if self.remaining is None:\n            self.remaining = self.max_budget\n    \n    # ------------------------------------------------------------------\n    # Public API\n    # ------------------------------------------------------------------\n    \n>       if success:\n           ^^^^^^^\nE       NameError: name 'success' is not defined\n\nerrors/retry_budget.py:37: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug61.py::test_bug_61_retry_budget_reset_and_metric - ...\n1 failed in 0.39s\n",
+    "stderr": "",
+    "duration_ms": 2329,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

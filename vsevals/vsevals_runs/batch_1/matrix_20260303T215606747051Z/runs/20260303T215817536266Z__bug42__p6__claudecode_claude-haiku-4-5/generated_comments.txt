@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < to correctly limit probes when count is under the maximum in half-open state.

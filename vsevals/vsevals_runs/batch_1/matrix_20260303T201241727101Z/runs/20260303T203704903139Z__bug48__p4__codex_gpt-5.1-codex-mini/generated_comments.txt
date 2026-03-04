@@ -1,0 +1,1 @@
+Switched pending migration logic to numeric version comparisons to avoid lexicographic ordering issues.

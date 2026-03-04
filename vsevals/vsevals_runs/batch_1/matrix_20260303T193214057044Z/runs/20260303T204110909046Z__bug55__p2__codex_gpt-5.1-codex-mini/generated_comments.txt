@@ -1,0 +1,1 @@
+Flip the freshness check to fire when the TTL ratio is low and emit the cache.stampede.prevented metric while counting refreshes.

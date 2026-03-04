@@ -1,0 +1,1 @@
+Include both request_id and correlation_id in the propagated child context while keeping the log update intact.

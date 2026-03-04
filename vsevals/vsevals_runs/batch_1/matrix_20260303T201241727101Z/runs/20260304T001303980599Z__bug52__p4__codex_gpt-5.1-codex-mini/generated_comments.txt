@@ -1,0 +1,1 @@
+Compare types using casefolded strings and log the schema validation decision via orgops.compliance.

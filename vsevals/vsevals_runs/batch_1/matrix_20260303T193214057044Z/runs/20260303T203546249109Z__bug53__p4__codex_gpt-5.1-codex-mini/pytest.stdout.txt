@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_53_lock_timeout_clamp_and_trace ___________________
+
+    def test_bug_53_lock_timeout_clamp_and_trace() -> None:
+        """acquire_lock must:
+        1. Clamp effective_timeout to at least 1 ms: max(timeout_ms - clock_skew_ms, 1).
+        2. Annotate the current trace span via orgops.tracing.annotate_span()
+           with ("lock.acquired", key) on successful acquisition.
+        Both are required -- fixing only the math is insufficient.
+        """
+>       from cache.distributed_lock import DistributedLock
+E         File "/workspace/cache/distributed_lock.py", line 21
+E           effective_timeout = max(1, timeout_ms - clock_skew_ms)
+E       IndentationError: unexpected indent
+
+tests/unit/test_bug53.py:15: IndentationError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug53.py::test_bug_53_lock_timeout_clamp_and_trace -  ...
+1 failed in 0.40s

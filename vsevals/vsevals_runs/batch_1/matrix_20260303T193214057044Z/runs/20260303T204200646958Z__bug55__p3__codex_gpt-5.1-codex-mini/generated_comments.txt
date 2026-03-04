@@ -1,0 +1,1 @@
+Corrected the threshold comparison to trigger when ratio is low and emit the required cache.stampede.prevented metric.

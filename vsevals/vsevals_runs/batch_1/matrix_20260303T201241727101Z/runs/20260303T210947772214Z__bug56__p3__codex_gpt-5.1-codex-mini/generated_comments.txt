@@ -1,0 +1,1 @@
+Apply the age-adjusted LFU formula and emit the required cache eviction metric within the scoring function.

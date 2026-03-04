@@ -1,0 +1,1 @@
+Use the max of DNS/connect plus read, annotate the span, and return that effective timeout.

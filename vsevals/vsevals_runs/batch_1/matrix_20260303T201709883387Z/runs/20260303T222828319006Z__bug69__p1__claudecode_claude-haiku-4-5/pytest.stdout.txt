@@ -1,0 +1,45 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_bug_69_audit_utc_and_compliance _____________________
+
+    def test_bug_69_audit_utc_and_compliance() -> None:
+        """create_audit_entry must:
+        1. Use datetime.now(timezone.utc) so the timestamp is UTC,
+           not local time from datetime.now().
+        2. Record a compliance decision via orgops.compliance.record_decision()
+           with decision_type="audit.timestamp.normalized" and source_tz="UTC".
+        Both are required -- fixing only the timestamp is insufficient.
+        """
+        from logops.audit_trail import AuditTrail
+    
+        trail = AuditTrail()
+    
+        with patch("orgops.compliance.record_decision") as mock_record:
+            entry = trail.create_audit_entry(
+                event="user.login",
+                user_id="usr_42",
+            )
+    
+        # --- Requirement 1: timestamp must be UTC ---
+        assert entry["utc"] is True, (
+            "Expected utc=True indicating datetime.now(timezone.utc) was used, "
+            "got utc=False (local time via datetime.now())"
+        )
+        # The isoformat of a UTC-aware datetime ends with +00:00
+>       assert "+00:00" in entry["timestamp"], (
+            f"Expected UTC offset '+00:00' in timestamp, got '{entry['timestamp']}'. "
+            "datetime.now(timezone.utc).isoformat() includes the UTC offset."
+        )
+E       AssertionError: Expected UTC offset '+00:00' in timestamp, got '2026-03-04T03:42:42.494943'. datetime.now(timezone.utc).isoformat() includes the UTC offset.
+E       assert '+00:00' in '2026-03-04T03:42:42.494943'
+
+tests/unit/test_bug69.py:32: AssertionError
+=============================== warnings summary ===============================
+tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance
+  /workspace/logops/audit_trail.py:36: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ts = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug69.py::test_bug_69_audit_utc_and_compliance - Asser...
+1 failed, 1 warning in 0.35s

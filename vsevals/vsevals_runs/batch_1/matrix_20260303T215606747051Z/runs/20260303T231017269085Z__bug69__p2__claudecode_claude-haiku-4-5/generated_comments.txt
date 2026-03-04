@@ -1,0 +1,1 @@
+Use timezone-aware UTC for cross-region audit consistency and record compliance decision for SOC2 timestamp normalization verification.

@@ -1,0 +1,1 @@
+Apply time-decay formula (access_count / (1 + age_hours)) instead of raw access count to prevent stale popular items from monopolizing the cache.

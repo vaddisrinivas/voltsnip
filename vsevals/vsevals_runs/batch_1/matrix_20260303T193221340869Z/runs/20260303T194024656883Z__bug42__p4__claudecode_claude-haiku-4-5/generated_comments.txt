@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < and added health degradation reporting when probe is allowed in half-open state.

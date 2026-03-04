@@ -1,0 +1,1 @@
+Fixed double-selectivity bug by applying selectivity once instead of twice, and added OpenTelemetry metric emission for query.plan.estimated_cost with graceful fallback

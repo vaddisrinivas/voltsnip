@@ -1,0 +1,7 @@
+        rate = round((target_events / total_events) * 100, 2)
+        self.history.append({
+            "total_events": total_events,
+            "target_events": target_events,
+            "rate": rate,
+        })
+        return float(rate)

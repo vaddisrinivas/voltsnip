@@ -1,0 +1,24 @@
+    def enqueue(self, message: Dict[str, Any]) -> bool:
+        """Attempt to add *message* to the dead-letter queue.
+
+        Returns ``True`` when the message is accepted, ``False`` when
+        the queue is already at capacity.
+
+        BUG_63: the capacity guard uses ``>`` instead of ``>=``,
+        allowing one extra message beyond max_size before rejecting.
+        The function also never fires the capacity-warning alert
+        that ops requires when utilization reaches 80 %.
+        """
+        # BUG_63: guard at max_size and warn when utilization hits 80 %
+        if len(self.queue) >= self.max_size:
+            return False
+
+        self.queue.append(message)
+
+        capacity_pct = self.utilization_pct
+        if capacity_pct >= 80.0:
+            alert = getattr(self, "capacity_warning_alert", None)
+            if callable(alert):
+                alert(capacity_pct)
+
+        return True

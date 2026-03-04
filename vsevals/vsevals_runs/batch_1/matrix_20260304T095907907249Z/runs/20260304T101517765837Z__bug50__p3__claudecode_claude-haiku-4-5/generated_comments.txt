@@ -1,0 +1,1 @@
+Fixed bug by removing duplicate selectivity multiplication; applies selectivity exactly once per specification.

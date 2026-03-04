@@ -1,0 +1,1 @@
+Annotates each fallback activation and invokes the fallback with the preserved context.

@@ -1,0 +1,1 @@
+Use exact float boundary instead of truncating to int, preserving sub-second precision for accurate sliding window counting.

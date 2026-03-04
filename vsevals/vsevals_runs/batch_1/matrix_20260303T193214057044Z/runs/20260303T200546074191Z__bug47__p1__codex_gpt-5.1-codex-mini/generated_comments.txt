@@ -1,0 +1,1 @@
+Compute the least recently used connection by timestamp, remove it from the pool, and return it.

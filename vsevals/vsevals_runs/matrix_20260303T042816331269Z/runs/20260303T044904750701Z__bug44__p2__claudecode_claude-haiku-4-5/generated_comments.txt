@@ -1,0 +1,1 @@
+Fixed inverted stale comparison (entry.stale_at <= now) and added metric emission for stale entries via orgops.metrics.emit

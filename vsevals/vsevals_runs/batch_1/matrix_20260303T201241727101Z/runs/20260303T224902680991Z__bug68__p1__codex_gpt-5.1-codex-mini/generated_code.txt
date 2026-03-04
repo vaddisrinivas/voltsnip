@@ -1,0 +1,22 @@
+        result: dict[str, Any] = {}
+        count = 0
+        import orgops
+
+        def redact(obj: Any) -> Any:
+            nonlocal count
+            if isinstance(obj, dict):
+                redacted: dict[str, Any] = {}
+                for key, value in obj.items():
+                    if self.is_sensitive(key):
+                        redacted[key] = REDACTED_PLACEHOLDER
+                        count += 1
+                    else:
+                        redacted[key] = redact(value)
+                return redacted
+            if isinstance(obj, list):
+                return [redact(item) for item in obj]
+            return obj
+
+        result = redact(data)
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

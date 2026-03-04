@@ -1,0 +1,1 @@
+Fixed sliding_window_count: replaced int() truncation with exact float arithmetic and added quota reporting via orgops.ratelimit.check_quota() for capacity planning.

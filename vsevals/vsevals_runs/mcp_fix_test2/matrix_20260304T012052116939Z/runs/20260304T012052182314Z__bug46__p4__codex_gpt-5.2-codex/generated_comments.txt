@@ -1,0 +1,1 @@
+Use precise float boundaries and report the computed count to orgops.ratelimit.check_quota before returning.

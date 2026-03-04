@@ -1,0 +1,1 @@
+Fixed DNS/connect parallel overlap using max(ct, dt) instead of sum, and added trace span annotation for observability.

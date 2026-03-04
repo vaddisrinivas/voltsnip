@@ -1,0 +1,1 @@
+Changed short-circuit return to append errors for all fields, and record validation.completed compliance decision before returning full error list.

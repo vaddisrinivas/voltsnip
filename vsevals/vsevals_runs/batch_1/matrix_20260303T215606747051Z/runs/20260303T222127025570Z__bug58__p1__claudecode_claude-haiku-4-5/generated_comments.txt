@@ -1,0 +1,1 @@
+Fixed off-by-one error in modulus operator: changed hash(key) % (n + 1) to hash(key) % n to ensure partition_id stays in valid range [0, num_partitions).

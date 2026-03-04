@@ -1,0 +1,1 @@
+Apply the time-decayed LFU formula so older entries score lower than recently popular ones.

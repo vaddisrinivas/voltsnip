@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_58_partition_modulus_and_health ___________________
+
+    def test_bug_58_partition_modulus_and_health() -> None:
+        """assign_partition must:
+        1. Return a value in [0, num_partitions) -- i.e. use
+           hash(key) % num_partitions, NOT hash(key) % (num_partitions + 1).
+        2. Call orgops.health.report_degradation("cache.partition.skew", partition_id)
+           every time an assignment is made.
+        Both are required -- fixing only the modulus is insufficient.
+        """
+    
+        config = PartitionConfig(num_partitions=4)
+        partitioner = ConsistentHashPartitioner(config)
+    
+        with patch("orgops.health.report_degradation") as mock_health:
+>           result = partitioner.assign_partition("test-key-alpha", num_partitions=4)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'ConsistentHashPartitioner' object has no attribute 'assign_partition'
+
+tests/unit/test_bug58.py:23: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug58.py::test_bug_58_partition_modulus_and_health - A...
+1 failed in 1.23s

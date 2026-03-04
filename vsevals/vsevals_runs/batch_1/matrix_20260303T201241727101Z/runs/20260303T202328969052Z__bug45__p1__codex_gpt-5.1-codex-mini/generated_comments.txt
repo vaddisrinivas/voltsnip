@@ -1,0 +1,1 @@
+Loop now iterates over every adjacent pair so each certificate issuance link is validated.

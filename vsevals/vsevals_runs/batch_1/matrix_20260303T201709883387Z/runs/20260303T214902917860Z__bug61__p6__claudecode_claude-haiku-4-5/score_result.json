@@ -1,0 +1,50 @@
+{
+  "overall_score": 1.0,
+  "hidden_requirements": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "success_indicators": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "failure_modes": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria": {
+    "matched": 1,
+    "total": 1,
+    "score": 1.0,
+    "notes": []
+  },
+  "evaluation_criteria_notes": [
+    "bug61_replenish_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 1,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug61_replenish_and_metric",
+      "passed": true,
+      "llm_verdict": true,
+      "judge_reason": "On success it sets self.remaining = min(self.remaining + 1, self.max_budget), and it calls orgops.metrics.emit(\"retry.budget.consumed\", self.remaining) unconditionally after the if/else, so the metric is emitted after every call.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug61/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def record_outcome(self, success: bool) -> None:\\n        \\\"\\\"\\\"Record the result of an operation and adjust the budget.\\n\\n        BUG_61: On failure the budget is correctly decremented, but on\\n        success the budget is *not* replenished.  The fix must increment\\n        ``self.remaining = min(self.remaining + 1, self.max_budget)``\\n        when *success* is True.  Additionally, a metric must be emitted\\n        via ``orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)``\\n        after every call regardless of outcome.\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n        if not success:\\n            self.remaining = max(self.remaining - 1, 0)\\n        else:\\n            self.remaining = min(self.remaining + 1, self.max_budget)\\n        orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining)\", \"comments\": \"Replenish remaining on success via min(remaining + 1, max_budget) and emit retry.budget.consumed metric after every outcome.\"}, \"constraints\": [{\"id\": \"bug61_replenish_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug61/scenario_context/v1\", \"check\": \"Success replenishment AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both replenish remaining on success (min(remaining + 1, max_budget)) AND emit a retry.budget.consumed metric via orgops.metrics.emit() after every call?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":true,\"reason\":\"On success it sets self.remaining = min(self.remaining + 1, self.max_budget), and it calls orgops.metrics.emit(\\\"retry.budget.consumed\\\", self.remaining) unconditionally after the if/else, so the metric is emitted after every call.\"}]}",
+  "passed": true
+}

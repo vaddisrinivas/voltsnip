@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug54_jitter_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug54_jitter_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug54_jitter_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but does NOT emit a cache.ttl.jittered metric via orgops.metrics.emit(). The constraint requires BOTH conditions, so this fails.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug54/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    jitter = random.uniform(0, jitter_range)\\n    effective_ttl = base_ttl + jitter\\n    return effective_ttl\", \"comments\": \"Add jitter to the base TTL so the computed value always shifts expiry forward as intended.\"}, \"constraints\": [{\"id\": \"bug54_jitter_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug54/scenario_context/v1\", \"check\": \"Additive jitter AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the jitter to be additive (base_ttl + jitter, not base_ttl - jitter) AND emit a cache.ttl.jittered metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly fixes the jitter to be additive (base_ttl + jitter), but does NOT emit a cache.ttl.jittered metric via orgops.metrics.emit(). The constraint requires BOTH conditions, so this fails.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

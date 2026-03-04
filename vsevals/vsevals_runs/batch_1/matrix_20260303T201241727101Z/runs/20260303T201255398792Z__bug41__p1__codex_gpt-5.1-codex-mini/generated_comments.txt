@@ -1,0 +1,1 @@
+Switches to exponential backoff, enforces the max delay cap, and keeps emitting the existing metric.

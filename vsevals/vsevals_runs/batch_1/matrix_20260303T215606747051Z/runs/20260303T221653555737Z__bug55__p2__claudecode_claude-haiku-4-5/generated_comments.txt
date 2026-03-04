@@ -1,0 +1,1 @@
+Fixed inverted comparison (> to <) and added metric emission for stampede prevention events

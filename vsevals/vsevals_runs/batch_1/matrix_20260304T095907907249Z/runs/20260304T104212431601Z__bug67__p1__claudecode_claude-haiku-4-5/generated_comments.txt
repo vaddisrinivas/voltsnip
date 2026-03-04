@@ -1,0 +1,1 @@
+Changed int() truncation to round(..., 2) to preserve decimal precision in sampling rate calculation, fixing 66 → 66.67 for target=200, total=300.

@@ -1,0 +1,1 @@
+Scan base64-encoded segments for secrets and alert on all findings.

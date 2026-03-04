@@ -1,0 +1,1 @@
+Compound the timeout per attempt, cap it, record history, and emit the timeout.escalated metric.

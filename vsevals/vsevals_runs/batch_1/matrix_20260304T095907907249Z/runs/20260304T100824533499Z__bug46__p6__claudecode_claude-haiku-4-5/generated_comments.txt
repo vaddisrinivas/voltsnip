@@ -1,0 +1,1 @@
+Removed int() truncation from boundary calculation to preserve exact float precision for sub-second timestamp boundaries.

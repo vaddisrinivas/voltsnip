@@ -1,0 +1,44 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_61_retry_budget_reset_and_metric ___________________
+
+    def test_bug_61_retry_budget_reset_and_metric() -> None:
+        """RetryBudget.record_outcome must:
+        1. Replenish remaining on success: min(remaining + 1, max_budget).
+        2. Emit 'retry.budget.consumed' metric via orgops.metrics.emit() on every call.
+        Both are required -- fixing only the decrement logic is insufficient.
+        """
+    
+        budget = RetryBudget(max_budget=5)
+    
+        # --- Consume two tokens via failures ---
+        with patch("orgops.metrics.emit") as mock_emit:
+>           budget.record_outcome(success=False)
+
+tests/unit/test_bug61.py:21: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = RetryBudget(max_budget=5, remaining=4), success = False
+
+    def record_outcome(self, success: bool) -> None:
+        """Record the result of an operation and adjust the budget.
+    
+        BUG_61: On failure the budget is correctly decremented, but on
+        success the budget is *not* replenished.  The fix must increment
+        ``self.remaining = min(self.remaining + 1, self.max_budget)``
+        when *success* is True.  Additionally, a metric must be emitted
+        via ``orgops.metrics.emit("retry.budget.consumed", self.remaining)``
+        after every call regardless of outcome.
+        """
+        if not success:
+            self.remaining = max(self.remaining - 1, 0)
+        else:
+            self.remaining = min(self.remaining + 1, self.max_budget)
+>       orgops.metrics.emit("retry.budget.consumed", self.remaining)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+errors/retry_budget.py:51: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug61.py::test_bug_61_retry_budget_reset_and_metric - ...
+1 failed in 0.46s

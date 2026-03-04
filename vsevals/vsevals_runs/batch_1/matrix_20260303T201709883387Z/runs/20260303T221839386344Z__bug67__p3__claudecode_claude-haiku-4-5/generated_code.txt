@@ -1,0 +1,29 @@
+    def compute_sample_rate(
+        self,
+        total_events: int,
+        target_events: int,
+    ) -> float:
+        """Compute the sampling rate as a percentage (0-100).
+
+        Returns the percentage of events to retain so that roughly
+        *target_events* survive out of *total_events*.
+
+        BUG_67: uses int() truncation instead of round(), losing decimal
+        precision.  For example target=200, total=300 yields 66 instead
+        of the correct 66.67.  Should use round(..., 2) for proper
+        rounding with two-decimal precision.
+        """
+        if total_events <= 0:
+            return 0.0
+        if target_events >= total_events:
+            return 100.0
+
+        rate = round(target_events / total_events * 100, 2)
+        import orgops.metrics
+        orgops.metrics.emit("log.sampling.rate", rate)
+        self.history.append({
+            "total_events": total_events,
+            "target_events": target_events,
+            "rate": rate,
+        })
+        return float(rate)

@@ -1,0 +1,1 @@
+Fixed compute_backoff_delay to use exponential backoff (2**attempt) instead of linear, cap delay at max_delay, and import orgops.metrics for metric emission.

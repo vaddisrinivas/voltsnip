@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug56_lfu_decay_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug56_lfu_decay_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug56_lfu_decay_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug56_lfu_decay_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug56_lfu_decay_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug56_lfu_decay_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the implementation correctly uses time-decayed LFU scoring (access_count / (1 + age_hours)) and emits a cache.eviction.lfu metric, it does NOT use orgops.metrics.emit() as specified. Instead, it imports cache.metrics and looks for emit_metric, record_metric, or emit methods, which is a different module and approach than required.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug56/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        score = access_count / (1 + age_hours)\\n\\n        metric_name = \\\"cache.eviction.lfu\\\"\\n        if not hasattr(self, \\\"_lfu_metric_emitter\\\"):\\n            try:\\n                import cache.metrics as cache_metrics\\n            except ImportError:\\n                emitter = None\\n            else:\\n                emitter = (\\n                    getattr(cache_metrics, \\\"emit_metric\\\", None)\\n                    or getattr(cache_metrics, \\\"record_metric\\\", None)\\n                    or getattr(cache_metrics, \\\"emit\\\", None)\\n                )\\n            self._lfu_metric_emitter = emitter\\n        emitter = self._lfu_metric_emitter\\n        if emitter:\\n            emitter(metric_name, score)\\n\\n        return float(score)\\n\", \"comments\": \"Apply the time-decayed LFU score formula and emit cache.eviction.lfu via the available metric exporter.\"}, \"constraints\": [{\"id\": \"bug56_lfu_decay_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug56/scenario_context/v1\", \"check\": \"Time-decayed LFU scoring AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both fix the scoring to use time decay (access_count / (1 + age_hours)) AND emit a cache.eviction.lfu metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether this implementation meets the constraint of using time-decayed LFU scoring AND emitting a cache.eviction.lfu metric via orgops.metrics.emit().\n\nLet me analyze the candidate code:\n\n1. **Time-decayed LFU scoring**: \n   - The code shows `score = access_count / (1 + age_hours)`\n   - This IS the correct time-decayed LFU formula ✓\n\n2. **Metric emission via orgops.metrics.emit()**:\n   - The code tries to import `cache.metrics` (not `orgops.metrics`)\n   - It looks for methods: `emit_metric`, `record_metric`, or `emit` in `cache_metrics`\n   - The metric name used is `\"cache.eviction.lfu\"` ✓\n   - However, it's importing from `cache.metrics`, NOT `orgops.metrics` ✗\n\nThe constraint specifically asks for emission \"via orgops.metrics.emit()\". The implementation:\n- Uses `import cache.metrics as cache_metrics` instead of importing from orgops.metrics\n- Searches for various method names (emit_metric, record_metric, emit) instead of specifically using emit()\n- Does emit the correct metric name \"cache.eviction.lfu\"\n\nWhile the implementation does emit the metric with the correct name and uses the correct scoring formula, it does NOT use `orgops.metrics.emit()` as specified in the constraint. It uses a different module (`cache.metrics`) and a fallback mechanism to find an appropriate emitter function.\n\n```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"While the implementation correctly uses time-decayed LFU scoring (access_count / (1 + age_hours)) and emits a cache.eviction.lfu metric, it does NOT use orgops.metrics.emit() as specified. Instead, it imports cache.metrics and looks for emit_metric, record_metric, or emit methods, which is a different module and approach than required.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

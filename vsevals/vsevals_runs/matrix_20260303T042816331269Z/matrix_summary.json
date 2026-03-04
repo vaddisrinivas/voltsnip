@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-03-03T06:39:12.689823+00:00",
+  "suite": "suites/script30.yaml",
+  "models": "claudecode:claude-haiku-4-5",
+  "variants": "all",
+  "tasks": "all",
+  "judge_model": "openai:gpt-5.2",
+  "total_cells": 210,
+  "ok_cells": 210,
+  "passed_cells": 73,
+  "pytest_passed_cells": 0,
+  "avg_score": 0.3571,
+  "matrix_dir": "vsevals_runs/matrix_20260303T042816331269Z",
+  "csv_path": "vsevals_runs/matrix_20260303T042816331269Z/matrix_results.csv",
+  "report_path": "vsevals_runs/matrix_20260303T042816331269Z/matrix_report.md"
+}

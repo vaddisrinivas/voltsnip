@@ -1,0 +1,1 @@
+Maintain float precision for the window boundary instead of truncating to an integer

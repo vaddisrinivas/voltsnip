@@ -1,0 +1,1 @@
+Apply selectivity only once while recording the estimated cost metric when an emitter is available.

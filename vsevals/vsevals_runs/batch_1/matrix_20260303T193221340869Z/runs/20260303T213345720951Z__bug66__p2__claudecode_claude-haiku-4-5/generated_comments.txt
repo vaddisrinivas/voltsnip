@@ -1,0 +1,1 @@
+Added correlation_id to child context dict and annotate trace span with both request_id and correlation_id to fix context propagation across async boundaries.

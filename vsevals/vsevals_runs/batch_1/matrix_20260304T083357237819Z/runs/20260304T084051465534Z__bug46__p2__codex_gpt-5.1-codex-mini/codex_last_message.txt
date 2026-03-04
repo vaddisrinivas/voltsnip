@@ -1,0 +1,1 @@
+{"code":"    boundary = now - window_seconds  # BUG_46: preserve sub-second precision\n    idx = bisect.bisect_left(timestamps, boundary)\n    return len(timestamps) - idx","comments":"Use the exact float boundary so we retain sub-second precision when counting requests."}

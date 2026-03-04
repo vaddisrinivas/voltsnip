@@ -1,0 +1,1 @@
+Remove duplicate selectivity multiplication: change 'selectivity * selectivity' to 'selectivity' to apply the factor exactly once as documented.

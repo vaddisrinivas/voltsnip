@@ -1,0 +1,1 @@
+Replace datetime.now() with timezone-aware UTC and record compliance decision for SOC2 audit trail normalization.

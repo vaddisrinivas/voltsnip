@@ -1,0 +1,47 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_51_replication_lag_and_alert _____________________
+
+    def test_bug_51_replication_lag_and_alert() -> None:
+        """check_replication_health must:
+        1. Compare measured_lag_ms directly against threshold_ms (same units, no conversion)
+        2. Call orgops.alerts.notify("replication.lag.exceeded", lag_ms=measured_lag_ms) when exceeded
+        Both are required -- fixing only the comparison is insufficient.
+        """
+        from unittest.mock import patch
+        from data.replication_lag import check_replication_health
+    
+        with patch("orgops.alerts.notify") as mock_notify:
+            # Lag below threshold: should NOT exceed, should NOT alert
+            result_ok = check_replication_health(measured_lag_ms=200.0, threshold_ms=500.0)
+            assert result_ok["exceeded"] is False, (
+                "200ms lag should not exceed 500ms threshold"
+            )
+            mock_notify.assert_not_called()
+    
+            # Lag above threshold: should exceed AND alert
+>           result_bad = check_replication_health(measured_lag_ms=750.0, threshold_ms=500.0)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug51.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+measured_lag_ms = 750.0, threshold_ms = 500.0
+
+    def check_replication_health(measured_lag_ms: float, threshold_ms: float) -> dict:
+        """Check whether replication lag is within the acceptable threshold.
+    
+        BUG_51: the threshold comparison is wrong — it converts
+        threshold_ms to seconds while measured_lag_ms remains in
+        milliseconds, so the check almost never triggers.
+        """
+        exceeded = measured_lag_ms > threshold_ms
+        if exceeded:
+>           orgops.alerts.notify("Replication lag exceeded threshold")
+            ^^^^^^
+E           NameError: name 'orgops' is not defined
+
+data/replication_lag.py:42: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug51.py::test_bug_51_replication_lag_and_alert - Name...
+1 failed in 0.32s

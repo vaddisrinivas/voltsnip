@@ -1,0 +1,1 @@
+Changed datetime.now() to datetime.now(timezone.utc) for UTC timestamps and set utc field to True

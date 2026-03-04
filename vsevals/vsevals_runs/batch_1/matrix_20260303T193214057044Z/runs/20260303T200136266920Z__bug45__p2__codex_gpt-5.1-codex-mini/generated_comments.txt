@@ -1,0 +1,1 @@
+Fix the adjacency loop, consolidate result construction, and always record tls.chain.validated with the current chain depth.

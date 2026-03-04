@@ -1,0 +1,1 @@
+Child context now copies both identifiers and annotates the active span through orgops.tracing.annotate_span.

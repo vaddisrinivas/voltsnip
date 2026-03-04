@@ -1,0 +1,16 @@
+        from datetime import timezone
+        import orgops.compliance
+
+        ts = datetime.now(timezone.utc)
+        entry: dict[str, Any] = {
+            "event": event,
+            "user_id": user_id,
+            "timestamp": ts.isoformat(),
+            "utc": True,
+        }
+        orgops.compliance.record_decision(
+            "BUG_69",
+            "audit timestamps now use UTC for cross-region consistency",
+        )
+        self.entries.append(entry)
+        return entry

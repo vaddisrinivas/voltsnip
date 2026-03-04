@@ -1,0 +1,1 @@
+Convert the scheduled interval to milliseconds and emit the required audit event after starting the timer.

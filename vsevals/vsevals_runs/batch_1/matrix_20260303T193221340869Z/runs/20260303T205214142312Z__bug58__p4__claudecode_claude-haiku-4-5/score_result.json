@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug58_modulus_and_health"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug58_modulus_and_health"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug58_modulus_and_health"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug58_modulus_and_health"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug58_modulus_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug58_modulus_and_health",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The modulus is fixed to % n (no +1), but there is no call to orgops.health.report_degradation() and no cache.partition.skew degradation signal is reported.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug58/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def assign_partition(self, key: str, num_partitions: int | None = None) -> int:\\n    \\\"\\\"\\\"Return the partition ID for *key*.\\n\\n    BUG_58: uses ``hash(key) % (num_partitions + 1)`` which can\\n    return ``num_partitions`` itself -- an out-of-range value\\n    (valid range is ``0 .. num_partitions - 1``).  The fix must\\n    use ``hash(key) % num_partitions`` instead.\\n    \\\"\\\"\\\"\\n    n = num_partitions if num_partitions is not None else self._config.num_partitions\\n    # BUG_58: off-by-one in modulus -- can return n itself\\n    partition_id = _stable_hash(key) % n\\n    return partition_id\", \"comments\": \"Changed hash(key) % (n + 1) to hash(key) % n to fix off-by-one error that could return out-of-range partition ID.\"}, \"constraints\": [{\"id\": \"bug58_modulus_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug58/scenario_context/v1\", \"check\": \"Correct modulus AND health degradation report via orgops.health.report_degradation.\", \"judge_prompt\": \"Does the implementation both fix the modulus to hash(key) % num_partitions (removing the +1) AND report a cache.partition.skew degradation signal via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The modulus is fixed to % n (no +1), but there is no call to orgops.health.report_degradation() and no cache.partition.skew degradation signal is reported.\"}]}",
+  "passed": false
+}

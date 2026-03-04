@@ -1,0 +1,1 @@
+Fixed comparison operator from > to < on line 83 to correctly allow probes when count is under the maximum limit.

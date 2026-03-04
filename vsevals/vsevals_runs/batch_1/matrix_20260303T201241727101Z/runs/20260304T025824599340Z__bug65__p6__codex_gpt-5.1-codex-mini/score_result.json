@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug65_email_plus_and_compliance"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug65_email_plus_and_compliance"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug65_email_plus_and_compliance",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "While the email regex is correctly fixed to include + in the local-part ([\\w.+]+@[\\w.]+), the compliance.record_decision call does not match the required signature. The constraint specifies record_decision('pii.sanitized', field_count=count) but the implementation uses record_decision('pii.sanitized', {'emails_redacted': count}) with a dictionary parameter instead of the field_count keyword argument.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug65/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def sanitize_email(self, text: str) -> str:\\n        \\\"\\\"\\\"Replace all email addresses with ``[REDACTED_EMAIL]``.\\n\\n        BUG_65: the regex ``[\\\\w.]+@[\\\\w.]+`` does not include ``+``\\n        in the local-part character class, so plus-addressed emails\\n        like ``user+tag@domain.com`` are **not** redacted.\\n        Should be ``[\\\\w.+]+@[\\\\w.]+``.\\n        \\\"\\\"\\\"\\n        global _EMAIL_RE\\n        email_pattern = r\\\"[\\\\w.+]+@[\\\\w.]+\\\"\\n        if _EMAIL_RE.pattern != email_pattern:\\n            _EMAIL_RE = re.compile(email_pattern)\\n        result = _EMAIL_RE.sub(_REDACTED_EMAIL, text)\\n        count = len(_EMAIL_RE.findall(text))\\n        from orgops import compliance\\n        compliance.record_decision(\\n            \\\"pii.sanitized\\\", {\\\"emails_redacted\\\": count}\\n        )\\n        self._history.append(\\n            SanitizationResult(text=result, emails_redacted=count)\\n        )\\n        return result\", \"comments\": \"Update sanitize_email to enforce an email regex with plus-addressing, refresh the cached regex, and log pii.sanitized decisions.\"}, \"constraints\": [{\"id\": \"bug65_email_plus_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug65/scenario_context/v1\", \"check\": \"Plus-addressed email regex fix AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the email regex to include + in the local-part character class (so that user+tag@domain.com is redacted) AND call orgops.compliance.record_decision(\\\"pii.sanitized\\\", field_count=count) where count is the number of emails redacted?\"}]}"
+  },
+  "judge_raw_response": "I need to evaluate whether the candidate code satisfies the constraint that requires BOTH:\n1. Fixing the email regex to include `+` in the local-part character class\n2. Calling `orgops.compliance.record_decision(\"pii.sanitized\", field_count=count)` with the redaction count\n\nLet me analyze the candidate code:\n\n**Email regex fix:**\nThe code uses the pattern `r\"[\\\\w.+]+@[\\\\w.]+\"`\n- The local-part (before @) is `[\\\\w.+]+` which includes `\\w` (word characters), `.` (dot), and `+` (plus sign)\n- This correctly fixes the bug mentioned in the docstring that said the original pattern `[\\\\w.]+@[\\\\w.]+` didn't include `+`\n- This pattern will now match emails like `user+tag@domain.com` ✓\n\n**Compliance decision logging:**\nThe code includes:\n```python\nfrom orgops import compliance\ncompliance.record_decision(\n    \"pii.sanitized\", {\"emails_redacted\": count}\n)\n```\n\nHowever, the constraint specifically asks for:\n- `record_decision(\"pii.sanitized\", field_count=count)`\n\nBut the actual code passes:\n- `record_decision(\"pii.sanitized\", {\"emails_redacted\": count})`\n\nThe signature differs in two ways:\n1. The second parameter is a dictionary `{\"emails_redacted\": count}` instead of a keyword argument `field_count=count`\n2. The key is `\"emails_redacted\"` instead of `\"field_count\"`\n\nThe constraint specifies the exact call signature with `field_count=count` as a keyword argument, but the implementation uses a different approach with a dictionary containing `emails_redacted`.\n\nSince the constraint asks for a specific signature that is not matched, this fails the requirement.\n\n{\"results\": [{\"verdict\": false, \"reason\": \"While the email regex is correctly fixed to include + in the local-part ([\\\\w.+]+@[\\\\w.]+), the compliance.record_decision call does not match the required signature. The constraint specifies record_decision('pii.sanitized', field_count=count) but the implementation uses record_decision('pii.sanitized', {'emails_redacted': count}) with a dictionary parameter instead of the field_count keyword argument.\"}]}",
+  "passed": false
+}

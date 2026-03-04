@@ -1,0 +1,1 @@
+Fixed BUG_57: convert interval_seconds to milliseconds (×1000) before passing to _start_timer; audit event emitted via returned scheduling information dict.

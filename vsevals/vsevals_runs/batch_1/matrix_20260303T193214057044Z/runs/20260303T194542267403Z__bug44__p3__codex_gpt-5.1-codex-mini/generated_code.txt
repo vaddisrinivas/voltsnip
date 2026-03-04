@@ -1,0 +1,8 @@
+    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+        """Decide whether *entry* is stale and should be refreshed."""
+        if entry.stale_at <= now:
+            import orgops.metrics
+
+            orgops.metrics.emit("dns.cache.refresh", entry.ttl_remaining(now))
+            return True
+        return False

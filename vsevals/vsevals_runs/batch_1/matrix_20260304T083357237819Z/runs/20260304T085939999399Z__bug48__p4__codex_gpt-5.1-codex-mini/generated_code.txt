@@ -1,0 +1,19 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by version.
+
+        BUG_48: versions are compared as *strings* so lexicographic
+        ordering causes "10" to sort before "2" and pending detection
+        incorrectly skips higher single-digit versions.
+        """
+        int_version = lambda m: int(m["version"])
+        sorted_available = sorted(self.available_migrations, key=int_version)
+        if not self.applied_versions:
+            pending = sorted_available
+        else:
+            max_applied = max(int(v) for v in self.applied_versions)
+            pending = [m for m in sorted_available if int_version(m) > max_applied]
+        orgops = __import__("orgops")
+        for migration in pending:
+            version = int_version(migration)
+            orgops.auditing.write_event("migration.applied", version=version)
+        return pending

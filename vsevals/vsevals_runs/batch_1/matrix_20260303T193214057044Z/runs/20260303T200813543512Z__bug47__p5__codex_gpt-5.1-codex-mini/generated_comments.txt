@@ -1,0 +1,1 @@
+Switch eviction to LRU by removing the connection with the smallest last_used_at and emit a pool.connection.evicted metric with the observed idle duration.

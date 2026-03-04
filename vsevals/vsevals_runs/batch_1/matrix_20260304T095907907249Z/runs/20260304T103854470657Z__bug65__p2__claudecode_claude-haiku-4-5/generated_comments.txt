@@ -1,0 +1,1 @@
+Fixed email regex to include + in local-part character class to redact plus-addressed emails like user+tag@domain.com

@@ -1,0 +1,1 @@
+Emit the error.mapped metric, then split 4xx into client_error, 5xx into server_error, and keep other codes unknown.

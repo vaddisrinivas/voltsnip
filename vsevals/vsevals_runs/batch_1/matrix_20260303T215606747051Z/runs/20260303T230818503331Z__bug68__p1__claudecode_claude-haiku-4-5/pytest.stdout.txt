@@ -1,0 +1,37 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_68_nested_redaction_and_audit ____________________
+
+    def test_bug_68_nested_redaction_and_audit() -> None:
+        """RedactionFilter.redact_keys must:
+        1. Recursively redact sensitive keys in nested dicts (not just top-level).
+        2. Call orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+           where count is the total number of redacted keys across all nesting levels.
+        Both are required -- fixing only top-level redaction is insufficient.
+        """
+        from logops.redaction_filter import RedactionFilter, REDACTED_PLACEHOLDER
+    
+        filt = RedactionFilter(sensitive_keys=["ssn", "password", "token"])
+    
+        nested_data = {
+            "username": "alice",
+            "password": "s3cret",
+            "profile": {
+                "email": "alice@example.com",
+                "ssn": "123-45-6789",
+                "prefs": {
+                    "theme": "dark",
+                    "token": "abc-xyz-999",
+                },
+            },
+        }
+    
+        with patch("orgops.auditing.write_event") as mock_audit:
+>           result = filt.redact_keys(nested_data)
+                     ^^^^^^^^^^^^^^^^
+E           AttributeError: 'RedactionFilter' object has no attribute 'redact_keys'
+
+tests/unit/test_bug68.py:34: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug68.py::test_bug_68_nested_redaction_and_audit - Att...
+1 failed in 0.41s

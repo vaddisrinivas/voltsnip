@@ -1,0 +1,1 @@
+Fixes BUG_58 by removing the extra +1 so partition IDs stay in the valid range.

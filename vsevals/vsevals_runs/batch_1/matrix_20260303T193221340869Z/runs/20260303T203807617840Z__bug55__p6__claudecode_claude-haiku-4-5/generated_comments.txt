@@ -1,0 +1,1 @@
+Fixed inverted threshold comparison (> to <) and added orgops.metrics.emit() to track stampede prevention events for operational monitoring.

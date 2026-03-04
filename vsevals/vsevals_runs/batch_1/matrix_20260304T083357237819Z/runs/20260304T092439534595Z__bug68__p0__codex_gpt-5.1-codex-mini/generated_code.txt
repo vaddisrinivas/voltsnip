@@ -1,0 +1,19 @@
+        def _redact_dict(current: dict[str, Any]) -> tuple[dict[str, Any], int]:
+            redacted: dict[str, Any] = {}
+            redacted_count = 0
+            for nested_key, nested_value in current.items():
+                if self.is_sensitive(nested_key):
+                    redacted[nested_key] = REDACTED_PLACEHOLDER
+                    redacted_count += 1
+                elif isinstance(nested_value, dict):
+                    nested_result, nested_count = _redact_dict(nested_value)
+                    redacted[nested_key] = nested_result
+                    redacted_count += nested_count
+                else:
+                    redacted[nested_key] = nested_value
+            return redacted, redacted_count
+
+        result, count = _redact_dict(data)
+        orgops = __import__("orgops")
+        orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+        return result

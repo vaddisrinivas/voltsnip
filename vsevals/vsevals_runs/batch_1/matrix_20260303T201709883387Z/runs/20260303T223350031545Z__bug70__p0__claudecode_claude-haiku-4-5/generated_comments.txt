@@ -1,0 +1,1 @@
+Added base64 decoding loop after plaintext scan to detect encoded secrets in decoded segments.

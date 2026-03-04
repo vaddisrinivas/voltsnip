@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug42_probe_and_health"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug42_probe_and_health"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug42_probe_and_health",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code uses `if self.probe_count < self.max_probes`, which is the correct comparison, but it does not call `orgops.health.report_degradation()` or otherwise report circuit.half_open degradation.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def should_allow_probe(self) -> bool:\\n        \\\"\\\"\\\"Allow a probe request in the half-open state if under the limit.\\n\\n        BUG_42: the comparison is inverted, allowing probes when the count\\n        has already exceeded the maximum and blocking them when under the limit.\\n        \\\"\\\"\\\"\\n        if self.probe_count < self.max_probes:  # BUG_42: should be < not >\\n            self.probe_count += 1\\n            return True\\n        return False\", \"comments\": \"Fix inverted comparison from > to < to allow probes when probe_count is under the limit.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code uses `if self.probe_count < self.max_probes`, which is the correct comparison, but it does not call `orgops.health.report_degradation()` or otherwise report circuit.half_open degradation.\"}]}",
+  "passed": false
+}

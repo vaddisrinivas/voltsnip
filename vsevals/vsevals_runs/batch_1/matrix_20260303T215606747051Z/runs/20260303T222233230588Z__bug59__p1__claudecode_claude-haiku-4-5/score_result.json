@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug59_classification_and_metric"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug59_classification_and_metric"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug59_classification_and_metric"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug59_classification_and_metric"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug59_classification_and_metric"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug59_classification_and_metric",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The code correctly splits 4xx to \"client_error\" and 5xx to \"server_error\", but it does not emit any metric via orgops.metrics.emit(), so it fails the combined requirement.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    if 400 <= status_code < 500:\\n        return \\\"client_error\\\"\\n    if 500 <= status_code < 600:\\n        return \\\"server_error\\\"\\n    return \\\"unknown\\\"\", \"comments\": \"Split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+  },
+  "judge_raw_response": "{\"results\":[{\"verdict\":false,\"reason\":\"The code correctly splits 4xx to \\\"client_error\\\" and 5xx to \\\"server_error\\\", but it does not emit any metric via orgops.metrics.emit(), so it fails the combined requirement.\"}]}",
+  "passed": false
+}

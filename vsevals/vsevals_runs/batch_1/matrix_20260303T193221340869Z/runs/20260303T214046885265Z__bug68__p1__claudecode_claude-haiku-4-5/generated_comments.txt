@@ -1,0 +1,1 @@
+Add recursive handling for nested dicts, accumulate redaction count across all levels, and emit audit event only at top level with total count.

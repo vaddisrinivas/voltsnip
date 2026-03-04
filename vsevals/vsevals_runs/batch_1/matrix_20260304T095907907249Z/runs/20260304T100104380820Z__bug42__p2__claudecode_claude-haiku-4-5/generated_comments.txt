@@ -1,0 +1,1 @@
+Fix inverted comparison: change > to < to correctly limit probes in half-open state.

@@ -1,0 +1,16 @@
+        # BUG_66: ensure both IDs travel with the child context
+        child = {
+            "request_id": parent_context["request_id"],
+            "correlation_id": parent_context.get("correlation_id"),
+        }
+        orgops = __import__("orgops")
+        orgops.tracing.annotate_span("request_id", child["request_id"])
+        if child["correlation_id"] is not None:
+            orgops.tracing.annotate_span("correlation_id", child["correlation_id"])
+
+        self.propagation_log.append({
+            "parent_request_id": parent_context.get("request_id"),
+            "parent_correlation_id": parent_context.get("correlation_id"),
+            "child_keys": list(child.keys()),
+        })
+        return child

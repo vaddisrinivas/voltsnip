@@ -1,0 +1,1 @@
+Ensure the propagated child context now includes the parent correlation_id so async fan-outs retain tracing continuity.

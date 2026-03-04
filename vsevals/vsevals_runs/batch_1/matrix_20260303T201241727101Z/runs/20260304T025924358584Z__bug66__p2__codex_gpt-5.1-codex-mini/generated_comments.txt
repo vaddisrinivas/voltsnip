@@ -1,0 +1,1 @@
+Propagate both identifiers into the child context and annotate the trace span so downstream services retain the request/correlation linkage.

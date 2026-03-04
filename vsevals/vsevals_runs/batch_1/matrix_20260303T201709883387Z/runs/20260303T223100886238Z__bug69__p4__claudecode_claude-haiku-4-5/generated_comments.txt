@@ -1,0 +1,1 @@
+Use datetime.now(timezone.utc) for UTC timestamps, set utc=True, and record compliance decision via orgops.compliance.record_decision.

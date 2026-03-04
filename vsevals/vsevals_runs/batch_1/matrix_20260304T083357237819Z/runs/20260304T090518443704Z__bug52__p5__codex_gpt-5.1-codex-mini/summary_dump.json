@@ -1,0 +1,110 @@
+{
+  "run_id": "20260304T090518443704Z__bug52__p5__codex_gpt-5.1-codex-mini",
+  "task_id": "BUG52",
+  "task_name": "schema_type_case_sensitive_and_compliance",
+  "variant_id": "P5",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 36195,
+    "prompt_chars": 5604,
+    "output_chars": 380,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4554,
+    "snippet_injected_chars": 3323,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 6,
+    "tool_call_count": 5,
+    "voltsnip_tool_call_count": 3,
+    "native_tool_call_count": 2,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 35786,
+    "model_request_started_at": "2026-03-04T09:05:18.465159Z",
+    "model_request_finished_at": "2026-03-04T09:05:54.251749Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 5842,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 78779,
+      "completion_tokens": 3028,
+      "total_tokens": 81807,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0363564
+    }
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug52_case_insensitive_and_compliance"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug52_case_insensitive_and_compliance",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation satisfies both requirements: (1) uses case-insensitive comparison via expected_type.upper() == actual_type.upper(), and (2) records a compliance decision via orgops.compliance.record_decision(\"schema.validation.passed\", match).",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug52/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    # BUG_52: case-sensitive comparison causes false mismatches\\n    match = expected_type.upper() == actual_type.upper()\\n    import orgops.compliance\\n    orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match)\\n    return match\\n\", \"comments\": \"Make the column-type comparison case-insensitive and log the validation decision through OrgOps compliance.\"}, \"constraints\": [{\"id\": \"bug52_case_insensitive_and_compliance\", \"voltsnip_key\": \"voltsnip/script30/hard/bug52/scenario_context/v1\", \"check\": \"Case-insensitive type comparison AND compliance decision via orgops.compliance.record_decision.\", \"judge_prompt\": \"Does the implementation both fix the column type comparison to be case-insensitive (.upper() or .lower()) AND record a schema.validation.passed compliance decision via orgops.compliance.record_decision()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation satisfies both requirements: (1) uses case-insensitive comparison via expected_type.upper() == actual_type.upper(), and (2) records a compliance decision via orgops.compliance.record_decision(\\\"schema.validation.passed\\\", match).\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 2,
+    "passed": false,
+    "stdout": "\n==================================== ERRORS ====================================\n__________________ ERROR collecting tests/unit/test_bug52.py ___________________\nImportError while importing test module '/workspace/tests/unit/test_bug52.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/usr/local/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/unit/test_bug52.py:5: in <module>\n    from data.schema_validator import validate_column_type\nE   ImportError: cannot import name 'validate_column_type' from 'data.schema_validator' (/workspace/data/schema_validator.py)\n=========================== short test summary info ============================\nERROR tests/unit/test_bug52.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.14s\n",
+    "stderr": "",
+    "duration_ms": 808,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < for correct early-refresh logic, and added metric emission for cache stampede prevention.

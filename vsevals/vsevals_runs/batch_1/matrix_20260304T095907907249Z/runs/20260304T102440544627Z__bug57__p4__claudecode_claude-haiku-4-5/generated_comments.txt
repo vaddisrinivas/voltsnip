@@ -1,0 +1,1 @@
+Convert interval_seconds to milliseconds for _start_timer and emit cache.flush.completed audit event.

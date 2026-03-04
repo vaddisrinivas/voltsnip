@@ -1,0 +1,1 @@
+Force the audit timestamp to UTC and log the compliance decision that UTC was enforced.

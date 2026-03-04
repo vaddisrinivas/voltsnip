@@ -1,0 +1,1 @@
+Reverse the stale check and emit the dns.cache.refresh metric when the entry actually needs refreshing.

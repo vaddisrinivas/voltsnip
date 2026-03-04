@@ -1,0 +1,1 @@
+Apply the documented time-decay formula so LFU scores age out proportionally to their recorded hours.

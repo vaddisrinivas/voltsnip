@@ -1,0 +1,1 @@
+Clamped effective_timeout to minimum 1ms using max() and annotated lock timeout via orgops.tracing.annotate_span() to prevent negative timeouts when clock skew exceeds requested timeout.

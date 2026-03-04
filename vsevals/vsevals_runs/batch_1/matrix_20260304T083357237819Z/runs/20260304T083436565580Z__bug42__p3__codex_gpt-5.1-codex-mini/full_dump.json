@@ -1,0 +1,196 @@
+{
+  "run_id": "20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG42",
+  "task_name": "circuit_half_open_probe_and_health",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "http_resilience",
+  "task_difficulty": "hard",
+  "task_line_start": 77,
+  "task_line_end": 86,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+    "voltsnip/script30/hard/bug42/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug42/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG42\nTask Name: circuit_half_open_probe_and_health\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix CircuitGuard.should_allow_probe so probes are correctly limited in half-open state.\n\nTarget File: net/circuit_guard.py\n\nTarget Lines:\n77-86 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 77-86 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug42.py -k bug_42\n\nContext Code:\n```python\ndef should_allow_probe(self) -> bool:\n    \"\"\"Allow a probe request in the half-open state if under the limit.\n\n    BUG_42: the comparison is inverted, allowing probes when the count\n    has already exceeded the maximum and blocking them when under the limit.\n    \"\"\"\n    if self.probe_count > self.max_probes:  # BUG_42: should be < not >\n        self.probe_count += 1\n        return True\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Circuit breaker guard for upstream service calls.\n\nImplements a standard three-state circuit breaker (closed, open, half_open)\nwith configurable failure thresholds and half-open probe limiting.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom typing import Any\n\n\nclass CircuitOpenError(Exception):\n    \"\"\"Raised when a request is blocked by an open circuit.\"\"\"\n\n\nclass CircuitGuard:\n    \"\"\"Three-state circuit breaker protecting upstream service calls.\n\n    States:\n        closed   - requests flow normally; failures are counted\n        open     - all requests are blocked; waits for recovery_timeout\n        half_open - limited probe requests are allowed to test recovery\n    \"\"\"\n\n    def __init__(\n        self,\n        service_name: str,\n        failure_threshold: int = 5,\n        recovery_timeout: float = 30.0,\n        max_probes: int = 3,\n        time_fn: Any = None,\n    ) -> None:\n        self.service_name = service_name\n        self.failure_threshold = failure_threshold\n        self.recovery_timeout = recovery_timeout\n        self.max_probes = max_probes\n        self._time_fn = time_fn or time.monotonic\n\n        self.state: str = \"closed\"\n        self.consecutive_failures: int = 0\n        self.probe_count: int = 0\n        self._opened_at: float = 0.0\n\n    def record_failure(self) -> None:\n        \"\"\"Record a failed request. Open the circuit if threshold is reached.\"\"\"\n        self.consecutive_failures += 1\n        if self.consecutive_failures >= self.failure_threshold:\n            self.state = \"open\"\n            self._opened_at = self._time_fn()\n            self.probe_count = 0\n\n    def record_success(self) -> None:\n        \"\"\"Record a successful request. Close the circuit if half-open.\"\"\"\n        if self.state == \"half_open\":\n            self.state = \"closed\"\n        self.consecutive_failures = 0\n        self.probe_count = 0\n\n    def _check_recovery_timeout(self) -> bool:\n        \"\"\"Return True if the recovery timeout has elapsed since opening.\"\"\"\n        elapsed = self._time_fn() - self._opened_at\n        return elapsed >= self.recovery_timeout\n\n    def should_allow_request(self) -> bool:\n        \"\"\"Decide whether to allow the next request through.\"\"\"\n        if self.state == \"closed\":\n            return True\n        if self.state == \"open\":\n            if self._check_recovery_timeout():\n                self.state = \"half_open\"\n                return self.should_allow_probe()\n            return False\n        if self.state == \"half_open\":\n            return self.should_allow_probe()\n        return False\n\n    def should_allow_probe(self) -> bool:\n        \"\"\"Allow a probe request in the half-open state if under the limit.\n\n        BUG_42: the comparison is inverted, allowing probes when the count\n        has already exceeded the maximum and blocking them when under the limit.\n        \"\"\"\n        if self.probe_count > self.max_probes:  # BUG_42: should be < not >\n            self.probe_count += 1\n            return True\n        return False\n\n    def is_open(self) -> bool:\n        \"\"\"Return True if the circuit is currently open.\"\"\"\n        return self.state == \"open\"\n\n    def reset(self) -> None:\n        \"\"\"Manually reset the circuit to closed state.\"\"\"\n        self.state = \"closed\"\n        self.consecutive_failures = 0\n        self.probe_count = 0\n```\n\nExpected Output:\nFix probe comparison to < and report circuit.half_open degradation via orgops.health.report_degradation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/http_resilience/guiding_principle/v1",
+      "voltsnip/script30/hard/bug42/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/http_resilience/guiding_principle/v1\n- voltsnip/script30/hard/bug42/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG42\nTask Name: circuit_half_open_probe_and_health\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix CircuitGuard.should_allow_probe so probes are correctly limited in half-open state.\n\nTarget File: net/circuit_guard.py\n\nTarget Lines:\n77-86 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 77-86 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug42.py -k bug_42\n\nContext Code:\n```python\ndef should_allow_probe(self) -> bool:\n    \"\"\"Allow a probe request in the half-open state if under the limit.\n\n    BUG_42: the comparison is inverted, allowing probes when the count\n    has already exceeded the maximum and blocking them when under the limit.\n    \"\"\"\n    if self.probe_count > self.max_probes:  # BUG_42: should be < not >\n        self.probe_count += 1\n        return True\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Circuit breaker guard for upstream service calls.\n\nImplements a standard three-state circuit breaker (closed, open, half_open)\nwith configurable failure thresholds and half-open probe limiting.\n\"\"\"\nfrom __future__ import annotations\n\nimport time\nfrom typing import Any\n\n\nclass CircuitOpenError(Exception):\n    \"\"\"Raised when a request is blocked by an open circuit.\"\"\"\n\n\nclass CircuitGuard:\n    \"\"\"Three-state circuit breaker protecting upstream service calls.\n\n    States:\n        closed   - requests flow normally; failures are counted\n        open     - all requests are blocked; waits for recovery_timeout\n        half_open - limited probe requests are allowed to test recovery\n    \"\"\"\n\n    def __init__(\n        self,\n        service_name: str,\n        failure_threshold: int = 5,\n        recovery_timeout: float = 30.0,\n        max_probes: int = 3,\n        time_fn: Any = None,\n    ) -> None:\n        self.service_name = service_name\n        self.failure_threshold = failure_threshold\n        self.recovery_timeout = recovery_timeout\n        self.max_probes = max_probes\n        self._time_fn = time_fn or time.monotonic\n\n        self.state: str = \"closed\"\n        self.consecutive_failures: int = 0\n        self.probe_count: int = 0\n        self._opened_at: float = 0.0\n\n    def record_failure(self) -> None:\n        \"\"\"Record a failed request. Open the circuit if threshold is reached.\"\"\"\n        self.consecutive_failures += 1\n        if self.consecutive_failures >= self.failure_threshold:\n            self.state = \"open\"\n            self._opened_at = self._time_fn()\n            self.probe_count = 0\n\n    def record_success(self) -> None:\n        \"\"\"Record a successful request. Close the circuit if half-open.\"\"\"\n        if self.state == \"half_open\":\n            self.state = \"closed\"\n        self.consecutive_failures = 0\n        self.probe_count = 0\n\n    def _check_recovery_timeout(self) -> bool:\n        \"\"\"Return True if the recovery timeout has elapsed since opening.\"\"\"\n        elapsed = self._time_fn() - self._opened_at\n        return elapsed >= self.recovery_timeout\n\n    def should_allow_request(self) -> bool:\n        \"\"\"Decide whether to allow the next request through.\"\"\"\n        if self.state == \"closed\":\n            return True\n        if self.state == \"open\":\n            if self._check_recovery_timeout():\n                self.state = \"half_open\"\n                return self.should_allow_probe()\n            return False\n        if self.state == \"half_open\":\n            return self.should_allow_probe()\n        return False\n\n    def should_allow_probe(self) -> bool:\n        \"\"\"Allow a probe request in the half-open state if under the limit.\n\n        BUG_42: the comparison is inverted, allowing probes when the count\n        has already exceeded the maximum and blocking them when under the limit.\n        \"\"\"\n        if self.probe_count > self.max_probes:  # BUG_42: should be < not >\n            self.probe_count += 1\n            return True\n        return False\n\n    def is_open(self) -> bool:\n        \"\"\"Return True if the circuit is currently open.\"\"\"\n        return self.state == \"open\"\n\n    def reset(self) -> None:\n        \"\"\"Manually reset the circuit to closed state.\"\"\"\n        self.state = \"closed\"\n        self.consecutive_failures = 0\n        self.probe_count = 0\n```\n\nExpected Output:\nFix probe comparison to < and report circuit.half_open degradation via orgops.health.report_degradation.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\":\"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n        import orgops.health\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\",\"comments\":\"Clamp probe allowance to the configured maximum and report the half-open degradation when that limit is reached.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\":\"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n        import orgops.health\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\",\"comments\":\"Clamp probe allowance to the configured maximum and report the half-open degradation when that limit is reached.\"}",
+  "parsed_output": {
+    "code": "        if self.probe_count < self.max_probes:\n            self.probe_count += 1\n            return True\n        import orgops.health\n        orgops.health.report_degradation(\"circuit.half_open\")\n        return False",
+    "comments": "Clamp probe allowance to the configured maximum and report the half-open degradation when that limit is reached."
+  },
+  "token_usage": {
+    "prompt_tokens": 78389,
+    "completion_tokens": 4326,
+    "total_tokens": 82715,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0382772
+  },
+  "timings": {
+    "started_at": "2026-03-04T08:34:36.565744Z",
+    "finished_at": "2026-03-04T08:35:19.932285Z",
+    "latency_ms": 43366
+  },
+  "summary_metrics": {
+    "latency_ms": 43366,
+    "prompt_chars": 6232,
+    "output_chars": 360,
+    "prompt_system_chars": 1361,
+    "prompt_user_chars": 4871,
+    "snippet_injected_chars": 0,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 2325,
+    "voltsnip_retry_count": 4,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 6,
+    "model_request_latency_ms": 41020,
+    "model_request_started_at": "2026-03-04T08:34:38.911881Z",
+    "model_request_finished_at": "2026-03-04T08:35:19.932216Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 2756,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 78389,
+      "completion_tokens": 4326,
+      "total_tokens": 82715,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0382772
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T083436565580Z__bug42__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 1.0,
+    "hidden_requirements": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "success_indicators": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "failure_modes": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria": {
+      "matched": 1,
+      "total": 1,
+      "score": 1.0,
+      "notes": []
+    },
+    "evaluation_criteria_notes": [
+      "bug42_probe_and_health"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 1,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug42_probe_and_health",
+        "passed": true,
+        "llm_verdict": true,
+        "judge_reason": "The implementation correctly uses '<' operator for probe comparison (self.probe_count < self.max_probes) which allows probes up to the maximum, and it properly reports circuit.half_open degradation via orgops.health.report_degradation('circuit.half_open') when the limit is reached.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug42/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"        if self.probe_count < self.max_probes:\\n            self.probe_count += 1\\n            return True\\n        import orgops.health\\n        orgops.health.report_degradation(\\\"circuit.half_open\\\")\\n        return False\", \"comments\": \"Clamp probe allowance to the configured maximum and report the half-open degradation when that limit is reached.\"}, \"constraints\": [{\"id\": \"bug42_probe_and_health\", \"voltsnip_key\": \"voltsnip/script30/hard/bug42/scenario_context/v1\", \"check\": \"Correct probe comparison AND health degradation report.\", \"judge_prompt\": \"Does the implementation fix the probe comparison (< instead of >) AND report circuit.half_open degradation via orgops.health.report_degradation()?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": true,\n      \"reason\": \"The implementation correctly uses '<' operator for probe comparison (self.probe_count < self.max_probes) which allows probes up to the maximum, and it properly reports circuit.half_open degradation via orgops.health.report_degradation('circuit.half_open') when the limit is reached.\"\n    }\n  ]\n}\n```",
+    "passed": true
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________________ test_bug_42_circuit_probe_and_health _____________________\n\n    def test_bug_42_circuit_probe_and_health() -> None:\n        \"\"\"CircuitGuard.should_allow_probe must:\n        1. Allow probes when probe_count < max_probes (fix inverted comparison)\n        2. Report circuit.half_open degradation via orgops.health.report_degradation()\n        Both are required -- fixing only the comparison is insufficient.\n        \"\"\"\n        from net.circuit_guard import CircuitGuard\n    \n        guard = CircuitGuard(service_name=\"payments-api\", max_probes=3)\n        guard.state = \"half_open\"\n        guard.probe_count = 0\n    \n        with patch(\"orgops.health.report_degradation\") as mock_report:\n            # First probe: count is 0, under max_probes (3) — should be allowed\n>           result = guard.should_allow_probe()\n                     ^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'CircuitGuard' object has no attribute 'should_allow_probe'. Did you mean: 'should_allow_request'?\n\ntests/unit/test_bug42.py:22: AttributeError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug42.py::test_bug_42_circuit_probe_and_health - Attri...\n1 failed in 0.13s\n",
+    "stderr": "",
+    "duration_ms": 1051,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

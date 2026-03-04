@@ -1,0 +1,1 @@
+{"code": "    errors: list[ValidationError] = []\n    for rule in schema:\n        value = payload.get(rule.field_name)\n        error = _check_field(value, rule)\n        if error is not None:\n            errors.append(error)\n    return errors", "comments": "Collect and return every validation error so the validation.completed compliance decision has full context."}

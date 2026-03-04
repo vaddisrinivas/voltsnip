@@ -1,0 +1,1 @@
+Apply selectivity once and report the query.plan.estimated_cost metric.

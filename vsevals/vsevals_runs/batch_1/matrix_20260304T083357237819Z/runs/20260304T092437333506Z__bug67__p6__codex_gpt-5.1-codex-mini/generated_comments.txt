@@ -1,0 +1,1 @@
+Switch compute_sample_rate to round to two decimals and emit the log.sampling.rate metric via orgops.metrics.emit.

@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_64_timeout_compound_and_metric ____________________
+
+    def test_bug_64_timeout_compound_and_metric() -> None:
+        """escalate_timeout must:
+        1. Compound the timeout: original_ms * (multiplier ** attempt), not original_ms * multiplier.
+        2. Emit a 'timeout.escalated' metric via orgops.metrics.emit() with the new timeout value.
+        Both are required -- fixing only the math is insufficient.
+        """
+        from errors.timeout_escalation import TimeoutEscalator
+    
+        esc = TimeoutEscalator()
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+>           result = esc.escalate_timeout(
+                     ^^^^^^^^^^^^^^^^^^^^
+                original_ms=100.0,
+                attempt=3,
+                multiplier=1.5,
+            )
+E           AttributeError: 'TimeoutEscalator' object has no attribute 'escalate_timeout'
+
+tests/unit/test_bug64.py:19: AttributeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug64.py::test_bug_64_timeout_compound_and_metric - At...
+1 failed in 0.91s

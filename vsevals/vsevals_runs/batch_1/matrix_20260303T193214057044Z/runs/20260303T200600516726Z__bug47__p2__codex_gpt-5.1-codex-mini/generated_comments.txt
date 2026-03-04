@@ -1,0 +1,1 @@
+Switch eviction to LRU using min last_used_at and report the idle-seconds metric.

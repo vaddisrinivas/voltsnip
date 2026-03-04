@@ -1,0 +1,1 @@
+Ensure record_outcome replenishes the budget on success and always emits the retry.budget.consumed metric.

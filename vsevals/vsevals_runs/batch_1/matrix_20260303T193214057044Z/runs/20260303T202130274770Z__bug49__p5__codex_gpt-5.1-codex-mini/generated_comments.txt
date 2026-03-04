@@ -1,0 +1,1 @@
+Ensure rollback releases the savepoint and annotates the trace span.

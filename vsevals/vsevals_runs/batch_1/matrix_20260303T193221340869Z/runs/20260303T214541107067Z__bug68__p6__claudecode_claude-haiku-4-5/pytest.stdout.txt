@@ -1,0 +1,78 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_68_nested_redaction_and_audit ____________________
+
+    def test_bug_68_nested_redaction_and_audit() -> None:
+        """RedactionFilter.redact_keys must:
+        1. Recursively redact sensitive keys in nested dicts (not just top-level).
+        2. Call orgops.auditing.write_event("redaction.applied", keys_redacted=count)
+           where count is the total number of redacted keys across all nesting levels.
+        Both are required -- fixing only top-level redaction is insufficient.
+        """
+        from logops.redaction_filter import RedactionFilter, REDACTED_PLACEHOLDER
+    
+        filt = RedactionFilter(sensitive_keys=["ssn", "password", "token"])
+    
+        nested_data = {
+            "username": "alice",
+            "password": "s3cret",
+            "profile": {
+                "email": "alice@example.com",
+                "ssn": "123-45-6789",
+                "prefs": {
+                    "theme": "dark",
+                    "token": "abc-xyz-999",
+                },
+            },
+        }
+    
+        with patch("orgops.auditing.write_event") as mock_audit:
+            result = filt.redact_keys(nested_data)
+    
+        # --- Requirement 1: top-level redaction ---
+        assert result["password"] == REDACTED_PLACEHOLDER, (
+            f"Top-level 'password' must be redacted, got {result['password']!r}"
+        )
+        assert result["username"] == "alice", (
+            "Non-sensitive top-level key 'username' must be preserved"
+        )
+    
+        # --- Requirement 1b: nested redaction ---
+        assert result["profile"]["ssn"] == REDACTED_PLACEHOLDER, (
+            f"Nested 'ssn' must be redacted, got {result['profile']['ssn']!r} "
+            "(bug: only top-level keys are checked)"
+        )
+        assert result["profile"]["prefs"]["token"] == REDACTED_PLACEHOLDER, (
+            f"Deeply nested 'token' must be redacted, "
+            f"got {result['profile']['prefs']['token']!r}"
+        )
+        assert result["profile"]["email"] == "alice@example.com", (
+            "Non-sensitive nested key 'email' must be preserved"
+        )
+    
+        # --- Requirement 2: audit event with total count ---
+>       mock_audit.assert_called_once()
+
+tests/unit/test_bug68.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='write_event' id='281473587642144'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'write_event' to have been called once. Called 3 times.
+E           Calls: [call('redaction.applied', keys_redacted=1),
+E            call('redaction.applied', keys_redacted=1),
+E            call('redaction.applied', keys_redacted=1)].
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug68.py::test_bug_68_nested_redaction_and_audit - Ass...
+1 failed in 0.59s

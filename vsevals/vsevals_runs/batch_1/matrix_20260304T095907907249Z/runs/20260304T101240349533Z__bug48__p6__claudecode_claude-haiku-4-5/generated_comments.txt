@@ -1,0 +1,1 @@
+Fixed numeric version comparison by converting to int for sorting and max operations, replacing lexicographic string comparison.

@@ -1,0 +1,1 @@
+Accumulates all validation failures so the operation can declare validation.completed before returning the full error list.

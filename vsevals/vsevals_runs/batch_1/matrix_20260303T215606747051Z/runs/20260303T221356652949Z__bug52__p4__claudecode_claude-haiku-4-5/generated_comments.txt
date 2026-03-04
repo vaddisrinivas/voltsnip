@@ -1,0 +1,1 @@
+Changed comparison to case-insensitive by normalizing both strings to uppercase before equality check.

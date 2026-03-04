@@ -1,0 +1,1 @@
+Changed validate_payload to accumulate every validation error instead of returning after the first one.

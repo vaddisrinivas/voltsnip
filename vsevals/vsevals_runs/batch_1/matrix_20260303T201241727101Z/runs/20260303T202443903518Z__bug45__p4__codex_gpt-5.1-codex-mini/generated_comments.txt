@@ -1,0 +1,1 @@
+Validate every adjacent pair, gather the summary into a single result, and log the compliance decision before returning.

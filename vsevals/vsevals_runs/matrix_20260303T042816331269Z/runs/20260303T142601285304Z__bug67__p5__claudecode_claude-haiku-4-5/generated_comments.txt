@@ -1,0 +1,1 @@
+Fixed: use round(..., 2) instead of int() truncation for decimal precision AND emit log.sampling.rate metric via orgops.metrics.emit for operational monitoring.

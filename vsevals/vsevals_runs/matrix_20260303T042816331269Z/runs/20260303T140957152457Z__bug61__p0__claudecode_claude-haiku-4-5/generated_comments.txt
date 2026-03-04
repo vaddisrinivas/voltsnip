@@ -1,0 +1,1 @@
+Added success branch to replenish budget (min(remaining+1, max_budget)) and emit retry.budget.consumed metric on every outcome.

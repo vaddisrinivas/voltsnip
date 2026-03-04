@@ -1,0 +1,1 @@
+Added timezone import and changed datetime.now() to datetime.now(timezone.utc); updated utc flag from False to True for cross-region UTC consistency.

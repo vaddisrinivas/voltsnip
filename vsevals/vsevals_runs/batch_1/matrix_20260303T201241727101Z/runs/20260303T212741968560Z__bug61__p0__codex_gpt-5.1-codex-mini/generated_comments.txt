@@ -1,0 +1,1 @@
+Restore the remaining budget on success and ensure the retry consumption metric emits every time.

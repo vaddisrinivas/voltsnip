@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to <= so DNS entries are correctly identified as stale (when stale_at timestamp has passed).

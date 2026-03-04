@@ -1,0 +1,1 @@
+Clamp effective timeout to minimum 1ms and annotate trace span on lock acquisition.

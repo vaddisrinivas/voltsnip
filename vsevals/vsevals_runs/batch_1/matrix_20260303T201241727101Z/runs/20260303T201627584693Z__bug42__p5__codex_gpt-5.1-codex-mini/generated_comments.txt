@@ -1,0 +1,1 @@
+Fix probe gating to use a < comparison and report degradation once the half-open probes are exhausted.

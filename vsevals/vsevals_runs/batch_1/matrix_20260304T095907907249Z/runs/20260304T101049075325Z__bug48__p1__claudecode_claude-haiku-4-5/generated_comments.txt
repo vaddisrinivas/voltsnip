@@ -1,0 +1,1 @@
+Fixed numeric comparison of version strings by converting to int, resolving lexicographic ordering bug where '10' sorted before '2'.

@@ -1,0 +1,1 @@
+Changed boundary calculation from int(now - window_seconds) to now - window_seconds to preserve exact float arithmetic and avoid truncation-induced undercounting at sub-second boundaries.

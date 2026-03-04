@@ -1,0 +1,1 @@
+Allow probes only while under the limit and report the half-open degradation when the cap is reached.

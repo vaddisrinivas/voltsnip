@@ -1,0 +1,1 @@
+Limit half-open probes correctly and signal degradation once the cap is reached.

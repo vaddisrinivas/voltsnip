@@ -1,0 +1,46 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_bug_52_schema_type_and_compliance ____________________
+
+    def test_bug_52_schema_type_and_compliance() -> None:
+        """validate_column_type must:
+        1. Compare expected_type and actual_type case-insensitively
+           (e.g. "VARCHAR" should match "varchar").
+        2. Record a compliance decision via orgops.compliance.record_decision()
+           with decision_type="schema.validation.passed" and column_type=actual_type.
+        Both are required -- fixing only the comparison is insufficient.
+        """
+    
+        with patch("orgops.compliance.record_decision") as mock_record:
+            # Case mismatch: PostgreSQL returns lowercase, schema expects uppercase
+            result = validate_column_type("VARCHAR", "varchar")
+    
+        # --- Requirement 1: case-insensitive comparison ---
+        assert result is True, (
+            "Expected True for 'VARCHAR' vs 'varchar' (case-insensitive), "
+            "got False (case-sensitive comparison)"
+        )
+    
+        # --- Requirement 2: compliance decision recording ---
+>       mock_record.assert_called_once()
+
+tests/unit/test_bug52.py:30: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='record_decision' id='281473709977776'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'record_decision' to have been called once. Called 0 times.
+
+/usr/local/lib/python3.12/unittest/mock.py:928: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug52.py::test_bug_52_schema_type_and_compliance - Ass...
+1 failed in 0.41s

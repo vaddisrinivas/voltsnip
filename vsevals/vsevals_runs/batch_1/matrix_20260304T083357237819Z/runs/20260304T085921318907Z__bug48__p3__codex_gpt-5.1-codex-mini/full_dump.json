@@ -1,0 +1,234 @@
+{
+  "run_id": "20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini",
+  "suite_path": "/Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P3",
+  "model_name": "codex:gpt-5.1-codex-mini",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": true,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "injected",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "system",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "db_patterns",
+  "task_difficulty": "hard",
+  "task_line_start": 36,
+  "task_line_end": 55,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+    "voltsnip/script30/hard/bug48/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug48/scenario_context/v1\nTitle: Migration runner requires numeric version ordering AND audit event per migration\nCode:\n```\n# Migration Version Ordering & Audit — Two Requirements\n\nThe `MigrationRunner.get_pending_migrations` method has TWO requirements:\n\n## 1. Numeric Version Comparison\nVersions are strings like \"1\", \"2\", \"10\". String comparison gives\nwrong results: \"10\" < \"9\" lexicographically. Use int() conversion:\n```python\nmax_applied = max(self.applied_versions, key=lambda v: int(v))\npending = [\n    m for m in self.available_migrations\n    if int(m[\"version\"]) > int(max_applied)\n]\nreturn sorted(pending, key=lambda m: int(m[\"version\"]))\n```\n\n## 2. Audit Event per Migration (REQUIRED)\nThe compliance system requires an audit trail for every schema\nmigration applied. Each migration MUST be recorded via\n`orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"migration.applied\", version=version)\n```\n\n## Complete Correct Pattern\n```python\ndef apply_pending(self, executor):\n    import orgops.auditing\n    pending = self.get_pending_migrations()\n    applied = []\n    for migration in pending:\n        version = str(migration[\"version\"])\n        executor.execute(migration[\"sql\"])\n        self.applied_versions.add(version)\n        orgops.auditing.write_event(\"migration.appli\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug48/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "user_prompt": "Task ID: BUG48\nTask Name: migration_version_lexicographic_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.\n\nTarget File: data/migration_runner.py\n\nTarget Lines:\n36-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 36-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug48.py -k bug_48\n\nContext Code:\n```python\ndef get_pending_migrations(self) -> list[dict[str, Any]]:\n    \"\"\"Return migrations not yet applied, sorted by version.\n\n    BUG_48: versions are compared as *strings* so lexicographic\n    ordering causes \"10\" to sort before \"2\" and pending detection\n    incorrectly skips higher single-digit versions.\n    \"\"\"\n    if not self.applied_versions:\n        return sorted(\n            self.available_migrations,\n            key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n        )\n\n    max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n    pending = [\n        m\n        for m in self.available_migrations\n        if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n    ]\n    return sorted(pending, key=lambda m: str(m[\"version\"]))\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Database schema migration runner.\n\nDiscovers pending migrations by comparing applied versions against the\navailable migration manifests, then executes them in version order.\nEach applied migration must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Sequence\n\n\nclass MigrationRunner:\n    \"\"\"Run pending schema migrations in version order.\n\n    Parameters\n    ----------\n    applied_versions:\n        Set of version strings that have already been applied to the database.\n    available_migrations:\n        Sequence of dicts with ``\"version\"`` (string like ``\"1\"``, ``\"2\"``,\n        ``\"10\"``) and ``\"sql\"`` keys describing each migration.\n    \"\"\"\n\n    def __init__(\n        self,\n        applied_versions: set[str],\n        available_migrations: Sequence[dict[str, Any]],\n    ) -> None:\n        self.applied_versions = applied_versions\n        self.available_migrations = available_migrations\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n            )\n\n        max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n        pending = [\n            m\n            for m in self.available_migrations\n            if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n        ]\n        return sorted(pending, key=lambda m: str(m[\"version\"]))\n\n    def apply_pending(self, executor: Any) -> list[str]:\n        \"\"\"Apply all pending migrations and return the applied versions.\n\n        Parameters\n        ----------\n        executor:\n            Object with an ``execute(sql)`` method used to run each\n            migration's SQL statement.\n\n        Returns\n        -------\n        list[str]\n            Version strings of migrations that were applied.\n        \"\"\"\n        pending = self.get_pending_migrations()\n        applied: list[str] = []\n        for migration in pending:\n            version = str(migration[\"version\"])\n            executor.execute(migration[\"sql\"])\n            self.applied_versions.add(version)\n            applied.append(version)\n        return applied\n```\n\nExpected Output:\nUse int() for version comparison and sorting AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix.",
+    "context_surface": "system",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "snippet_context",
+      "snippet_keys",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "voltsnip/script30/hard/bug48/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [
+    {
+      "id": "c9f94241-cb91-442b-8289-764cab3bb1e3",
+      "canonical_key": "voltsnip/script30/category/db_patterns/guiding_principle/v1",
+      "title": "Script30 DB Patterns guiding principle",
+      "language": "text",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "guiding-principle"
+      ],
+      "description": "Org-level guiding principle for database patterns: connection pool eviction, migration versioning, savepoint management, query planning, replication monitoring, and schema validation.",
+      "code": "# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n"
+    },
+    {
+      "id": "c8f81f4a-6e86-403b-9b7d-6657b5b320c1",
+      "canonical_key": "voltsnip/script30/hard/bug48/scenario_context/v1",
+      "title": "Migration runner requires numeric version ordering AND audit event per migration",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "db_patterns",
+        "hard-tier",
+        "composition",
+        "audit"
+      ],
+      "description": "The MigrationRunner.get_pending_migrations method must compare versions numerically (using int()) so that '10' is correctly detected as pending after '9'. Additionally, each applied migration MUST be recorded via orgops.auditing.write_event('migration.applied', version=version). The compliance system depends on this audit trail for schema change traceability.",
+      "code": "# Migration Version Ordering & Audit — Two Requirements\n\nThe `MigrationRunner.get_pending_migrations` method has TWO requirements:\n\n## 1. Numeric Version Comparison\nVersions are strings like \"1\", \"2\", \"10\". String comparison gives\nwrong results: \"10\" < \"9\" lexicographically. Use int() conversion:\n```python\nmax_applied = max(self.applied_versions, key=lambda v: int(v))\npending = [\n    m for m in self.available_migrations\n    if int(m[\"version\"]) > int(max_applied)\n]\nreturn sorted(pending, key=lambda m: int(m[\"version\"]))\n```\n\n## 2. Audit Event per Migration (REQUIRED)\nThe compliance system requires an audit trail for every schema\nmigration applied. Each migration MUST be recorded via\n`orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"migration.applied\", version=version)\n```\n\n## Complete Correct Pattern\n```python\ndef apply_pending(self, executor):\n    import orgops.auditing\n    pending = self.get_pending_migrations()\n    applied = []\n    for migration in pending:\n        version = str(migration[\"version\"])\n        executor.execute(migration[\"sql\"])\n        self.applied_versions.add(version)\n        orgops.auditing.write_event(\"migration.appli"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nVoltSnip Context:\nSnippet 1: voltsnip/script30/category/db_patterns/guiding_principle/v1\nTitle: Script30 DB Patterns guiding principle\nCode:\n```\n# Database Patterns — Org Guiding Principle\n\n## Connection Pool Eviction\n- Evict LRU (oldest last_used_at), never FIFO.\n- Emit orgops.metrics.emit(\"pool.connection.evicted\", idle_seconds) on eviction.\n\n## Migration Versioning\n- Compare versions numerically (int), never lexicographically (string).\n- Write orgops.auditing.write_event(\"migration.applied\", version=v) for each migration.\n\n## Savepoint Management\n- After ROLLBACK TO SAVEPOINT, always RELEASE SAVEPOINT to free resources.\n- Annotate via orgops.tracing.annotate_span(\"txn.savepoint.rolled_back\", id).\n\n## Query Cost Estimation\n- Apply selectivity exactly once per join, never double-count.\n- Emit orgops.metrics.emit(\"query.plan.estimated_cost\", cost) for planner telemetry.\n\n## Replication Monitoring\n- Compare lag and threshold in the same units (both ms or both seconds).\n- Alert via orgops.alerts.notify(\"replication.lag.exceeded\", lag_ms=v) when threshold breached.\n\n## Schema Validation\n- Column type comparisons must be case-insensitive.\n- Record orgops.compliance.record_decision(\"schema.validation.passed\", column_type=t).\n```\n\nSnippet 2: voltsnip/script30/hard/bug48/scenario_context/v1\nTitle: Migration runner requires numeric version ordering AND audit event per migration\nCode:\n```\n# Migration Version Ordering & Audit — Two Requirements\n\nThe `MigrationRunner.get_pending_migrations` method has TWO requirements:\n\n## 1. Numeric Version Comparison\nVersions are strings like \"1\", \"2\", \"10\". String comparison gives\nwrong results: \"10\" < \"9\" lexicographically. Use int() conversion:\n```python\nmax_applied = max(self.applied_versions, key=lambda v: int(v))\npending = [\n    m for m in self.available_migrations\n    if int(m[\"version\"]) > int(max_applied)\n]\nreturn sorted(pending, key=lambda m: int(m[\"version\"]))\n```\n\n## 2. Audit Event per Migration (REQUIRED)\nThe compliance system requires an audit trail for every schema\nmigration applied. Each migration MUST be recorded via\n`orgops.auditing.write_event`:\n```python\nimport orgops.auditing\norgops.auditing.write_event(\"migration.applied\", version=version)\n```\n\n## Complete Correct Pattern\n```python\ndef apply_pending(self, executor):\n    import orgops.auditing\n    pending = self.get_pending_migrations()\n    applied = []\n    for migration in pending:\n        version = str(migration[\"version\"])\n        executor.execute(migration[\"sql\"])\n        self.applied_versions.add(version)\n        orgops.auditing.write_event(\"migration.appli\n```\n\nGuiding Snippet Keys:\n- voltsnip/script30/category/db_patterns/guiding_principle/v1\n- voltsnip/script30/hard/bug48/scenario_context/v1\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG48\nTask Name: migration_version_lexicographic_and_audit\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix MigrationRunner.get_pending_migrations so versions are compared numerically and each applied migration is audit-logged.\n\nTarget File: data/migration_runner.py\n\nTarget Lines:\n36-55 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 36-55 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug48.py -k bug_48\n\nContext Code:\n```python\ndef get_pending_migrations(self) -> list[dict[str, Any]]:\n    \"\"\"Return migrations not yet applied, sorted by version.\n\n    BUG_48: versions are compared as *strings* so lexicographic\n    ordering causes \"10\" to sort before \"2\" and pending detection\n    incorrectly skips higher single-digit versions.\n    \"\"\"\n    if not self.applied_versions:\n        return sorted(\n            self.available_migrations,\n            key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n        )\n\n    max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n    pending = [\n        m\n        for m in self.available_migrations\n        if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n    ]\n    return sorted(pending, key=lambda m: str(m[\"version\"]))\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Database schema migration runner.\n\nDiscovers pending migrations by comparing applied versions against the\navailable migration manifests, then executes them in version order.\nEach applied migration must be recorded in the org compliance audit log.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any, Sequence\n\n\nclass MigrationRunner:\n    \"\"\"Run pending schema migrations in version order.\n\n    Parameters\n    ----------\n    applied_versions:\n        Set of version strings that have already been applied to the database.\n    available_migrations:\n        Sequence of dicts with ``\"version\"`` (string like ``\"1\"``, ``\"2\"``,\n        ``\"10\"``) and ``\"sql\"`` keys describing each migration.\n    \"\"\"\n\n    def __init__(\n        self,\n        applied_versions: set[str],\n        available_migrations: Sequence[dict[str, Any]],\n    ) -> None:\n        self.applied_versions = applied_versions\n        self.available_migrations = available_migrations\n\n    # ------------------------------------------------------------------\n    # Core public API\n    # ------------------------------------------------------------------\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: str(m[\"version\"]),  # BUG_48: lexicographic sort\n            )\n\n        max_applied = max(self.applied_versions)  # BUG_48: string max — \"9\" > \"10\"\n        pending = [\n            m\n            for m in self.available_migrations\n            if str(m[\"version\"]) > max_applied  # BUG_48: string comparison\n        ]\n        return sorted(pending, key=lambda m: str(m[\"version\"]))\n\n    def apply_pending(self, executor: Any) -> list[str]:\n        \"\"\"Apply all pending migrations and return the applied versions.\n\n        Parameters\n        ----------\n        executor:\n            Object with an ``execute(sql)`` method used to run each\n            migration's SQL statement.\n\n        Returns\n        -------\n        list[str]\n            Version strings of migrations that were applied.\n        \"\"\"\n        pending = self.get_pending_migrations()\n        applied: list[str] = []\n        for migration in pending:\n            version = str(migration[\"version\"])\n            executor.execute(migration[\"sql\"])\n            self.applied_versions.add(version)\n            applied.append(version)\n        return applied\n```\n\nExpected Output:\nUse int() for version comparison and sorting AND call orgops.auditing.write_event(\"migration.applied\", version=version) for each migration.\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nPre-fetched snippets injected into system prompt, no tools.\n\nGuidance:\nConsult the listed Guiding Snippet Keys while implementing the fix."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        if not self.applied_versions:\\n            return sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n\\n        max_applied = max(self.applied_versions, key=int)\\n        pending = [\\n            m\\n            for m in self.available_migrations\\n            if int(m[\\\"version\\\"]) > int(max_applied)\\n        ]\\n        return sorted(pending, key=lambda m: int(m[\\\"version\\\"]))\\n\", \"comments\": \"Order comparisons convert version strings to ints so pending detection and sorting use numeric semantics.\"}"
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "{\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        if not self.applied_versions:\\n            return sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n\\n        max_applied = max(self.applied_versions, key=int)\\n        pending = [\\n            m\\n            for m in self.available_migrations\\n            if int(m[\\\"version\\\"]) > int(max_applied)\\n        ]\\n        return sorted(pending, key=lambda m: int(m[\\\"version\\\"]))\\n\", \"comments\": \"Order comparisons convert version strings to ints so pending detection and sorting use numeric semantics.\"}",
+  "parsed_output": {
+    "code": "    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\n\n        BUG_48: versions are compared as *strings* so lexicographic\n        ordering causes \"10\" to sort before \"2\" and pending detection\n        incorrectly skips higher single-digit versions.\n        \"\"\"\n        if not self.applied_versions:\n            return sorted(\n                self.available_migrations,\n                key=lambda m: int(m[\"version\"]),\n            )\n\n        max_applied = max(self.applied_versions, key=int)\n        pending = [\n            m\n            for m in self.available_migrations\n            if int(m[\"version\"]) > int(max_applied)\n        ]\n        return sorted(pending, key=lambda m: int(m[\"version\"]))\n",
+    "comments": "Order comparisons convert version strings to ints so pending detection and sorting use numeric semantics."
+  },
+  "token_usage": {
+    "prompt_tokens": 9474,
+    "completion_tokens": 950,
+    "total_tokens": 10424,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": 0.0053096
+  },
+  "timings": {
+    "started_at": "2026-03-04T08:59:21.319078Z",
+    "finished_at": "2026-03-04T08:59:28.642429Z",
+    "latency_ms": 7323
+  },
+  "summary_metrics": {
+    "latency_ms": 7323,
+    "prompt_chars": 8687,
+    "output_chars": 940,
+    "prompt_system_chars": 3966,
+    "prompt_user_chars": 4721,
+    "snippet_injected_chars": 2295,
+    "model_provider": "codex",
+    "model_id": "gpt-5.1-codex-mini",
+    "snippet_count": 2,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": 39,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 7263,
+    "model_request_started_at": "2026-03-04T08:59:21.378710Z",
+    "model_request_finished_at": "2026-03-04T08:59:28.642289Z",
+    "model_request_id": null,
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 9950,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 9474,
+      "completion_tokens": 950,
+      "total_tokens": 10424,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": 0.0053096
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini",
+    "full_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs/matrix_20260304T083357237819Z/runs/20260304T085921318907Z__bug48__p3__codex_gpt-5.1-codex-mini/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": "The implementation fixes version comparison using int() for numeric ordering (part 1 satisfied), but does NOT call orgops.auditing.write_event() anywhere. The function only returns pending migrations without applying them or writing audit events (part 2 not satisfied). The constraint requires both conditions with AND.",
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\n\\n        BUG_48: versions are compared as *strings* so lexicographic\\n        ordering causes \\\"10\\\" to sort before \\\"2\\\" and pending detection\\n        incorrectly skips higher single-digit versions.\\n        \\\"\\\"\\\"\\n        if not self.applied_versions:\\n            return sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n\\n        max_applied = max(self.applied_versions, key=int)\\n        pending = [\\n            m\\n            for m in self.available_migrations\\n            if int(m[\\\"version\\\"]) > int(max_applied)\\n        ]\\n        return sorted(pending, key=lambda m: int(m[\\\"version\\\"]))\\n\", \"comments\": \"Order comparisons convert version strings to ints so pending detection and sorting use numeric semantics.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation fixes version comparison using int() for numeric ordering (part 1 satisfied), but does NOT call orgops.auditing.write_event() anywhere. The function only returns pending migrations without applying them or writing audit events (part 2 not satisfied). The constraint requires both conditions with AND.\"\n    }\n  ]\n}\n```",
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_48_migration_version_and_audit ____________________\n\n    def test_bug_48_migration_version_and_audit() -> None:\n        \"\"\"MigrationRunner must:\n        1. Compare versions numerically so \"10\" sorts after \"9\" (not before \"2\").\n        2. Call orgops.auditing.write_event(\"migration.applied\", version=version)\n           for each migration applied.\n        Both are required -- fixing only the ordering is insufficient.\n        \"\"\"\n        from data.migration_runner import MigrationRunner\n    \n        applied_versions = {\"1\", \"2\", \"3\", \"9\"}\n        available_migrations = [\n            {\"version\": \"1\", \"sql\": \"CREATE TABLE a;\"},\n            {\"version\": \"2\", \"sql\": \"CREATE TABLE b;\"},\n            {\"version\": \"3\", \"sql\": \"CREATE TABLE c;\"},\n            {\"version\": \"9\", \"sql\": \"CREATE TABLE i;\"},\n            {\"version\": \"10\", \"sql\": \"CREATE TABLE j;\"},\n            {\"version\": \"11\", \"sql\": \"CREATE TABLE k;\"},\n            {\"version\": \"20\", \"sql\": \"CREATE TABLE t;\"},\n        ]\n    \n        runner = MigrationRunner(applied_versions, available_migrations)\n    \n        # ── 1. Numeric ordering: versions 10, 11, 20 are pending ────────\n        pending = runner.get_pending_migrations()\n        pending_versions = [str(m[\"version\"]) for m in pending]\n        assert pending_versions == [\"10\", \"11\", \"20\"], (\n            f\"Expected pending ['10', '11', '20'] with numeric comparison, \"\n            f\"got {pending_versions} (likely lexicographic string comparison)\"\n        )\n    \n        # ── 2. Audit event for each applied migration ───────────────────\n        executor = MagicMock()\n    \n        with patch(\"orgops.auditing.write_event\") as mock_audit:\n            applied = runner.apply_pending(executor)\n    \n            assert applied == [\"10\", \"11\", \"20\"], (\n                f\"Expected applied versions ['10', '11', '20'], got {applied}\"\n            )\n    \n            # One audit call per applied migration\n>           assert mock_audit.call_count == 3, (\n                f\"Expected 3 audit calls (one per migration), got {mock_audit.call_count}\"\n            )\nE           AssertionError: Expected 3 audit calls (one per migration), got 0\nE           assert 0 == 3\nE            +  where 0 = <MagicMock name='write_event' id='281473330353008'>.call_count\n\ntests/unit/test_bug48.py:50: AssertionError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - As...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 781,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

@@ -1,0 +1,1 @@
+Added base64 decoding of matching segments and re-scanning the decoded text for secrets.

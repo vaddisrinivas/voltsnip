@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug57_interval_units_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug57_interval_units_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug57_interval_units_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": "The implementation correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) and passes it to _start_timer. It also correctly writes a cache.flush.completed audit event via orgops.auditing.write_event(). However, the audit event passes 'flushed_items: items_flushed' where items_flushed comes from self._do_flush(buffer) return value, NOT len(buffer) as required by the constraint. The constraint specifically asks for items_flushed=len(buffer), but the code uses the return value of _do_flush instead.",
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug57/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"    def schedule_flush(\\n        self,\\n        buffer: list[dict[str, Any]],\\n        interval_seconds: float,\\n    ) -> dict[str, Any]:\\n        \\\"\\\"\\\"Schedule periodic flushing of *buffer* every *interval_seconds*.\\n\\n        BUG_57: convert the interval to milliseconds before scheduling and\\n        emit a cache.flush.completed audit event after each flush.\\n        \\\"\\\"\\\"\\n        from orgops.auditing import write_event\\n\\n        interval_ms = interval_seconds * 1000\\n\\n        def _flush_and_audit() -> None:\\n            items_flushed = self._do_flush(buffer)\\n            write_event(\\n                \\\"cache.flush.completed\\\",\\n                {\\n                    \\\"flushed_items\\\": items_flushed,\\n                    \\\"interval_seconds\\\": interval_seconds,\\n                    \\\"timer_interval_ms\\\": interval_ms,\\n                },\\n            )\\n\\n        self._timer_handle = _start_timer(\\n            interval_ms,\\n            callback=_flush_and_audit,\\n        )\\n        return {\\n            \\\"scheduled\\\": True,\\n            \\\"interval_seconds\\\": interval_seconds,\\n            \\\"timer_interval_ms\\\": self._timer_handle[\\\"interval_ms\\\"],\\n            \\\"buffer_size\\\": len(buffer),\\n        }\\n\", \"comments\": \"Converted the scheduled timer to milliseconds and emitted cache.flush.completed audit events after each flush.\"}, \"constraints\": [{\"id\": \"bug57_interval_units_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug57/scenario_context/v1\", \"check\": \"Interval converted to milliseconds (* 1000) AND audit event via orgops.auditing.write_event.\", \"judge_prompt\": \"Does the implementation both convert interval_seconds to milliseconds (multiply by 1000) before passing to _start_timer AND write a cache.flush.completed audit event via orgops.auditing.write_event() with items_flushed=len(buffer)?\"}]}"
+  },
+  "judge_raw_response": "```json\n{\n  \"results\": [\n    {\n      \"verdict\": false,\n      \"reason\": \"The implementation correctly converts interval_seconds to milliseconds (interval_ms = interval_seconds * 1000) and passes it to _start_timer. It also correctly writes a cache.flush.completed audit event via orgops.auditing.write_event(). However, the audit event passes 'flushed_items: items_flushed' where items_flushed comes from self._do_flush(buffer) return value, NOT len(buffer) as required by the constraint. The constraint specifically asks for items_flushed=len(buffer), but the code uses the return value of _do_flush instead.\"\n    }\n  ]\n}\n```",
+  "passed": false
+}

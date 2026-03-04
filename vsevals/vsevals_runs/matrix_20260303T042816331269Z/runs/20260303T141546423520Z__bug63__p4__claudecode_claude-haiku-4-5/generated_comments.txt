@@ -1,0 +1,1 @@
+Fix off-by-one capacity check (>= instead of >) and add capacity-warning alert via orgops.alerts.notify when utilization reaches 80%.

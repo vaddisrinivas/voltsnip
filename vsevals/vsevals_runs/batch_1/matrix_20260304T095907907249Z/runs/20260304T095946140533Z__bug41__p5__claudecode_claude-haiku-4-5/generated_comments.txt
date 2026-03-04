@@ -1,0 +1,1 @@
+Apply exponential backoff (2**attempt) instead of linear, cap at max_delay, and emit retry.backoff.applied metric.

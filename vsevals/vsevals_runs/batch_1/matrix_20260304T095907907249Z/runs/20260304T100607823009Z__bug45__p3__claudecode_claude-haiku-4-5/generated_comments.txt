@@ -1,0 +1,1 @@
+Fixed loop range from range(1, len(chain)) to range(len(chain) - 1) to validate every adjacent pair including leaf-to-first-intermediate, and simplified the subject lookup since the range guarantee prevents out-of-bounds access.

@@ -1,0 +1,28 @@
+    def get_pending_migrations(self) -> list[dict[str, Any]]:
+        """Return migrations not yet applied, sorted by numeric version."""
+
+        def _version_value(value: str | int) -> int:
+            return int(value)
+
+        if not self.applied_versions:
+            pending = sorted(
+                self.available_migrations,
+                key=lambda m: _version_value(m["version"]),
+            )
+        else:
+            max_applied = max(_version_value(v) for v in self.applied_versions)
+            pending = [
+                m
+                for m in self.available_migrations
+                if _version_value(m["version"]) > max_applied
+            ]
+            pending.sort(key=lambda m: _version_value(m["version"]))
+
+        import orgops
+
+        for migration in pending:
+            orgops.auditing.write_event(
+                "migration.applied",
+                version=str(migration["version"]),
+            )
+        return pending

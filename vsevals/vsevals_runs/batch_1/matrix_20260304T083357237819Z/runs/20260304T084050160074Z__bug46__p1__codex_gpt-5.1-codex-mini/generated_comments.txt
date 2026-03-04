@@ -1,0 +1,1 @@
+Use the exact float window boundary so sub-second timestamps are counted correctly.

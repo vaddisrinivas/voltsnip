@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"019cb531-0258-7b50-ba70-2d8f72b8a552"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Preparing to retrieve agent instructions**"}}
+{"type":"item.started","item":{"id":"item_1","type":"mcp_tool_call","server":"mcp","tool":"list_mcp_resources","arguments":{"server":"mcp"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"mcp_tool_call","server":"mcp","tool":"list_mcp_resources","arguments":{"server":"mcp"},"result":null,"error":{"message":"resources/list failed: unknown MCP server 'mcp'"},"status":"failed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"reasoning","text":"**Preparing final code snippet output**"}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"{\"code\":\"def compute_backoff_delay(\\n    attempt: int,\\n    base_delay: float = 1.0,\\n    max_delay: float = 60.0,\\n) -> float:\\n    \\\"\\\"\\\"Compute the delay before the next retry attempt.\\n\\n    Uses exponential growth (base_delay * 2**attempt) and caps the delay at\\n    *max_delay*.\\n    \\\"\\\"\\\"\\n    delay = base_delay * (2**attempt)\\n    delay = min(delay, max_delay)\\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"retry.backoff.applied\\\", delay)\\n    return delay\\n\", \"comments\":\"Switches the backoff calculation to exponential growth capped at max_delay while emitting the retry metric.\"}"}}
+{"type":"turn.completed","usage":{"input_tokens":20868,"cached_input_tokens":15232,"output_tokens":593}}

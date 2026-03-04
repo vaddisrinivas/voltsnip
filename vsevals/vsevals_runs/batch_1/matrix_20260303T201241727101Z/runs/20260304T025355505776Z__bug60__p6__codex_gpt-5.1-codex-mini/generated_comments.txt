@@ -1,0 +1,1 @@
+Collect all validation issues so calling code can record the validation.completed compliance decision after scanning every field.

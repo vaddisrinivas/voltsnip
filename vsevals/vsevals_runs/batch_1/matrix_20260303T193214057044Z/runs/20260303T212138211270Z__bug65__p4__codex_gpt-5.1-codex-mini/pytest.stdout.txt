@@ -1,0 +1,8 @@
+.                                                                        [100%]
+=============================== warnings summary ===============================
+tests/unit/test_bug65.py::test_bug_65_email_plus_and_compliance
+  /workspace/logops/sanitizer.py:68: SyntaxWarning: invalid escape sequence '\w'
+    BUG_65: the regex ``[\w.]+@[\w.]+`` does not include ``+``
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.29s

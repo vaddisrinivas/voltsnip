@@ -1,0 +1,1 @@
+Corrected the half-open probe comparison so probes are only allowed while the count stays below the limit.

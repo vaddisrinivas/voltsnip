@@ -1,0 +1,1 @@
+Pass the shared context to fallbacks and log each activation span before invoking them.

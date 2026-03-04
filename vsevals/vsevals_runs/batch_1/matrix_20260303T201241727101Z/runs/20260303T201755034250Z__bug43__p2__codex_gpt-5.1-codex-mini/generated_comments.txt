@@ -1,0 +1,1 @@
+Use max(connect,dns) plus read timeout and annotate the span so the parallel phase is captured. 

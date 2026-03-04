@@ -1,0 +1,1 @@
+Convert the timer to milliseconds and wrap flushes in a helper that emits the required audit event after each run.

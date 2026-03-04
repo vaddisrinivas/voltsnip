@@ -1,0 +1,1 @@
+Decode any base64 segments, rescan the decoded text, and notify orgops of every finding.

@@ -1,0 +1,7 @@
+    def should_refresh_entry(self, entry: DnsEntry, now: float) -> bool:
+        """Decide whether *entry* is stale and should be refreshed.
+
+        BUG_44: the comparison was inverted and now correctly returns ``True``
+        when the entry is stale (``now >= entry.stale_at``).
+        """
+        return now >= entry.stale_at

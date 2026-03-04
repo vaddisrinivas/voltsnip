@@ -1,0 +1,1 @@
+Updated the validation loop to cover every adjacent pair, centralized branch results, and logged the tls.chain.validated compliance decision.

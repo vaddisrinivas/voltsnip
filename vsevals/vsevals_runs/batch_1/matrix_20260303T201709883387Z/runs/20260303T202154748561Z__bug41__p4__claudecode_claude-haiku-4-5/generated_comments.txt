@@ -1,0 +1,1 @@
+Fix exponential backoff calculation (2**attempt instead of linear) and add retry.backoff.applied metric emission with proper capping.

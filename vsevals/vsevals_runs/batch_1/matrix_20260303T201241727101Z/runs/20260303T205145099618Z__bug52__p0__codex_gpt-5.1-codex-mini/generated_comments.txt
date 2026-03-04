@@ -1,0 +1,1 @@
+Compare both column types case-insensitively using casefold for the matching logic

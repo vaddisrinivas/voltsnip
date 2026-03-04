@@ -1,0 +1,1 @@
+Switches idle eviction to true LRU order and emits the eviction metric when a sink is attached.

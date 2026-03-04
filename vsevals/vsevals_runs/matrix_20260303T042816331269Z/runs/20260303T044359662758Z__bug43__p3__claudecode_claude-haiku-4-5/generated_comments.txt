@@ -1,0 +1,1 @@
+Fixed DNS and connect timeout calculation to use max() for parallelism, added trace annotation.

@@ -1,0 +1,1 @@
+Fixed version comparison from lexicographic (string) to numeric (int) sorting so '10' correctly sorts after '9'.

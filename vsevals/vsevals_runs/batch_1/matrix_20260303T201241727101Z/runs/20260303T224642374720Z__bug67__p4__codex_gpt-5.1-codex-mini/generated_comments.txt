@@ -1,0 +1,1 @@
+Round the rate to two decimals and emit the log.sampling.rate metric before appending history.

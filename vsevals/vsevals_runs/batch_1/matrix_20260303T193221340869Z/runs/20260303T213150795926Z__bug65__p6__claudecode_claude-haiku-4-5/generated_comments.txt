@@ -1,0 +1,1 @@
+Fixed email regex to include + in local-part ([\w.+]+@[\w.]+) and added compliance decision recording for PII sanitization audit trail.

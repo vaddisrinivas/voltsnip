@@ -1,0 +1,9 @@
+    # BUG_59: treat 4xx/5xx separately and emit mapping metric
+    if 400 <= status_code < 500:
+        category = "client_error"
+    elif 500 <= status_code < 600:
+        category = "server_error"
+    else:
+        category = "unknown"
+    orgops.metrics.emit("error.mapped", status_code)
+    return category

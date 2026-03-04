@@ -1,0 +1,33 @@
+    def escalate_timeout(
+        self,
+        original_ms: float,
+        attempt: int,
+        multiplier: float = 1.5,
+    ) -> dict[str, Any]:
+        """Compute the escalated timeout for *attempt*.
+
+        BUG_64: the calculation uses ``original_ms * multiplier`` on every
+        attempt instead of compounding (``original_ms * (multiplier ** attempt)``).
+        This means every retry gets the same timeout regardless of the
+        attempt number, eliminating the exponential back-pressure that
+        protects recovering services.
+        """
+        new_timeout_ms = original_ms * (multiplier ** attempt)
+        new_timeout_ms = min(new_timeout_ms, self.ceiling_ms)
+
+        import orgops.metrics
+        orgops.metrics.emit("timeout.escalated", new_timeout_ms)
+
+        record: dict[str, Any] = {
+            "attempt": attempt,
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+        }
+        self.history.setdefault("default", []).append(record)
+
+        return {
+            "original_ms": original_ms,
+            "new_timeout_ms": new_timeout_ms,
+            "attempt": attempt,
+            "capped": new_timeout_ms >= self.ceiling_ms,
+        }

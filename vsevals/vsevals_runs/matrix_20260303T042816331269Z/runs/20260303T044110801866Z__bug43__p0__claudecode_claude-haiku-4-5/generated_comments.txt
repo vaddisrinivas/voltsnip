@@ -1,0 +1,1 @@
+Use max(connect, dns) + read for parallel timeout overlap and annotate span for tracing.

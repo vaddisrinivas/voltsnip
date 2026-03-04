@@ -1,0 +1,1 @@
+Fix timeout calculation: DNS and connect are parallel (use max, not sum), then add read phase; annotate span with breakdown.

@@ -1,0 +1,1 @@
+Added correlation_id to child context dict using parent_context.get() to ensure both request_id and correlation_id are carried forward for cross-request tracing.

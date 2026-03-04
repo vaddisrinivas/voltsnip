@@ -1,0 +1,14 @@
+        if total_events <= 0:
+            return 0.0
+        if target_events >= total_events:
+            return 100.0
+
+        rate = round(target_events / total_events * 100, 2)
+        from orgops import metrics
+        metrics.emit("log.sampling.rate", rate)
+        self.history.append({
+            "total_events": total_events,
+            "target_events": target_events,
+            "rate": rate,
+        })
+        return rate

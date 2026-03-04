@@ -1,0 +1,1 @@
+Sort pending migrations by numeric version and ensure each applied migration emits an orgops.auditing.write_event("migration.applied", version=...) once it runs.
