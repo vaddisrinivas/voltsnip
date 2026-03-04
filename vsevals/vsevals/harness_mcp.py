@@ -154,12 +154,18 @@ def _make_handler(
             method = req.get("method", "")
             req_id = req.get("id", 0)
 
-            if method in ("initialize", "notifications/initialized"):
+            if method == "initialize":
                 self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {
                     "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
+                    "capabilities": {"tools": {}, "resources": {}},
                     "serverInfo": {"name": "vsevals-harness", "version": "1.0"},
                 }})
+            elif method.startswith("notifications/"):
+                # JSON-RPC notifications have no id — respond with
+                # HTTP 202 Accepted and empty body per MCP spec.
+                self.send_response(202)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
             elif method == "tools/list":
                 self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"tools": exposed_tools}})
             elif method == "tools/call":
@@ -179,6 +185,22 @@ def _make_handler(
                         "jsonrpc": "2.0", "id": req_id,
                         "error": {"code": -32603, "message": str(exc)},
                     })
+            elif method == "resources/list":
+                # Codex queries for MCP resources before falling through to
+                # tools.  Return a well-formed empty list so it moves on.
+                self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"resources": []}})
+            elif method == "resources/templates/list":
+                self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"resourceTemplates": []}})
+            elif method == "resources/read":
+                # No resources served — return a JSON-RPC error.
+                params = req.get("params", {})
+                uri = params.get("uri", "<unknown>")
+                self._send(200, {
+                    "jsonrpc": "2.0", "id": req_id,
+                    "error": {"code": -32602, "message": f"resource not found: {uri}"},
+                })
+            elif method == "prompts/list":
+                self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {"prompts": []}})
             else:
                 # Unknown methods: return empty result (required for MCP handshake)
                 self._send(200, {"jsonrpc": "2.0", "id": req_id, "result": {}})

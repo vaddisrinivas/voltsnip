@@ -188,6 +188,34 @@ def _extract_codex_tool_traces(jsonl_text: str) -> list[ToolTrace]:
     return traces
 
 
+def _extract_codex_stream_error(stdout: str) -> str | None:
+    """Return a terminal stream error message when codex reports one.
+
+    Codex can exit with returncode=0 while emitting error events in the
+    JSONL stream.  Those runs must be treated as provider failures so they
+    are not persisted as status=ok with empty or corrupted output.
+    """
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line or not line.startswith("{"):
+            continue
+        try:
+            evt = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(evt, dict):
+            continue
+        etype = evt.get("type", "")
+        if etype == "error":
+            msg = evt.get("message") or evt.get("error") or ""
+            return str(msg) if msg else "codex stream returned error event"
+        if etype in ("response.failed", "response.incomplete"):
+            reason = evt.get("response", {}).get("status_details", {}).get("reason", "")
+            msg = reason or evt.get("error") or ""
+            return str(msg) if msg else f"codex stream: {etype}"
+    return None
+
+
 # ── Pipeline stage outputs ──────────────────────────────────────────────────
 
 @dataclass
@@ -290,19 +318,21 @@ def _build_codex_invocation(
     extra_args: list[str] = []
     if tool_schemas:
         # Tool variants: VoltSnip-only MCP server, read-only sandbox.
-        # NOTE: read-only sandbox does not remove shell reads; it only blocks writes.
-        # Isolation comes from cwd=tmpdir (no repo fixtures present in non-sidecar variants).
-        # The curl transport for MCP is spawned by codex infrastructure (not the sandboxed
-        # shell), so VoltSnip MCP tool calls are unaffected by the sandbox restriction.
+        # Transport: HTTP URL-based (not curl stdio).
+        # The curl stdio transport (command=curl args=["-sNX","POST",...]) is broken:
+        # codex writes JSON to curl's stdin but curl ignores stdin without --data @-,
+        # so every MCP initialize/tools/list sends an empty POST body and the handshake
+        # fails silently.  The URL-based transport (mcp_servers.voltsnip.url=...) uses
+        # codex's native HTTP MCP client which handles the JSON-RPC session correctly.
         base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
         fs_root = Path(effective_cwd)  # tmpdir; include_fs_tools=False so fs_root is unused
         harness_server = HarnessMCPServer(fs_root, base_url, include_fs_tools=False).start()
-        harness_url = f"http://127.0.0.1:{harness_server.port}/mcp/messages"
+        harness_mcp_url = f"http://127.0.0.1:{harness_server.port}/mcp"
         extra_args.extend([
             *_APPROVAL_NEVER,
             "--sandbox", "read-only",
-            "-c", "mcp_servers.voltsnip.command=curl",
-            "-c", f'mcp_servers.voltsnip.args=["-sNX", "POST", "{harness_url}"]',
+            "-c", "mcp_servers={}",  # wipe global servers (e.g. debugmate) for isolation
+            "-c", f"mcp_servers.voltsnip.url={harness_mcp_url}",
         ])
     else:
         # No-tools variants: read-only sandbox, no MCP.
@@ -347,6 +377,7 @@ def _build_codex_invocation(
         "--json",
         "--ephemeral",
         "--skip-git-repo-check",
+        "--disable", "shell_tool",
         "-o", str(output_file),
     ]
     if tmp_schema:
@@ -400,6 +431,14 @@ def _execute_codex(inv: CodexInvocation, run_dir: Path) -> CodexRawOutput:
         raise RuntimeError(
             f"codex subprocess failed (exit {proc.returncode}): {proc.stderr[:400]}"
         )
+
+    # Detect stream-level errors even when returncode=0.
+    # Codex can report errors in JSONL output (e.g., type=error events)
+    # while still exiting cleanly.  Mirror claudecode's _extract_stream_error
+    # to maintain provider parity.
+    stream_err = _extract_codex_stream_error(proc.stdout or "")
+    if stream_err:
+        raise RuntimeError(f"codex stream error: {stream_err}")
 
     return CodexRawOutput(
         returncode=proc.returncode,

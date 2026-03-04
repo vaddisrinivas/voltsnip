@@ -179,6 +179,21 @@ def main() -> None:
                 fail_count += 1
             return
 
+        # Override all artifact paths to the actual location of full_dump.json.
+        # The paths embedded in full_dump.json can be stale if run dirs were moved
+        # (e.g. out of nested matrix dirs).
+        actual_run_dir = str(full_dump_path.parent)
+        old_run_dir = run_result.artifacts.run_dir
+        if old_run_dir and old_run_dir != actual_run_dir:
+            def _fix(p: str) -> str:
+                return p.replace(old_run_dir, actual_run_dir) if p else p
+            a = run_result.artifacts
+            a.run_dir = actual_run_dir
+            a.full_dump_json = _fix(a.full_dump_json)
+            a.summary_dump_json = _fix(a.summary_dump_json)
+            if hasattr(a, "score_result_json"):
+                a.score_result_json = _fix(a.score_result_json or "")
+
         code = run_result.parsed_output.code
         if not code.strip():
             LOGGER.info("  generated code is empty — skipping pytest")
@@ -373,7 +388,7 @@ def _pytest_result_to_cols(run_result: RunResult) -> dict:
     pr = run_result.pytest_result
     if not pr:
         return {}
-    from scripts.run_matrix import _parse_pytest_counts  # type: ignore[import]
+    from scripts.rescore_pytest import _parse_pytest_counts  # type: ignore[import]
 
     pytest_counts = _parse_pytest_counts(pr.stdout, pr.stderr)
     m = run_result.summary_metrics
@@ -441,7 +456,7 @@ def _load_csv(path: Path) -> list[dict]:
 def _write_csv(path: Path, rows: list[dict]) -> None:
     """Rewrite the CSV in-place preserving canonical column order."""
     # Import canonical columns from run_matrix so the schema stays in sync
-    from scripts.run_matrix import _CANONICAL_COLUMNS  # type: ignore[import]
+    from scripts.run_matrix import CANONICAL_COLUMNS as _CANONICAL_COLUMNS  # type: ignore[import]
 
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(

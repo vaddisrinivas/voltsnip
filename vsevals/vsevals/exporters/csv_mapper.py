@@ -672,7 +672,7 @@ def _load_completed_from_csv(path: Path) -> dict[str, dict]:
         with path.open(encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 tid, vid, mn = row.get("task_id", ""), row.get("variant_id", ""), row.get("model_name", "")
-                if tid and vid and mn:
+                if tid and vid and mn and row.get("status") == "ok":
                     completed[f"{tid}/{vid}/{mn}"] = row
     except Exception as exc:
         LOGGER.warning("could not load completed cells from %s: %s", path, exc)

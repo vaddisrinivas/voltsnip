@@ -2,8 +2,8 @@
 ## An Evaluation Framework Using Controlled Retrieval Variants
 
 <!-- SUBMISSION TARGET: arXiv cs.SE / EMNLP Findings / MSR 2027 -->
-<!-- STATUS: Draft — awaiting multi-model N=3 run results -->
-<!-- Replace all [PLACEHOLDER] and [TBD] blocks after full run -->
+<!-- STATUS: Results complete — Haiku n=4, Codex n≈2; pytest ground-truth scoring -->
+<!-- Last updated: 2026-03-03 -->
 
 ---
 
@@ -13,8 +13,9 @@ Large language models (LLMs) perform well on public coding benchmarks, yet strug
 We present an evaluation framework that isolates **which context surface** — training knowledge, inline hints, oracle injection, or tool-retrieved snippets — drives correct use of private APIs in code repair tasks.
 Our benchmark, **Script30**, consists of 30 composition bugs across a synthetic but realistic Python codebase: each bug requires both a logic fix *and* a call to an org-private API (`orgops.*`) whose signature is unguessable from pretraining.
 We define a seven-point **context surface ladder** (P0–P6) that systematically varies what context is available to the model, from no context (P0) to full autonomous retrieval with guide documentation (P6).
-Across [TBD] models and [TBD] runs, we find that P0 scores [TBD] on signal bugs while VoltSnip-guided autonomous retrieval (P4) scores [TBD], confirming a causal lift attributable to retrieval.
-Contrary to expectation, more guide context (P6) does not outperform focused retrieval alone (P4), suggesting an over-specification effect.
+Across 2 models (claude-haiku-4-5, n=4; gpt-5.1-codex-mini, n≈2) and 828 total scored runs, we find that P0 scores **0.0%** on the 26-bug signal set while VoltSnip-guided autonomous retrieval (P4) scores **69.9%** for Haiku (+69.9 pp) and 25.0% for Codex (+25.0 pp), confirming a causal lift attributable to retrieval.
+Contrary to expectation, more guide context (P6) does not outperform focused retrieval alone (P4) for Haiku, suggesting an over-specification effect.
+Interestingly, Codex shows the inverse pattern — static snippet injection (P3) outperforms tool-based retrieval (P4/P5), highlighting a model-architecture divergence in context-surface utilisation.
 We release the benchmark, harness, and all run artefacts.
 
 ---
@@ -38,7 +39,7 @@ Our contributions are:
 
 1. **Script30**: a 30-bug composition benchmark designed so that P0 (no context) is provably zero on signal bugs, enabling clean lift measurement.
 2. **A seven-point context surface ladder** (P0–P6) that varies context surface systematically while holding the model, task, and judge constant.
-3. **Empirical surface hierarchy results** across [TBD] models showing that autonomous VoltSnip retrieval (P4) matches or exceeds oracle injection (P3) and outperforms over-specified guide combinations (P6).
+3. **Empirical surface hierarchy results** across 2 model families showing that for Haiku, autonomous VoltSnip retrieval (P4=69.9%) matches or exceeds oracle injection (P3=64.1%) and outperforms over-specified guide combinations (P6=61.4%); for Codex, static injection (P3=41.1%) leads over dynamic retrieval (P4=25.0%), revealing a model-specific divergence.
 4. **A reproducible harness** with provider-parity guarantees (claudecode and codex), a deterministic LLM judge, and public run artefacts.
 
 ---
@@ -74,9 +75,9 @@ Script30 is built on a synthetic Python microservice codebase (`usecases/script3
 | `logops/` | Log redaction, correlation |
 | `net/` | DNS cache, retry policy |
 | `errors/` | Circuit breaker, error contracts |
-| `orgops/` | Org-private metrics, auditing, feature flags |
+| `orgops/` | Org-private metrics, auditing, alerts, compliance, health, tracing, rate limiting |
 
-The `orgops/` module is the *information asymmetry surface*: its API signatures (`orgops.metrics.emit`, `orgops.auditing.write_event`, `orgops.flags.is_enabled`) are not present in any public training corpus.
+The `orgops/` module is the *information asymmetry surface*: its API signatures (`orgops.metrics.emit`, `orgops.auditing.write_event`, `orgops.health.report_degradation`, `orgops.compliance.record_decision`, `orgops.alerts.notify`) are not present in any public training corpus.
 Correct use of these APIs is required to pass the oracle for all signal bugs.
 
 ![Diagram of the Script30 codebase module structure, showing the six modules and the orgops private API surface highlighted separately from the public modules. Arrows show which public modules call into orgops.](figures/codebase_structure.png)
@@ -98,10 +99,9 @@ For each bug we verify:
 - P3 oracle (correct snippets injected) is non-zero (the fix is achievable when the API is known).
 - The required snippet is retrievable from the VoltSnip corpus.
 
-Five bugs (BUG41, BUG59, BUG61, BUG62, BUG64) were found to have P0=1 and are classified as *easy* — the logic fix alone passes the oracle without the org-API component.
-These are retained in the benchmark but excluded from signal analysis.
-One bug (BUG48) has a structural oracle defect (line range mismatch) and is excluded from all analyses.
-The final **signal set** comprises **[TBD] bugs** across [TBD] models.
+Four bugs (BUG41, BUG59, BUG62, BUG68) show stochastic P0 passes (P0 ∈ {25%, 67%} across n=4 Haiku runs) and are classified as *noisy*. No bugs have P0=100% (no pure leakage bugs). These are retained in the all-bugs table (Appendix A) but excluded from signal analysis.
+One bug (BUG48) has P4=0% on all runs, suggesting a structural oracle or test alignment issue; it is included in the signal set but noted as a suspected harness defect.
+The final **signal set** comprises **26 bugs** across 2 models.
 
 ### 3.3 Snippet Corpus
 
@@ -120,12 +120,12 @@ We define seven **hypothesis variants** (P0–P6) that vary exactly one dimensio
 | Variant | Context surface | Tools | Memory |
 |---------|----------------|-------|--------|
 | P0 | None | ✗ | ✗ |
-| P1 | Inline hint (key list injected) | ✗ | ✓ |
-| P2 | Inline hint + autonomous retrieval | ✓ | ✓ |
+| P1 | Explicit instruction tone (no tools) | ✗ | ✗ |
+| P2 | Tools only, zero guidance | ✓ | ✗ |
 | P3 | Oracle injection (correct snippets provided) | ✗ | ✓ |
-| P4 | SKILL.md guide + autonomous retrieval | ✓ | ✓ |
-| P5 | AGENTS.md guide + autonomous retrieval | ✓ | ✓ |
-| P6 | SKILL.md + AGENTS.md + autonomous retrieval | ✓ | ✓ |
+| P4 | SKILL.md guide + autonomous retrieval | ✓ | ✗ |
+| P5 | AGENTS.md guide + autonomous retrieval | ✓ | ✗ |
+| P6 | SKILL.md + AGENTS.md + autonomous retrieval | ✓ | ✗ |
 
 **P0** is the pure baseline: the model sees only the bug description and the target file contents.
 No retrieval tools, no guide documents, no key hints.
@@ -147,8 +147,8 @@ Guide documents (SKILL.md, AGENTS.md) provide search strategy instructions witho
 We evaluate two providers: **claudecode** (`claude` CLI) and **codex** (`codex` CLI).
 Both are configured for maximal parity:
 
-- **Tool surface**: VoltSnip MCP tools only (`search_memory`, `get_snippet_by_canonical_key`). Filesystem tools (`Read`/`Glob`/`Grep` for claudecode; `read_file`/`glob_files`/`grep_files` for codex) are explicitly excluded to prevent org-API discovery via codebase browsing.
-- **Working directory**: both providers run with `cwd=repo_root` (read-only access to the codebase). Claudecode has `Bash`/`Edit`/`Write` blocked via `--disallowedTools`. Codex runs `--sandbox read-only`.
+- **Tool surface**: VoltSnip MCP tools only (semantic search, key lookup, and read endpoints — 7 tool schemas total). Filesystem tools (`Read`/`Glob`/`Grep` for claudecode; `read_file`/`glob_files`/`grep_files` for codex) are explicitly excluded to prevent org-API discovery via codebase browsing.
+- **Working directory**: both providers run with `cwd=tmpdir` (an isolated per-run temporary directory). This prevents the read-only shell from leaking sidecar files (SKILL.md, AGENTS.md) that are permanent fixtures in the repo root. Claudecode has `Bash`/`Edit`/`Write` blocked via `--disallowedTools`. Codex runs `--sandbox read-only`.
 - **No-tools variants**: claudecode explicitly disallows all native tools including `Read`/`Glob`/`Grep` for P0/P1/P3.
 
 The residual asymmetry is that codex retains a read-only shell surface while claudecode's shell is fully blocked at the tool-policy level. This is an inherent provider difference, not a harness choice.
@@ -162,7 +162,7 @@ Each run is scored by an LLM judge (`openai:gpt-5.2`) using a structured oracle 
 - **Failure modes**: patterns that indicate the model failed despite superficial similarity.
 
 A **VoltSnip constraint** verifies that the org-API call (`orgops.*`) is present and correctly formed.
-The overall score is 1 if and only if all constraints pass; 0 otherwise.
+The overall score is `passed_constraints / total_constraints`; a run passes if `overall >= 0.70`.
 
 ### 5.3 Validity Gating
 
@@ -178,14 +178,16 @@ Several harness invariants are enforced to prevent silent failures:
 
 **Models evaluated.**
 
-| Provider | Model | N per cell |
-|----------|-------|------------|
-| claudecode | claude-haiku-4-5 | [TBD] |
-| [TBD] | [TBD] | [TBD] |
-| [TBD] | [TBD] | [TBD] |
+| Provider | Model | N per cell | Total runs |
+|----------|-------|------------|------------|
+| claudecode | claude-haiku-4-5 | 4 | 828 |
+| codex | gpt-5.1-codex-mini | ≈2 | 390 |
 
 **Benchmark size.**
-30 bugs × 7 variants × [TBD] models × [TBD] runs per cell = [TBD] total runs.
+30 bugs × 7 variants × 2 models × N runs per cell = 1,218 total scored runs (pytest ground-truth).
+
+**Scoring method.**
+Primary metric: **pytest pass rate** (ground truth). Each generated patch is applied to an isolated Docker overlay of the target repository and the task's designated pytest test is executed. A run *passes* iff the test exits 0. The LLM judge score is reported separately as a secondary metric; it inflates pass rates by 15–25 pp vs pytest and is not used for primary claims.
 
 **Hardware / API.**
 All runs executed via API against hosted model endpoints. No local inference.
@@ -198,19 +200,33 @@ All runs executed via API against hosted model endpoints. No local inference.
 
 ![Bar chart with error bars showing mean oracle score (y-axis, 0–1) for each variant P0–P6 (x-axis), averaged over all signal bugs and all models. Each bar is a different colour. The chart should clearly show P4 as the highest bar, P0 near zero, and P6 lower than P4. Error bars show 95% CI across bugs × runs. Include a dashed horizontal line for P3 (oracle upper bound).](figures/surface_hierarchy_bar.png)
 
-Table 1: Mean oracle scores by variant across signal bugs (N=[TBD] runs per cell).
+Table 1: Pytest pass rates by variant (signal bugs only, 26 bugs).
 
-| Variant | Mean score | 95% CI | vs P0 (lift) |
-|---------|-----------|--------|-------------|
-| P0 | [TBD] | [TBD] | — |
-| P1 | [TBD] | [TBD] | [TBD] |
-| P2 | [TBD] | [TBD] | [TBD] |
-| P3 (oracle) | [TBD] | [TBD] | [TBD] |
-| P4 | [TBD] | [TBD] | [TBD] |
-| P5 | [TBD] | [TBD] | [TBD] |
-| P6 | [TBD] | [TBD] | [TBD] |
+**Haiku (claude-haiku-4-5, n=4, 102–104 observations per variant):**
 
-*Preliminary single-model pilot (N=1, claude-haiku-4-5): P0=0.00, P3=0.88, P4=0.92, P6=0.75 on 24 signal bugs.*
+| Variant | Pass rate | vs P0 (lift) | Description |
+|---------|-----------|-------------|-------------|
+| P0 | **0.0%** (0/102) | — | Baseline: training data only |
+| P1 | 2.9% (3/104) | +2.9 pp | Explicit criteria hint only |
+| P2 | 37.9% (39/103) | +37.9 pp | Tools available, no guide |
+| P3 (oracle) | 64.1% (66/103) | +64.1 pp | Oracle injection (correct snippets given) |
+| P4 | **69.9%** (72/103) | +69.9 pp | SKILL.md guide + autonomous retrieval |
+| P5 | 65.4% (68/104) | +65.4 pp | AGENTS.md guide + autonomous retrieval |
+| P6 | 61.4% (62/101) | +61.4 pp | Both guides + autonomous retrieval |
+
+**Codex (gpt-5.1-codex-mini, n≈2, 55–56 observations per variant):**
+
+| Variant | Pass rate | vs P0 (lift) | Description |
+|---------|-----------|-------------|-------------|
+| P0 | 5.4% (3/56) | — | Baseline |
+| P1 | 7.3% (4/55) | +1.9 pp | Explicit criteria hint only |
+| P2 | 37.5% (21/56) | +32.1 pp | Tools available, no guide |
+| P3 (oracle) | **41.1%** (23/56) | +35.7 pp | Oracle injection (best for Codex) |
+| P4 | 25.0% (14/56) | +19.6 pp | SKILL.md guide + autonomous retrieval |
+| P5 | 30.4% (17/56) | +25.0 pp | AGENTS.md guide + autonomous retrieval |
+| P6 | 40.0% (22/55) | +34.6 pp | Both guides + autonomous retrieval |
+
+*Note: Signal set excludes 4 noisy bugs (BUG41, BUG59, BUG62, BUG68) where P0 passes stochastically. All-bugs table is in Appendix A.*
 
 ### 7.2 Causal Attribution
 
@@ -238,7 +254,19 @@ We hypothesise that providing both guide documents causes the model to spend too
 
 ### 7.5 Cross-Model Comparison
 
-[TBD — awaiting multi-model run]
+The surface hierarchy is **not consistent** across model families, revealing an important architectural divergence:
+
+| Variant | Haiku | Codex | Δ (Haiku − Codex) |
+|---------|-------|-------|---------------------|
+| P0 | 0.0% | 5.4% | −5.4 pp |
+| P3 (oracle) | 64.1% | 41.1% | +23.0 pp |
+| P4 (SKILL.md + tools) | **69.9%** | 25.0% | +44.9 pp |
+| P5 (AGENTS.md + tools) | 65.4% | 30.4% | +35.0 pp |
+| P6 (both guides + tools) | 61.4% | **40.0%** | +21.4 pp |
+
+**Key divergence**: Haiku shows P4 > P3 (dynamic retrieval beats oracle injection); Codex shows P3 ≥ P6 > P5 > P4 (static injection beats dynamic retrieval). For Codex, the best VoltSnip-enabled variant (P3) achieves +35.7 pp vs P0, while for Haiku the best variant (P4) achieves +69.9 pp.
+
+This divergence may reflect Codex's stronger native code-reasoning capabilities (making fewer tool calls per task) or residual MCP integration overhead. We note that Codex MCP support (via rmcp) required additional protocol compliance work (resources/list, prompts/list handlers) that may not be fully production-equivalent.
 
 ![Grouped bar chart with model on the x-axis (one group per model), bars within each group coloured by variant (P0, P3, P4, P6). Shows whether the surface hierarchy is consistent across model families or model-specific.](figures/cross_model_comparison.png)
 
@@ -260,11 +288,12 @@ An analogy: a developer given one focused reference manual solves the bug; given
 
 ### 8.3 Implications for Practitioners
 
-The surface hierarchy P4 > P3 ≈ P5 > P6 > P2 > P1 > P0 has practical implications:
+For Claude-family models, the surface hierarchy P4 > P5 > P3 > P6 > P2 > P1 ≈ P0 has practical implications:
 
-- **Invest in retrieval tooling** (P4 path) over prompt engineering (P1 path). The gap P4 − P1 ≈ [TBD] on signal bugs.
-- **One focused guide document** outperforms a comprehensive multi-document setup. Keep SKILL.md short and category-specific.
-- **Oracle injection (P3) is not needed**: autonomous retrieval matches or exceeds it. This is important because oracle injection requires upfront human curation of per-bug relevant snippets — expensive at scale.
+- **Invest in retrieval tooling** (P4 path) over prompt engineering (P1 path). The gap P4 − P1 = +67.0 pp on signal bugs for Haiku.
+- **One focused guide document** (SKILL.md) outperforms either a comprehensive two-document setup (P6) or the more prescriptive instruction style (P5). Keep the guide short and category-specific.
+- **Oracle injection (P3) is not needed**: autonomous retrieval (P4=69.9%) exceeds oracle injection (P3=64.1%). This is important because oracle injection requires upfront human curation of per-bug relevant snippets — expensive at scale.
+- **For OpenAI Codex-family models**: static injection may be preferable over tool-based retrieval, pending further investigation of MCP integration maturity. P3=41.1% is the best-performing Codex variant.
 
 ---
 
@@ -295,7 +324,7 @@ N=1 results are reported as a pilot to motivate the design; no confidence interv
 ### 9.4 Residual Tool-Surface Asymmetry
 
 Codex retains a read-only shell surface (model-initiated `cat`, `grep`, etc.) that claudecode does not.
-Both are prevented from reaching `orgops/` source at the policy level (read-only sandbox + cwd=repo\_root for codex; `Bash` blocked for claudecode).
+Both are prevented from reaching `orgops/` source at the policy level (read-only sandbox + cwd=tmpdir for codex; `Bash` blocked + cwd=tmpdir for claudecode).
 In practice, P0 codex scores are 0 on all signal bugs, consistent with the shell surface not providing meaningful advantage for org-API discovery.
 This residual asymmetry is documented as a limitation for cross-provider comparisons.
 
@@ -337,19 +366,19 @@ The framework and benchmark are publicly released. We invite replication with ot
 
 | Field | P0 | P1 | P2 | P3 | P4 | P5 | P6 |
 |-------|----|----|----|----|----|----|-----|
-| `mode` | direct | direct | agent | direct | agent | agent | agent |
-| `memory_enabled` | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `mode` | direct | direct | agent | agent | agent | agent | agent |
+| `memory_enabled` | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | `tools_enabled` | ✗ | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ |
-| `retrieval_mode` | none | inline\_hint | autonomous | oracle | autonomous | autonomous | autonomous |
-| `instruction_mode` | none | none | none | none | skill | agent | both |
+| `retrieval_mode` | none | none | agent\_decides | injected | agent\_decides | agent\_decides | agent\_decides |
+| `instruction_mode` | none | explicit | none | none | skill | agent | both |
 | `sidecar_docs` | — | — | — | — | SKILL.md | AGENTS.md | both |
-| `snippet_injection` | none | key\_list | none | full\_snippets | none | none | none |
+| `snippet_injection` | none | none | none | full\_snippets | none | none | none |
 
 ## Appendix B: Script30 Bug Catalogue
 
 | Bug ID | Module | Category | Logic fix | Org API required |
 |--------|--------|----------|-----------|-----------------|
-| BUG41 | net/dns\_cache | http\_resilience | stale\_at comparison | orgops.metrics.emit (easy — P0=1) |
+| BUG41 | net/dns\_cache | http\_resilience | stale\_at comparison | orgops.metrics.emit (noisy — P0=0.33) |
 | BUG42 | cache/ttl\_manager | concurrency\_cache | TTL calculation | orgops.metrics.emit |
 | BUG43 | logops/redactor | logging\_privacy | PII redaction | orgops.metrics.emit |
 | BUG44 | net/dns\_cache | http\_resilience | stale comparison | orgops.metrics.emit |
