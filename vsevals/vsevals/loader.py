@@ -8,9 +8,12 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
+
+LOGGER = logging.getLogger(__name__)
 
 from vsevals.models import SuiteConfig
 
@@ -124,13 +127,20 @@ def _resolve_default_repo_root(raw: dict, suite_path: Path) -> str | None:
 def _norm_path(raw: str, suite_path: Path, base: Path) -> str:
     candidate = Path(raw).expanduser()
     if candidate.is_absolute():
-        return str(candidate.resolve())
+        resolved = candidate.resolve()
+        if not resolved.exists():
+            LOGGER.warning("default_repo_root does not exist: %s", resolved)
+        return str(resolved)
     from_base = (base / candidate).resolve()
     if from_base.exists():
         return str(from_base)
     git_root = _git_root(suite_path.parent)
     if git_root:
-        return str((git_root / candidate).resolve())
+        resolved = (git_root / candidate).resolve()
+        if not resolved.exists():
+            LOGGER.warning("default_repo_root does not exist: %s", resolved)
+        return str(resolved)
+    LOGGER.warning("default_repo_root does not exist: %s", from_base)
     return str(from_base)
 
 

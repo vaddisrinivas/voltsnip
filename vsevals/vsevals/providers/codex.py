@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shlex
 import shutil
 import subprocess
@@ -283,6 +284,8 @@ def _build_codex_invocation(
     repo_root: str | None = None,
 ) -> CodexInvocation:
     """Assemble cmd and temp resources; nothing is executed here."""
+    if not shutil.which("codex"):
+        raise RuntimeError("codex binary not found on PATH — install the OpenAI Codex CLI")
     # Tool policy for codex (codex has no --allowedTools / --disallowedTools flags
     # like claudecode; control is via sandbox mode and MCP server config):
     #
@@ -550,6 +553,23 @@ def call_codex(
             shutil.rmtree(_tmp_run_dir, ignore_errors=True)
 
     result_parsed, fallback = _parse_payload(parsed.raw_text, cfg.structured_output)
+
+    # Fragment injection guard: if codex returned a body without the `def` header, prepend it.
+    # Codex sometimes emits only the function body, which causes IndentationError when spliced
+    # into the target file at the specified line range.
+    _code = result_parsed.get("code", "") if isinstance(result_parsed, dict) else ""
+    _stripped = _code.strip()
+    if _stripped and not _stripped.splitlines()[0].lstrip().startswith(("def ", "class ", "async def ")):
+        _sig_match = re.search(
+            r'^((?:async\s+)?def\s+\w+[^:]+:|class\s+\w+[^:]+:)',
+            combined_prompt, re.MULTILINE,
+        )
+        if _sig_match:
+            _sig = _sig_match.group(1)
+            LOGGER.warning("codex fragment injection detected — prepending signature: %r", _sig)
+            result_parsed = dict(result_parsed)
+            result_parsed["code"] = _sig + "\n" + _stripped
+
     return LLMResult(
         raw_output=parsed.raw_text,
         parsed_output=result_parsed,

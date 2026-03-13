@@ -97,9 +97,12 @@ def _merge_constraint_verdicts(
             continue
         votes = [item["verdict"] for item in items]
         if constraints[i].expected:
-            merged_verdict = any(votes)   # LENIENT
+            # LENIENT: any True → True. On a tie (all False), defaults to False.
+            merged_verdict = any(votes)
         else:
-            merged_verdict = all(votes)   # STRICT
+            # STRICT: all True → True. On a tie (mixed), defaults to False —
+            # i.e. we require unanimous agreement that the failure is absent.
+            merged_verdict = all(votes)
         # Pick first reason from a judge that agrees with the merged verdict
         reason = next(
             (item["reason"] for item in items if item["verdict"] == merged_verdict and item.get("reason")),

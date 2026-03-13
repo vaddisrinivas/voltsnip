@@ -207,9 +207,14 @@ def apply_line_range_rewrite(
         Full file content to write to the patched file.
     """
     if line_start is not None and line_end is not None and original_path.exists():
-        existing_lines = original_path.read_text(encoding="utf-8").splitlines(keepends=True)
-        before = existing_lines[:line_start - 1]
-        after = existing_lines[line_end:]  # line_end is inclusive → skip it
+        original_lines = original_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        if line_end > len(original_lines):
+            LOGGER.warning(
+                "line_end=%d exceeds file length=%d in %s — trailing content may be truncated",
+                line_end, len(original_lines), original_path,
+            )
+        before = original_lines[:line_start - 1]
+        after = original_lines[line_end:]  # line_end is inclusive → skip it
         new_block = code if code.endswith("\n") else code + "\n"
         return "".join(before) + new_block + "".join(after)
 

@@ -30,7 +30,7 @@ def read_file(
 ) -> str:
     root = repo_root.resolve()
     p = (root / path).resolve()
-    if not str(p).startswith(str(root)):
+    if not p.is_relative_to(root):
         raise PermissionError(f"path outside repo root: {path}")
     if not p.exists():
         raise FileNotFoundError(f"not found: {path}")
@@ -54,8 +54,8 @@ def grep_files(
     glob_pat: str = "**/*",
 ) -> str:
     root = repo_root.resolve()
-    search_dir = root / path
-    if not str(search_dir.resolve()).startswith(str(root)):
+    search_dir = (root / path).resolve()
+    if not search_dir.is_relative_to(root):
         raise PermissionError("path outside repo root")
     try:
         rx = re.compile(pattern)

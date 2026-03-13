@@ -24,6 +24,7 @@ The script uses the sync psycopg2 driver directly (no async, no ORM).
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 try:
@@ -32,7 +33,10 @@ except ImportError:
     print("psycopg2 not installed. Run: uv pip install psycopg2-binary")
     sys.exit(1)
 
-DEFAULT_DB_URL = "postgresql://user:password@127.0.0.1:5432/voltsnip"
+DEFAULT_DB_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://user:password@127.0.0.1:5432/voltsnip",
+)
 
 
 def get_conn(db_url: str):

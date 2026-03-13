@@ -504,6 +504,18 @@ def main() -> None:
         datefmt="%H:%M:%S",
     )
 
+    # Early API key check: fail fast if the judge model's provider has no key.
+    if args.judge_model:
+        judge_model = args.judge_model
+        needs_openai = "openai" in judge_model.lower()
+        needs_anthropic = "anthropic" in judge_model.lower()
+        if needs_openai and not os.environ.get("OPENAI_API_KEY"):
+            print("ERROR: OPENAI_API_KEY not set but judge model requires OpenAI.", file=sys.stderr)
+            sys.exit(1)
+        if needs_anthropic and not os.environ.get("ANTHROPIC_API_KEY"):
+            print("ERROR: ANTHROPIC_API_KEY not set but judge model requires Anthropic.", file=sys.stderr)
+            sys.exit(1)
+
     matrix_dir = Path(args.matrix_dir)
 
     # Compute output suffix for separate-file mode.

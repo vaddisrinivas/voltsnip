@@ -83,7 +83,7 @@ def main() -> None:
 
     if args.debugpy:
         import debugpy  # pip install debugpy
-        debugpy.listen(("0.0.0.0", args.debugpy_port))
+        debugpy.listen(("127.0.0.1", args.debugpy_port))
         print(f"⏳  debugpy listening on port {args.debugpy_port} — attach your debugger now…", flush=True)
         debugpy.wait_for_client()
         print("✅  debugpy client attached, continuing.", flush=True)

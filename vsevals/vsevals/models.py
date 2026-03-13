@@ -22,10 +22,13 @@ Scoring:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+LOGGER = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +553,7 @@ _PRICING: dict[str, tuple[float, float]] = {
 def compute_cost(model_id: str, prompt_tokens: int, completion_tokens: int, cached_tokens: int = 0) -> float | None:
     pricing = _PRICING.get(model_id)
     if pricing is None:
+        LOGGER.warning("No pricing entry for model %r — cost will be None", model_id)
         return None
     in_rate, out_rate = pricing
 
@@ -596,7 +600,13 @@ def parse_model(model_name: str) -> tuple[str, str]:
         "openai": "openai", "anthropic": "anthropic",
         "claudecode": "claudecode", "codex": "codex", "mock": "mock",
     }.get(provider.strip().lower(), provider.strip().lower())
-    return norm, model_id.strip()
+    model_id_stripped = model_id.strip()
+    if not model_id_stripped:
+        raise ValueError(
+            f"Invalid model name {model_name!r}: model_id portion is empty. "
+            "Expected format: 'provider:model_id' or just 'model_id'."
+        )
+    return norm, model_id_stripped
 
 def resolve_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> str | None:
     import os

@@ -50,8 +50,8 @@ class VoltSnipClient:
                 c.get(f"{self.base_url}/health").raise_for_status()
             LOGGER.debug("voltsnip preflight ok base_url=%s", self.base_url)
             return True
-        except Exception:
-            LOGGER.debug("voltsnip preflight failed base_url=%s", self.base_url, exc_info=True)
+        except Exception as exc:
+            LOGGER.debug("voltsnip preflight failed base_url=%s exc=%s", self.base_url, exc, exc_info=True)
             return False
 
     def get_by_canonical_keys(
@@ -127,7 +127,7 @@ class VoltSnipClient:
         for attempt in range(1, self.retry_attempts + 1):
             try:
                 return fn()
-            except Exception as exc:
+            except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as exc:
                 self.error_count_total += 1
                 if _is_rate_limit_error(exc):
                     self.rate_limit_error_count += 1
@@ -140,6 +140,10 @@ class VoltSnipClient:
                 LOGGER.warning("voltsnip retry op=%s attempt=%d/%d delay=%.2fs err=%s", label, attempt, self.retry_attempts, delay, exc)
                 if delay > 0:
                     time.sleep(delay)
+            except Exception as exc:
+                # Unexpected error — log and re-raise immediately without retry
+                LOGGER.error("voltsnip unexpected error op=%s attempt=%d err=%s", label, attempt, exc, exc_info=True)
+                raise
         raise RuntimeError("unreachable")  # pragma: no cover
 
 

@@ -86,6 +86,7 @@ def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int 
         try:
             evt = json.loads(line)
         except Exception:
+            LOGGER.debug("claudecode stream: dropped non-JSON line: %r", line[:200])
             continue
 
         etype = evt.get("type")

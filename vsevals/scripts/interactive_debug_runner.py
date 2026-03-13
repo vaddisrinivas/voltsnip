@@ -517,8 +517,8 @@ def _summarize_run(ui: UI, run_result: Any, trace_state: TraceState) -> None:
 def _enable_debugpy(ui: UI, port: int, wait_for_client: bool) -> None:
     import debugpy
 
-    debugpy.listen(("0.0.0.0", port))
-    ui.ok(f"debugpy listening on 0.0.0.0:{port}")
+    debugpy.listen(("127.0.0.1", port))
+    ui.ok(f"debugpy listening on 127.0.0.1:{port}")
     if wait_for_client:
         ui.info("Waiting for debugger client to attach...")
         debugpy.wait_for_client()

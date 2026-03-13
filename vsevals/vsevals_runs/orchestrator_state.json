@@ -1,0 +1,103 @@
+{
+  "_schema": "orchestrator/v1",
+  "_updated": null,
+  "_compact_summary": null,
+
+  "experiment": {
+    "name": "script30-full-matrix",
+    "description": "30-bug × 9-variant × N-model evaluation of VoltSnip RAG-assisted code repair",
+    "paper": "vsevals/paper/PAPER_v2.md",
+    "suite": "vsevals/suites/script30.yaml"
+  },
+
+  "bugs": {
+    "all": ["BUG41","BUG42","BUG43","BUG44","BUG45","BUG46",
+            "BUG47","BUG48","BUG49","BUG50","BUG51","BUG52",
+            "BUG53","BUG54","BUG55","BUG56","BUG57","BUG58",
+            "BUG59","BUG60","BUG61","BUG62","BUG63","BUG64",
+            "BUG65","BUG66","BUG67","BUG68","BUG69","BUG70"],
+    "categories": {
+      "http_resilience":   ["BUG41","BUG42","BUG43","BUG44","BUG45","BUG46"],
+      "db_patterns":       ["BUG47","BUG48","BUG49","BUG50","BUG51","BUG52"],
+      "concurrency_cache": ["BUG53","BUG54","BUG55","BUG56","BUG57","BUG58"],
+      "error_contracts":   ["BUG59","BUG60","BUG61","BUG62","BUG63","BUG64"],
+      "logging_privacy":   ["BUG65","BUG66","BUG67","BUG68","BUG69","BUG70"]
+    },
+    "validated": ["BUG55","BUG59"],
+    "invalid": ["BUG48"],
+    "invalid_reasons": {
+      "BUG48": "expected_output leakage + test structure ambiguity (see §9.6)"
+    },
+    "pending_validation": ["BUG41","BUG42","BUG43","BUG44","BUG45","BUG46",
+                           "BUG47","BUG49","BUG50","BUG51","BUG52",
+                           "BUG53","BUG54","BUG56","BUG57","BUG58",
+                           "BUG60","BUG61","BUG62","BUG63","BUG64",
+                           "BUG65","BUG66","BUG67","BUG68","BUG69","BUG70"]
+  },
+
+  "batches": {
+    "testbatch0": {
+      "bugs": ["BUG55"],
+      "matrix_dir": "vsevals_runs/testbatch0/matrix_20260303T042816331269Z",
+      "status": "complete",
+      "pytest_passed_cells": 3,
+      "total_cells": 18,
+      "passing_cells": ["P5/haiku","P6/haiku","P8/haiku"],
+      "rescored": false,
+      "paper_section": "§7.1",
+      "notes": "First pilot. P4/P8 claudecode had 0 tool calls due to --plugin-dir bug."
+    },
+    "testbatch1": {
+      "bugs": ["BUG48"],
+      "matrix_dir": "vsevals_runs/testbatch1/matrix_20260313T143940894878Z",
+      "status": "complete",
+      "pytest_passed_cells": 2,
+      "total_cells": 18,
+      "passing_cells": ["P4/codex","P7/codex"],
+      "rescored": false,
+      "paper_section": "§7.5",
+      "notes": "BUG48 is INVALID — expected_output leakage + test ambiguity. Results unreliable."
+    },
+    "testbatch2": {
+      "bugs": ["BUG59"],
+      "matrix_dir": "vsevals_runs/testbatch2/matrix_20260313T155518271339Z",
+      "status": "complete",
+      "pytest_passed_cells": 4,
+      "total_cells": 18,
+      "passing_cells": ["P2/haiku","P2/codex","P6/haiku","P8/haiku"],
+      "rescored": false,
+      "paper_section": "§7.8",
+      "notes": "First run with corrected --plugin-dir (tmpdir/skills/). Clean results."
+    }
+  },
+
+  "next_actions": [
+    "validate BUG60-BUG64 (error_contracts category) before running",
+    "run testbatch3 with BUG60 or next clean error_contracts bug",
+    "rescore testbatch0/1/2 with API keys from terminal",
+    "update paper §7.8 with BUG59 results"
+  ],
+
+  "infrastructure": {
+    "voltsnip_url": "http://localhost:8000",
+    "snippets_seeded": true,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "plugin_dir_fix": true,
+    "models_active": ["claudecode:claude-haiku-4-5", "codex:gpt-5.2-codex"]
+  },
+
+  "findings": {
+    "claudecode_passes": ["BUG55/P5","BUG55/P6","BUG55/P8","BUG59/P2","BUG59/P6","BUG59/P8"],
+    "codex_passes": ["BUG48/P4","BUG48/P7","BUG59/P2"],
+    "codex_failures": {
+      "fragment_injection": "P0-P2 direct mode: output missing def header → IndentationError",
+      "search_memory_empty": "P3-P8: search_memory returns empty despite snippets existing"
+    },
+    "confirmed_hypotheses": [
+      "P0/P1 never pass — org-API unguessable from training data",
+      "P2 most reliable signal delivery (verbatim injection)",
+      "claudecode wins on metrics tasks (BUG55, BUG59)",
+      "codex wins on audit tasks (BUG48 — but task invalid)"
+    ]
+  }
+}

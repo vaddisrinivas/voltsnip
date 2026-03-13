@@ -37,6 +37,11 @@ def write_summary(matrix_dir: Path, results: list[dict], suite_path: str, models
     _write_matrix_report(matrix_dir, results, summary)
     LOGGER.debug("summary written to %s/matrix_summary.json", matrix_dir)
 
+def _escape_cell(value: str) -> str:
+    """Escape pipe characters in markdown table cell values."""
+    return str(value).replace("|", "\\|")
+
+
 def _write_matrix_report(matrix_dir: Path, results: list[dict], summary: dict) -> None:
     """Write a markdown table report identical in structure to the old harness."""
     ok = [r for r in results if r.get("status") == "ok"]
@@ -65,19 +70,19 @@ def _write_matrix_report(matrix_dir: Path, results: list[dict], summary: dict) -
         coverage = r.get("required_snippet_coverage", "")
         cov_str = f"{safe_float(coverage):.2f}" if coverage not in ("", None) else "-"
         lines.append(
-            f"| {r.get('task_id','')} "
-            f"| {r.get('variant_id','')} "
-            f"| `{r.get('model_name','')}` "
-            f"| {r.get('status','')} "
-            f"| {score_str} "
-            f"| {r.get('memory_signal', '-')} "
-            f"| {cov_str} "
-            f"| {r.get('snippet_count', 0)} "
-            f"| {r.get('tool_call_count', 0)} "
-            f"| {r.get('latency_ms', '-')} "
-            f"| {r.get('prompt_tokens', '-')} "
-            f"| {r.get('completion_tokens', '-')} "
-            f"| {pytest_str} |"
+            f"| {_escape_cell(r.get('task_id', ''))} "
+            f"| {_escape_cell(r.get('variant_id', ''))} "
+            f"| `{_escape_cell(r.get('model_name', ''))}` "
+            f"| {_escape_cell(r.get('status', ''))} "
+            f"| {_escape_cell(score_str)} "
+            f"| {_escape_cell(r.get('memory_signal', '-'))} "
+            f"| {_escape_cell(cov_str)} "
+            f"| {_escape_cell(str(r.get('snippet_count', 0)))} "
+            f"| {_escape_cell(str(r.get('tool_call_count', 0)))} "
+            f"| {_escape_cell(str(r.get('latency_ms', '-')))} "
+            f"| {_escape_cell(str(r.get('prompt_tokens', '-')))} "
+            f"| {_escape_cell(str(r.get('completion_tokens', '-')))} "
+            f"| {_escape_cell(pytest_str)} |"
         )
 
     (matrix_dir / "matrix_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

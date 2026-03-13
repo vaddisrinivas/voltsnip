@@ -149,6 +149,13 @@ def run_pytest_in_docker(
     try:
         proc = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=timeout)
         duration_ms = int((time.perf_counter() - t0) * 1000)
+        # Exit code meanings:
+        #   0 — all tests passed
+        #   1 — tests ran but some failed
+        #   2 — pytest interrupted (e.g. KeyboardInterrupt)
+        #   3 — internal pytest error
+        #   4 — command line usage error
+        #   5 — no tests were collected (not a failure — check test path/filter)
         passed = proc.returncode == 0
         LOGGER.info(
             "docker exec done  returncode=%d  passed=%s  duration_ms=%d",

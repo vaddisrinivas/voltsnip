@@ -722,7 +722,7 @@ def _load_dotenv_keys() -> dict[str, str]:
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.split("=", 1)
-            key, value = key.strip(), value.strip()
+            key, value = key.strip(), value.strip().strip("\"'")
             if key in env_map and value:
                 result[env_map[key]] = value
         break
