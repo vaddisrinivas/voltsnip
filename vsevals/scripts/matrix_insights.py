@@ -104,8 +104,8 @@ def _variant_flags(rows: list[dict], variants: list[str]) -> dict[str, dict[str,
         tvals = [r["_v_tools"] for r in vr if r.get("_v_tools") is not None]
         mvals = [r["_v_memory"] for r in vr if r.get("_v_memory") is not None]
 
-        tools_enabled = bool(sum(1 for x in tvals if x) >= (len(tvals) / 2.0)) if tvals else (v in {"P2", "P4", "P5", "P6"})
-        memory_enabled = bool(sum(1 for x in mvals if x) >= (len(mvals) / 2.0)) if mvals else (v == "P3")
+        tools_enabled = bool(sum(1 for x in tvals if x) >= (len(tvals) / 2.0)) if tvals else (v in {"P3", "P4", "P5", "P6", "P7", "P8"})
+        memory_enabled = bool(sum(1 for x in mvals if x) >= (len(mvals) / 2.0)) if mvals else (v == "P2")
 
         out[v] = {
             "tools_enabled": tools_enabled,
@@ -152,7 +152,7 @@ def build_insights(rows: list[dict]) -> dict:
     fail_r = [r for r in rows if not r.get("_fp")]
 
     baseline_variant = "P0" if "P0" in variants else (notool_variants[0] if notool_variants else variants[0])
-    primary_tool_variant = "P2" if "P2" in tool_variants else (tool_variants[0] if tool_variants else None)
+    primary_tool_variant = "P3" if "P3" in tool_variants else (tool_variants[0] if tool_variants else None)
     best_tool_variant = max(tool_variants, key=lambda v: fp(vmap[v])) if tool_variants else None
     best_notool_variant = max(notool_variants, key=lambda v: fp(vmap[v])) if notool_variants else None
 

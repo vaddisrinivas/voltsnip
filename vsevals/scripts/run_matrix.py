@@ -43,6 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Run a matrix of (task x variant x model) evaluations.")
     p.add_argument("--suite", required=True)
     p.add_argument("--models", default=None)
+    p.add_argument("--effort", dest="reasoning_effort", default=None,
+                   choices=["low", "medium", "high", "max"],
+                   help="Reasoning effort for reasoning-capable models. "
+                        "claudecode: --effort <level>. "
+                        "codex: -c model_reasoning_effort=<level>. "
+                        "openai/anthropic: reasoning_effort API param ('max' maps to 'high' for API providers).")
     p.add_argument("--variants", default=None)
     p.add_argument("--priority-variants", default=None)
     p.add_argument("--tasks", default=None)
@@ -67,8 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--resume", default=None)
     p.add_argument("--instruction-mode", default=None, choices=["none", "explicit"],
                    help="Override instruction_mode on ALL variants (use 'explicit' to run the full explicit-instruction pass).")
-    p.add_argument("--reasoning-effort", default=None, choices=["low", "medium", "high"],
-                   help="Reasoning effort for reasoning-capable models. openai: maps to reasoning_effort API param. codex: maps to -c model_reasoning_effort. Ignored by claude/anthropic providers.")
+
     p.add_argument("--debugpy", action="store_true", default=False, help="Wait for a debugpy client before starting.")
     p.add_argument("--debugpy-port", type=int, default=5678, metavar="PORT", help="Port for debugpy to listen on (default: 5678).")
     return p

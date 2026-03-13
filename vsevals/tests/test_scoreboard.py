@@ -79,7 +79,7 @@ def test_print_scoreboard_single_result(capsys):
     [
         (
             ["openai:gpt-5-mini", "anthropic:claude-haiku-4-5"],
-            ["P0", "P3"],
+            ["P0", "P2"],
         ),
         (
             ["openai:gpt-5-mini", "anthropic:claude-haiku-4-5", "openai:gpt-5"],
@@ -113,7 +113,7 @@ def test_print_scoreboard_with_errors(capsys):
     """Results with error status should show 'err' in the cell."""
     results = [
         _make_result(status="error", overall_score=""),
-        _make_result(variant_id="P3", status="ok", overall_score=0.75),
+        _make_result(variant_id="P2", status="ok", overall_score=0.75),
     ]
     print_scoreboard(results, total_planned=4)
     captured = capsys.readouterr()

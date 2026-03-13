@@ -44,9 +44,9 @@ CODEX_DIRS = [
     "matrix_20260304T083357237819Z",  # Codex Run 3
 ]
 
-# Variants that do retrieval (P3=oracle injected, P2/P4/P5/P6=autonomous)
-RETRIEVAL_VARIANTS = {"P2", "P3", "P4", "P5", "P6"}
-ALL_VARIANTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6"]
+# Variants that do retrieval (P2=oracle injected, P3/P4/P5/P6=autonomous)
+RETRIEVAL_VARIANTS = {"P2", "P3", "P4", "P5", "P6", "P7", "P8"}
+ALL_VARIANTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]
 
 SIGNAL_BUGS = {
     "BUG42", "BUG43", "BUG44", "BUG45", "BUG46", "BUG47",
@@ -127,7 +127,7 @@ def analyze(rows: list[dict], signal_only: bool = True, label: str = ""):
 
         required_keys = parse_keys(row.get("required_snippet_keys", ""))
         hit_keys = parse_keys(row.get("required_snippet_hit_keys", ""))
-        # For P3 oracle, snippets are injected not "retrieved" in the usual sense
+        # For P2 oracle, snippets are injected not "retrieved" in the usual sense
         # but required_snippet_coverage still reflects coverage
         coverage = safe_float(row.get("required_snippet_coverage", 0.0))
 
@@ -136,7 +136,7 @@ def analyze(rows: list[dict], signal_only: bool = True, label: str = ""):
 
         # For precision: among snippets the model had access to, how many were required?
         all_retrieved = parse_keys(row.get("retrieved_snippet_keys", ""))
-        # If P3, also add injected keys (already in required_snippet_hit_keys)
+        # If P2, also add injected keys (already in required_snippet_hit_keys)
         precision = compute_precision(all_retrieved, required_keys) if all_retrieved else (
             1.0 if hit_keys else 0.0  # oracle: injected exactly what's needed
         )

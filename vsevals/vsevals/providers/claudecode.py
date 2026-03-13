@@ -351,9 +351,18 @@ def _build_claudecode_invocation(
         "ReadMcpResourceTool",
         "ListMcpResourcesTool",
     ]
+    # Plugin skill detection: if sidecar contains skills/ entries, load them via --plugin-dir
+    # and allow the Skill tool so Claude can invoke the on-demand skill content.
+    has_plugin_skills = any(
+        k.startswith("skills/") for k in (sidecar_files or {})
+    )
+
     if tool_schemas:
-        allowed_tools = ",".join(_VOLTSNIP_TOOLS)
-        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
+        skill_tools = ["Skill"] if has_plugin_skills else []
+        allowed_tools = ",".join(_VOLTSNIP_TOOLS + skill_tools)
+        # Remove Skill from disallow list when plugin skills are active — it must be in allowedTools only.
+        effective_disallowed = [t for t in _DISALLOWED_TOOLS if not (has_plugin_skills and t == "Skill")]
+        disallowed_tools = ",".join(effective_disallowed)
     else:
         # No-tools variants: explicitly block native tools too.
         allowed_tools = ""
@@ -368,6 +377,10 @@ def _build_claudecode_invocation(
         "--allowedTools", allowed_tools,
         "--disallowedTools", disallowed_tools,
     ]
+    # Reasoning effort: maps to --effort <level> (low | medium | high | max).
+    # Parity: Codex uses -c model_reasoning_effort=<value> for the same effect.
+    if cfg.reasoning_effort:
+        cmd.extend(["--effort", cfg.reasoning_effort])
 
     mcp_config_path = ""
     if tool_schemas:
@@ -386,33 +399,23 @@ def _build_claudecode_invocation(
         cmd.extend(["--mcp-config", mcp_config_path])
 
     # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
-    # Using repo_root as cwd was removed because:
-    #   (a) Read/Glob/Grep are in --disallowedTools, so file access is blocked anyway.
-    #   (b) sidecar_files in repo_root are shared across concurrent runs → contamination.
+    # Using repo_root as cwd was removed because sidecar_files written there would be
+    # shared across concurrent runs, causing contamination.
     # The prompt already injects target_file_content and context_code directly.
+    # Sidecar files (CLAUDE.md, AGENTS.md, SKILL.md) are written to this tmpdir;
+    # Claude Code auto-loads CLAUDE.md at startup when it is present in cwd.
     _ = repo_root  # kept in signature for call-site stability
     _sidecar_dir_cleanup = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")
     effective_cwd: str | None = _sidecar_dir_cleanup
     if sidecar_files:
         for filename, content in sidecar_files.items():
-            (Path(_sidecar_dir_cleanup) / filename).write_text(content, encoding="utf-8")
-    # P4/P6: if SKILL.md is present, register it as a Claude Code plugin so it is
-    # loaded as a proper skill (not just a file for tool-based reading).
-    # Requires a .claude-plugin/plugin.json manifest alongside the SKILL.md.
-    # --plugin-dir points claude at this directory for the session only.
-    _has_skill = sidecar_files and "SKILL.md" in sidecar_files
-    if _has_skill:
-        plugin_dir = Path(_sidecar_dir_cleanup) / ".claude-plugin"
-        plugin_dir.mkdir(exist_ok=True)
-        (plugin_dir / "plugin.json").write_text(
-            json.dumps({
-                "name": "voltsnip-eval",
-                "version": "1.0.0",
-                "description": "VoltSnip eval skill for bug-fix evaluation tasks",
-            }),
-            encoding="utf-8",
-        )
-        # Load the SKILL.md plugin for this session only.
+            dest = Path(_sidecar_dir_cleanup) / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
+
+    # Plugin skill injection: load skills/voltsnip-guide/SKILL.md via --plugin-dir.
+    # Must come after _sidecar_dir_cleanup is created so the path is valid.
+    if has_plugin_skills:
         cmd.extend(["--plugin-dir", _sidecar_dir_cleanup])
 
     env = os.environ.copy()

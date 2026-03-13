@@ -415,7 +415,7 @@ def validate_run(run_dir: Path) -> RunReport:  # noqa: C901 – long but intenti
             )
         if variant_tools_enabled is None:
             # Conservative fallback for modern taxonomy if metadata is absent.
-            variant_tools_enabled = variant_id in {"P2", "P4", "P5", "P6"}
+            variant_tools_enabled = variant_id in {"P3", "P4", "P5", "P6", "P7", "P8"}
         variant_tools_enabled = str(variant_tools_enabled).lower() in {"1", "true", "yes"}
 
         if variant_tools_enabled and tool_use_count == 0:

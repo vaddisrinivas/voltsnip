@@ -2,90 +2,111 @@
 
 ## 1. Intent
 
-`P3` measures the effect of oracle context injection without interactive tools.
+`P3` is the raw tool-enabled retrieval baseline.
 
-It prefetches required snippets and injects them into prompt context, giving the model high-quality memory up front while keeping tool loops disabled.
+It turns tools on with no sidecar guidance and no pre-injected snippets. The model must decide:
 
-This isolates "given the right memory, can the model apply it?".
+- whether to retrieve,
+- what query/key strategy to use,
+- how to combine retrieved context with local code inspection.
+
+This variant isolates unguided retrieval behavior.
 
 ## 2. Canonical config shape
 
 ```yaml
 id: P3
 mode: agent
-memory_enabled: true
-tools_enabled: false
-retrieval_mode: injected
+memory_enabled: false
+tools_enabled: true
+retrieval_mode: agent_decides
 instruction_mode: none
-context_surface: system
+context_surface: tools_only
 max_tool_roundtrips: 4
 include_oracle: false
 ```
 
-## 3. Critical nuance: declared mode vs runtime path
+## 3. Execution path in code
 
-Although `mode=agent`, runtime enters non-tool direct branch because `tools_enabled=false`.
+`P3` enters `_run_agent()` because `mode=agent` and `tools_enabled=true`.
 
-So operationally `P3` is single-call after prefetch + prompt injection.
+Behavior by provider:
 
-## 4. Retrieval behavior
+- `claudecode`/`codex`: subprocess tool loop; traces parsed from JSONL after run
+- `openai` tool mode: Responses API with MCP (server-side loop)
+- `anthropic` tool mode: SDK loop + Python handlers
 
-Prefetch happens before prompt build via `_retrieve_snippets()`:
+No prefetch retrieval occurs before prompt build (`memory_enabled=false`).
 
-- keys source: `task.voltsnip.required_snippets`
-- fetch API: `VoltSnipClient.get_by_canonical_keys(...)`
-- limits: task/config snippet limit + max chars
+## 4. Prompt surface behavior
 
-No semantic search is used in this stage.
+`context_surface=tools_only`:
 
-## 5. Prompt surface behavior
+- no snippet keys/context injected in user/system prompt
+- no sidecar files written
+- system receives minimal tool-availability banner only
 
-`context_surface=system` injects into system prompt:
+The model must infer retrieval strategy from task objective + available tools.
 
-- snippet bodies (`VoltSnip Context` block)
-- guiding snippet keys
-- repository policy block
+## 5. Tool surface details
 
-User prompt still contains task metadata/target metadata; memory payload sits in system side.
+Requested tool schemas are VoltSnip-focused (`search_memory`, `get_snippet_by_canonical_key` etc.).
 
-## 6. Tools and sidecars
+Provider realization differs:
 
-- tools disabled
-- no sidecars written
-- tool traces expected empty
+- ClaudeCode: native `Read/Glob/Grep` + VoltSnip MCP tools, `Bash` disallowed policy
+- Codex: local HarnessMCP tools + shell under sandbox policy
+- Anthropic: Python-executed handlers
+- OpenAI: remote MCP tool loop via Responses API
 
-## 7. Artifact expectations
+## 6. Budget semantics
 
-`P3` runs should show:
+`max_tool_roundtrips` is exposed in prompt and passed in orchestration.
 
-- `summary_metrics.snippet_count > 0` for tasks with required snippets
-- `summary_metrics.tool_call_count = 0`
-- injected snippet content visible in `prompt.system`
+Practical enforcement differs:
 
-## 8. What P3 tells you
+- anthropic handler path enforces loop bounds in-process
+- subprocess/server-side loops may not be hard-capped equivalently
 
-`P3` is an upper-bound style memory-injection control for non-tool execution.
+Interpret high tool-call counts with provider semantics in mind.
 
-Useful for:
+## 7. Retrieved snippet accounting
 
-- separating retrieval quality problems from application quality problems
-- estimating gains achievable by perfect retrieval
+Because subprocess providers execute tools outside Python handlers, harness back-fills snippets from parsed tool traces (`_merge_tool_snippets`).
 
-If `P3` still fails where `P2/P4/P5/P6` also fail, issue is likely model reasoning/application, not retrieval discovery.
+This is critical for fair memory usage metrics in `summary_metrics.snippet_count`.
 
-## 9. Common failure patterns
+## 8. Artifact expectations
 
-- model ignores injected snippet despite presence
-- line-range output contract violations
-- misapplication of partially relevant snippet
-- conflict between injected snippet and task-specific edge case
+Compared with `P0/P1`:
 
-## 10. Interpretation guidance
+- non-empty `tool_traces` expected when retrieval actually used
+- `prompt_after_tools` may differ due back-filled snippet state
+- subprocess providers should emit `subprocess.stdout.<provider>.jsonl`
 
-Compare:
+## 9. What P3 tells you
 
-- `P3 - P0`: pure value of pre-injected memory
-- `P2 - P3`: self-directed retrieval vs oracle injection tradeoff
+`P3` answers whether models can self-direct retrieval without curation.
 
-Strong `P3` + weak `P2` indicates retrieval strategy bottleneck.
+It is useful for diagnosing:
+
+- discovery/query formulation quality,
+- unnecessary tool churn,
+- failure to retrieve despite tool availability.
+
+## 10. Common failure patterns
+
+- no retrieval calls despite needing memory
+- noisy or broad semantic queries that miss canonical snippet
+- over-retrieval with low signal integration
+- tool transport/provider-specific errors (MCP connectivity, auth, parsing)
+
+## 11. Interpretation guidance
+
+Pair with:
+
+- `P0`/`P1`: net value of enabling tools at all
+- `P4`/`P5`/`P6`: value of guidance surfaces on top of tool availability
+
+If `P3` underperforms guided variants significantly, your bottleneck is likely retrieval strategy, not tool presence.
 

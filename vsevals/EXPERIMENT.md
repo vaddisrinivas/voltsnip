@@ -81,8 +81,8 @@ Seven hypothesis variants test escalating levels of context provision and tool a
 |---|---|---|---|---|---|---|
 | P0 | direct | no | no | user | 1 | Raw baseline: direct prompt, no memory, no tools |
 | P1 | direct | no | no | user | 1 | Baseline + explicit instruction tone |
-| P2 | agent | yes | no | tools_only | 4 | Tools only -- raw tool use, zero guidance |
-| P3 | agent | no | yes | system (injected) | 4 | Memory injected into system prompt (implicit) |
+| P3 | agent | yes | no | tools_only | 4 | Tools only -- raw tool use, zero guidance |
+| P2 | agent | no | yes | system (injected) | 4 | Memory injected into system prompt (implicit) |
 | P4 | agent | yes | no | skills_md_no_keys | 4 | SKILL.md surface + tools (no key hints) |
 | P5 | agent | yes | no | agents_md_no_keys | 4 | AGENTS.md surface + tools (no key hints) |
 | P6 | agent | yes | no | skills_agents_md_no_keys | 4 | Full surface: SKILL.md + AGENTS.md + tools (no key hints) |
@@ -90,15 +90,15 @@ Seven hypothesis variants test escalating levels of context provision and tool a
 ### 3.1 Variant Design Rationale
 
 - **P0 vs P1** isolates the effect of explicit instruction phrasing on baseline performance.
-- **P2** gives the model raw tool access with zero guidance about what to search for or how to use VoltSnip. This tests whether models spontaneously discover and use retrieval tools.
-- **P3** injects relevant snippet content directly into the system prompt, bypassing retrieval entirely. This tests the value of the information itself, independent of the retrieval mechanism.
+- **P3** gives the model raw tool access with zero guidance about what to search for or how to use VoltSnip. This tests whether models spontaneously discover and use retrieval tools.
+- **P2** injects relevant snippet content directly into the system prompt, bypassing retrieval entirely. This tests the value of the information itself, independent of the retrieval mechanism.
 - **P4** provides a SKILL.md sidecar that teaches the model how to use VoltSnip tools (API endpoints, search patterns) but does not reveal which specific snippet keys are relevant. The model must decide what to search for based on the task description.
 - **P5** provides an AGENTS.md sidecar (workflow-oriented guidance) instead of SKILL.md.
 - **P6** combines both SKILL.md and AGENTS.md, providing the richest guidance without pre-baking key hints.
 
 ### 3.2 No-Keys Design
 
-All tool-enabled variants (P2, P4--P6) use "no-keys" surfaces. The sidecar templates strip snippet key lists so the model must decide what to search for based on the task description alone. This prevents the experiment from trivially gifting the answer and tests genuine retrieval behavior.
+All tool-enabled variants (P3, P4--P6) use "no-keys" surfaces. The sidecar templates strip snippet key lists so the model must decide what to search for based on the task description alone. This prevents the experiment from trivially gifting the answer and tests genuine retrieval behavior.
 
 ### 3.3 Sidecar File Mechanism
 
@@ -200,7 +200,7 @@ Generated code is applied to the test codebase inside a `moltsnip-pytest` Docker
 ## 6. Hypotheses
 
 **H1 (Primary -- Hard bugs):**
-For hard-tier bugs (BUG33--BUG40), variants with VoltSnip tool access (P2, P4--P6) will significantly outperform no-tool variants (P0, P1, P3), because the correct constant values are only available via VoltSnip retrieval.
+For hard-tier bugs (BUG33--BUG40), variants with VoltSnip tool access (P3, P4--P6) will significantly outperform no-tool variants (P0, P1, P2), because the correct constant values are only available via VoltSnip retrieval.
 
 **H2 (Medium bugs):**
 For medium-tier bugs (BUG23--BUG32), tool variants will show moderate improvement over baseline, as retrieval provides useful patterns even when the core fix is reasoning-dependent.
@@ -209,7 +209,7 @@ For medium-tier bugs (BUG23--BUG32), tool variants will show moderate improvemen
 For easy-tier bugs (BUG01--BUG22), all variants will score similarly regardless of context provision, demonstrating a ceiling effect where pretraining knowledge is sufficient.
 
 **H4 (Context surface monotonicity):**
-Among tool variants, richer context surfaces will show monotonic improvement: P6 > P5 > P4 > P2. The additional guidance helps models know when and how to retrieve, producing better search queries and more effective use of retrieved snippets.
+Among tool variants, richer context surfaces will show monotonic improvement: P6 > P5 > P4 > P3. The additional guidance helps models know when and how to retrieve, producing better search queries and more effective use of retrieved snippets.
 
 ### 6.1 Primary Metric
 
@@ -400,10 +400,10 @@ Each constraint includes a `trap_baseline` field: the expected pass rate under P
 Flat accuracy across all variants. All models pass most or all tasks regardless of context provision. This validates the scoring pipeline and establishes a performance ceiling.
 
 **Medium bugs (BUG23--BUG32):**
-Moderate lift from P0 to P2 (tools help with reasoning by surfacing relevant patterns). P3 (injected memory) may perform comparably to tool variants since the relevant knowledge is general rather than project-specific. Expected lift: 10--20 percentage points over baseline.
+Moderate lift from P0 to P3 (tools help with reasoning by surfacing relevant patterns). P2 (injected memory) may perform comparably to tool variants since the relevant knowledge is general rather than project-specific. Expected lift: 10--20 percentage points over baseline.
 
 **Hard bugs (BUG33--BUG40):**
-Large lift from P0/P1 to P4/P5/P6 (VoltSnip retrieval is necessary for correct constant values). P0 and P1 should fail most hard bugs because the model must guess project-specific constants. P3 (injected memory) may partially help if the injected snippets contain the needed constants. P4--P6 (tool access with guidance) should show the strongest results because the model can actively retrieve the specific snippet containing the required value. Expected lift: 40--60+ percentage points over baseline.
+Large lift from P0/P1 to P4/P5/P6 (VoltSnip retrieval is necessary for correct constant values). P0 and P1 should fail most hard bugs because the model must guess project-specific constants. P2 (injected memory) may partially help if the injected snippets contain the needed constants. P4--P6 (tool access with guidance) should show the strongest results because the model can actively retrieve the specific snippet containing the required value. Expected lift: 40--60+ percentage points over baseline.
 
 **The VoltSnip lift** -- the delta between P0 and P6 on hard bugs -- is the primary headline metric.
 
@@ -509,8 +509,8 @@ This metadata is stored in `matrix_summary.json` and enables independent verific
 |---------|------|-----|-------|-------|-------|-------------|
 | P0      | 0.122 | 0.038 | 0.100 | 0.100 | 0.167 | Raw baseline: no tools, no memory |
 | P1      | 0.089 | 0.019 | 0.100 | 0.067 | 0.100 | Explicit instruction tone, no tools |
-| P2      | 0.578 | 0.102 | 0.467 | 0.600 | 0.667 | Tools only, zero guidance |
-| P3      | 0.889 | 0.038 | 0.867 | 0.867 | 0.933 | Oracle snippet injection (no retrieval) |
+| P3      | 0.578 | 0.102 | 0.467 | 0.600 | 0.667 | Tools only, zero guidance |
+| P2      | 0.889 | 0.038 | 0.867 | 0.867 | 0.933 | Oracle snippet injection (no retrieval) |
 | P4      | 0.811 | 0.077 | 0.767 | 0.900 | 0.767 | SKILL.md + tools |
 | P5      | 0.867 | 0.033 | 0.900 | 0.833 | 0.867 | AGENTS.md + tools |
 | P6      | 0.689 | 0.019 | 0.700 | 0.700 | 0.667 | SKILL.md + AGENTS.md + tools (full surface) |
@@ -527,11 +527,11 @@ The results validate the central VoltSnip value proposition with high consistenc
 
 **P1 (0.09):** Adding explicit instruction tone ("search VoltSnip before writing") without tools does not help; scores are slightly lower than P0, likely because the instruction creates mild prompt interference without enabling actual retrieval. This confirms that telling the model to search is insufficient without tool access.
 
-**P2 (0.58):** Giving the model raw tool access with no guidance produces a substantial jump (from 0.12 to 0.58), demonstrating that Haiku spontaneously discovers and uses retrieval tools when available. However, the high variance (±0.10) indicates inconsistent retrieval behavior — the model sometimes formulates bad search queries or skips retrieval entirely.
+**P3 (0.58):** Giving the model raw tool access with no guidance produces a substantial jump (from 0.12 to 0.58), demonstrating that Haiku spontaneously discovers and uses retrieval tools when available. However, the high variance (±0.10) indicates inconsistent retrieval behavior — the model sometimes formulates bad search queries or skips retrieval entirely.
 
-**P3 (0.89):** Oracle snippet injection (snippets pre-loaded into the system prompt, no retrieval required) achieves near-ceiling accuracy. This is the theoretical upper bound for the information: when the model is given the correct constants, it uses them correctly on 89% of tasks. The 11% failures (BUG46, BUG48, BUG58) are not retrieval failures — they reveal bugs in task design (see §15.7 and §15.8).
+**P2 (0.89):** Oracle snippet injection (snippets pre-loaded into the system prompt, no retrieval required) achieves near-ceiling accuracy. This is the theoretical upper bound for the information: when the model is given the correct constants, it uses them correctly on 89% of tasks. The 11% failures (BUG46, BUG48, BUG58) are not retrieval failures — they reveal bugs in task design (see §15.7 and §15.8).
 
-**P4 (0.81):** SKILL.md guidance with tools reaches 0.81 — higher than P2 (0.58) but lower than P3 (0.89). The sidecar teaches the model how to use VoltSnip tools, improving retrieval reliability. The gap from P3 (0.89) is explained by occasional retrieval misses where the model's search query does not surface the required snippet.
+**P4 (0.81):** SKILL.md guidance with tools reaches 0.81 — higher than P3 (0.58) but lower than P2 (0.89). The sidecar teaches the model how to use VoltSnip tools, improving retrieval reliability. The gap from P2 (0.89) is explained by occasional retrieval misses where the model's search query does not surface the required snippet.
 
 **P5 (0.87):** AGENTS.md guidance slightly outperforms SKILL.md (P5=0.87 vs P4=0.81, lower variance). The workflow-oriented guidance in AGENTS.md appears more effective at anchoring retrieval behavior than the API-reference style of SKILL.md.
 
@@ -547,36 +547,36 @@ All 3 runs. Format: `mean(R1/R2/R3)` where values are 0 or 1.
 
 | Bug | Task Name | P0 | P1 | P2 | P3 | P4 | P5 | P6 |
 |-----|-----------|----|----|----|----|----|----|-----|
-| BUG41 | retry_backoff_linear_and_metric | 0.33 | 0.00 | 0.67 | 0.33 | 0.33 | 0.33 | 0.33 |
-| BUG42 | circuit_half_open_probe_and_health | 0.00 | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 0.33 |
+| BUG41 | retry_backoff_linear_and_metric | 0.33 | 0.00 | 0.33 | 0.67 | 0.33 | 0.33 | 0.33 |
+| BUG42 | circuit_half_open_probe_and_health | 0.00 | 0.00 | 1.00 | 0.00 | 0.67 | 1.00 | 0.33 |
 | BUG43 | pool_timeout_overlap_and_trace | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG44 | dns_ttl_stale_check_and_metric | 0.00 | 0.00 | 1.00 | 0.33 | 1.00 | 1.00 | 0.33 |
-| BUG45 | tls_chain_range_and_compliance | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 0.67 |
-| BUG46 | sliding_window_truncation_and_quota | 0.00 | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 |
-| BUG47 | pool_eviction_fifo_not_lru_and_metric | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
+| BUG44 | dns_ttl_stale_check_and_metric | 0.00 | 0.00 | 0.33 | 1.00 | 1.00 | 1.00 | 0.33 |
+| BUG45 | tls_chain_range_and_compliance | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 0.67 |
+| BUG46 | sliding_window_truncation_and_quota | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| BUG47 | pool_eviction_fifo_not_lru_and_metric | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
 | BUG48 | migration_version_lexicographic_and_audit | 0.00 | 0.00 | 0.00 | 0.00 | 0.33 | 0.33 | 0.00 |
-| BUG49 | savepoint_release_leak_and_trace | 0.00 | 0.00 | 0.33 | 1.00 | 1.00 | 0.67 | 0.67 |
-| BUG50 | join_cost_double_selectivity_and_metric | 0.00 | 0.00 | 0.00 | 1.00 | 1.00 | 1.00 | 0.67 |
-| BUG51 | replication_lag_units_and_alert | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 0.67 |
-| BUG52 | schema_type_case_sensitive_and_compliance | 0.00 | 0.00 | 0.67 | 1.00 | 0.67 | 1.00 | 0.67 |
-| BUG53 | lock_timeout_negative_and_trace | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
+| BUG49 | savepoint_release_leak_and_trace | 0.00 | 0.00 | 1.00 | 0.33 | 1.00 | 0.67 | 0.67 |
+| BUG50 | join_cost_double_selectivity_and_metric | 0.00 | 0.00 | 1.00 | 0.00 | 1.00 | 1.00 | 0.67 |
+| BUG51 | replication_lag_units_and_alert | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 0.67 |
+| BUG52 | schema_type_case_sensitive_and_compliance | 0.00 | 0.00 | 1.00 | 0.67 | 0.67 | 1.00 | 0.67 |
+| BUG53 | lock_timeout_negative_and_trace | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
 | BUG54 | ttl_jitter_subtraction_and_metric | 0.00 | 0.00 | 1.00 | 1.00 | 0.67 | 1.00 | 0.67 |
-| BUG55 | stampede_threshold_inverted_and_metric | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG56 | lfu_no_decay_and_metric | 0.00 | 0.00 | 0.33 | 1.00 | 1.00 | 1.00 | 0.67 |
+| BUG55 | stampede_threshold_inverted_and_metric | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
+| BUG56 | lfu_no_decay_and_metric | 0.00 | 0.00 | 1.00 | 0.33 | 1.00 | 1.00 | 0.67 |
 | BUG57 | write_behind_interval_units_and_audit | 0.00 | 0.00 | 0.00 | 0.00 | 1.00 | 0.67 | 0.67 |
-| BUG58 | hash_ring_modulus_off_by_one_and_health | 0.00 | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 |
+| BUG58 | hash_ring_modulus_off_by_one_and_health | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 |
 | BUG59 | http_status_classification_and_metric | 0.33 | 0.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG60 | validation_short_circuit_and_compliance | 0.00 | 0.00 | 0.67 | 1.00 | 0.67 | 1.00 | 0.67 |
+| BUG60 | validation_short_circuit_and_compliance | 0.00 | 0.00 | 1.00 | 0.67 | 0.67 | 1.00 | 0.67 |
 | BUG61 | retry_budget_no_reset_and_metric | **1.00** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
 | BUG62 | fallback_context_loss_and_trace | **1.00** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG63 | dlq_capacity_off_by_one_and_alert | 0.00 | 0.00 | 0.33 | 1.00 | 1.00 | 1.00 | 0.33 |
-| BUG64 | timeout_escalation_no_compound_and_metric | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG65 | email_plus_addressing_and_compliance | 0.00 | 0.00 | 0.67 | 1.00 | 0.67 | 1.00 | 1.00 |
-| BUG66 | correlation_id_lost_async_and_trace | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
-| BUG67 | sampling_rate_truncation_and_metric | 0.00 | 0.00 | 0.33 | 1.00 | 1.00 | 1.00 | 0.67 |
+| BUG63 | dlq_capacity_off_by_one_and_alert | 0.00 | 0.00 | 1.00 | 0.33 | 1.00 | 1.00 | 0.33 |
+| BUG64 | timeout_escalation_no_compound_and_metric | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
+| BUG65 | email_plus_addressing_and_compliance | 0.00 | 0.00 | 1.00 | 0.67 | 0.67 | 1.00 | 1.00 |
+| BUG66 | correlation_id_lost_async_and_trace | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
+| BUG67 | sampling_rate_truncation_and_metric | 0.00 | 0.00 | 1.00 | 0.33 | 1.00 | 1.00 | 0.67 |
 | BUG68 | nested_json_redaction_and_audit | **1.00** | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 | 0.67 |
 | BUG69 | audit_timestamp_local_not_utc_and_compliance | 0.00 | 0.00 | 1.00 | 1.00 | 0.33 | 1.00 | 1.00 |
-| BUG70 | base64_secret_miss_and_alert | 0.00 | 0.00 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 |
+| BUG70 | base64_secret_miss_and_alert | 0.00 | 0.00 | 1.00 | 0.67 | 1.00 | 1.00 | 1.00 |
 
 ---
 
@@ -626,7 +626,7 @@ These tasks show run-to-run variability at P0 or P5, indicating the model is nea
 - **BUG48** (`migration_version_lexicographic_and_audit`): P5 varies [0,0,1]. Near-universal failure (see §15.7). Mostly a broken task, with a single stochastic pass.
 - **BUG49** (`savepoint_release_leak_and_trace`): P5 varies [1,1,0]. Strong signal in 2/3 runs; the single failure is a retrieval miss (coverage=0.0 in run 3).
 - **BUG57** (`write_behind_interval_units_and_audit`): P5 varies [1,0,1]. One P5 failure had partial coverage (0.5), suggesting partial retrieval. Noisy but mostly reliable.
-- **BUG59** (`http_status_classification_and_metric`): P0 varies [0,0,1]. Weak leakage in 1/3 runs. Mostly passes at P2+ regardless.
+- **BUG59** (`http_status_classification_and_metric`): P0 varies [0,0,1]. Weak leakage in 1/3 runs. Mostly passes at P3+ regardless.
 
 #### Leakage bugs (P0=1 in all 3 runs — model guesses correctly without any tools)
 
@@ -636,19 +636,19 @@ These tasks show run-to-run variability at P0 or P5, indicating the model is nea
 
 **Leakage diagnosis:** All three bugs pass at P0 with zero tool calls and zero snippet coverage. The required constraint check apparently passes on the model's pretraining knowledge of the pattern (e.g., standard JSON recursion, exception re-raise idioms). These tasks need harder constraints or org-specific constants to create a genuine lift signal.
 
-#### Permanently broken bugs (fail at P5 despite snippets being injected at P3)
+#### Permanently broken bugs (fail at P5 despite snippets being injected at P2)
 
-- **BUG46** (`sliding_window_truncation_and_quota`): P3=1.00 (snippets injected, passes), but P4=P5=P6=0.00 (tools enabled, zero retrieval — tool_calls=0 in all runs). The constraint `bug46_boundary_and_quota` always fails when retrieval is used. Hypothesis: the model does not issue a search query for this task, even with AGENTS.md guidance. The snippets are injected at P3 (oracle mode) but the model doesn't think to retrieve them from P4 onward. This is a retrieval trigger problem, not a knowledge problem. The fix requires either stronger prompt framing or adding an explicit hint that quota thresholds are in VoltSnip.
+- **BUG46** (`sliding_window_truncation_and_quota`): P2=1.00 (snippets injected, passes), but P4=P5=P6=0.00 (tools enabled, zero retrieval — tool_calls=0 in all runs). The constraint `bug46_boundary_and_quota` always fails when retrieval is used. Hypothesis: the model does not issue a search query for this task, even with AGENTS.md guidance. The snippets are injected at P2 (oracle mode) but the model doesn't think to retrieve them from P4 onward. This is a retrieval trigger problem, not a knowledge problem. The fix requires either stronger prompt framing or adding an explicit hint that quota thresholds are in VoltSnip.
 
-- **BUG58** (`hash_ring_modulus_off_by_one_and_health`): Identical pattern to BUG46. P3=1.00, P4=P5=P6=0.00, tool_calls=0 in all tool-enabled variants. Constraint `bug58_modulus_and_health` always fails outside of oracle injection. This is another retrieval trigger failure — the hash-ring modulus task does not elicit spontaneous VoltSnip searches.
+- **BUG58** (`hash_ring_modulus_off_by_one_and_health`): Identical pattern to BUG46. P2=1.00, P4=P5=P6=0.00, tool_calls=0 in all tool-enabled variants. Constraint `bug58_modulus_and_health` always fails outside of oracle injection. This is another retrieval trigger failure — the hash-ring modulus task does not elicit spontaneous VoltSnip searches.
 
-**Implications for BUG46/BUG58:** These two tasks represent a distinct failure mode: the model has the knowledge available (as demonstrated by P3=1.00) but does not know it needs to retrieve that knowledge. These could be repaired by adding explicit phrases to the task prompt like "the ring size is not a standard value — check VoltSnip for org policy" to trigger retrieval. Until repaired, they are excluded from the primary lift-signal count.
+**Implications for BUG46/BUG58:** These two tasks represent a distinct failure mode: the model has the knowledge available (as demonstrated by P2=1.00) but does not know it needs to retrieve that knowledge. These could be repaired by adding explicit phrases to the task prompt like "the ring size is not a standard value — check VoltSnip for org policy" to trigger retrieval. Until repaired, they are excluded from the primary lift-signal count.
 
 ---
 
 ### 15.7 BUG48 Task Design Issue
 
-**BUG48** (`migration_version_lexicographic_and_audit`, lines 36--55): Fails universally. P3 (snippet injection) also fails (P3=0.00 in all 3 runs), proving this is not a retrieval problem — the required fix is not achievable even when the model has the snippet. The single pass observed in run 3 at P4 and P5 (score=1.0) is likely a judge noise event.
+**BUG48** (`migration_version_lexicographic_and_audit`, lines 36--55): Fails universally. P2 (snippet injection) also fails (P2=0.00 in all 3 runs), proving this is not a retrieval problem — the required fix is not achievable even when the model has the snippet. The single pass observed in run 3 at P4 and P5 (score=1.0) is likely a judge noise event.
 
 **Root cause:** The constraint `bug48_version_ordering_and_audit` always fires as failed. The target line range (36--55) covers a method boundary that the judge's scoring logic does not match correctly — the generated code applies the fix to the right logic but outside the exact span the judge examines, or the fix requires modifying lines outside the declared range. This is a task design flaw: the target line range does not cover the full method that needs to change.
 
@@ -711,9 +711,9 @@ The strong pass/fail split on coverage (0.609 vs 0.167) confirms that snippet re
 | Hypothesis | Prediction | Observed | Verdict |
 |-----------|-----------|---------|---------|
 | H1 (hard bugs need VoltSnip) | Large P0→P5 lift | +0.74 lift | **Confirmed** |
-| H2 (tools improve reasoning) | P2 > P0 | P2=0.58 vs P0=0.12 | **Confirmed** |
+| H2 (tools improve reasoning) | P3 > P0 | P3=0.58 vs P0=0.12 | **Confirmed** |
 | H3 (ceiling effect on easy bugs) | — | N/A (no easy bugs in this batch) | Not tested |
-| H4 (monotonic P6 > P5 > P4 > P2) | Monotonic improvement | P6 < P5 in all 3 runs | **Refuted** |
+| H4 (monotonic P6 > P5 > P4 > P3) | Monotonic improvement | P6 < P5 in all 3 runs | **Refuted** |
 
 The P6 > P5 monotonicity hypothesis is cleanly refuted. Adding more context surface is harmful for Haiku-class models. The optimal configuration is P5 (AGENTS.md + tools, no SKILL.md).
 
@@ -731,7 +731,7 @@ The P6 > P5 monotonicity hypothesis is cleanly refuted. Adding more context surf
 
 5. **P6 regression investigation:** Test whether the P6 regression is consistent with larger models (Sonnet, Opus). If larger models show P6 > P5, the regression is a Haiku-specific capacity limitation rather than a fundamental context-overload effect.
 
-6. **Broader model matrix:** Run the full P0--P6 ladder with Sonnet and Opus to assess whether the lift curve shape generalizes. The hypothesis is that larger models have less P6 regression and stronger P2 baseline.
+6. **Broader model matrix:** Run the full P0--P6 ladder with Sonnet and Opus to assess whether the lift curve shape generalizes. The hypothesis is that larger models have less P6 regression and stronger P3 baseline.
 
 7. **Exclude broken bugs from headline metrics:** For reporting, compute the "clean" P0→P5 lift excluding BUG46, BUG48, BUG58 (broken/permanently-failing) and BUG61, BUG62, BUG68 (leakage). The clean-task P0→P5 lift will be higher than 0.74 and will more precisely represent the retrieval lift on well-designed tasks.
 
@@ -762,8 +762,8 @@ The P6 > P5 monotonicity hypothesis is cleanly refuted. Adding more context surf
 |---------|-----------|-------|-------------|
 | P0 | **0.0%** (0/102) | — | Baseline: training data only |
 | P1 | 2.9% (3/104) | +2.9 pp | Explicit criteria hint only |
-| P2 | 37.9% (39/103) | +37.9 pp | Tools available, no guide |
-| P3 (oracle) | 64.1% (66/103) | +64.1 pp | Correct snippets injected |
+| P3 | 37.9% (39/103) | +37.9 pp | Tools available, no guide |
+| P2 (oracle) | 64.1% (66/103) | +64.1 pp | Correct snippets injected |
 | P4 | **69.9%** (72/103) | +69.9 pp | SKILL.md + autonomous retrieval ← best |
 | P5 | 65.4% (68/104) | +65.4 pp | AGENTS.md + autonomous retrieval |
 | P6 | 61.4% (62/101) | +61.4 pp | Both guides + autonomous retrieval |
@@ -774,8 +774,8 @@ The P6 > P5 monotonicity hypothesis is cleanly refuted. Adding more context surf
 |---------|-----------|-------|-------------|
 | P0 | 5.4% (3/56) | — | Baseline |
 | P1 | 7.3% (4/55) | +1.9 pp | Explicit criteria hint only |
-| P2 | 37.5% (21/56) | +32.1 pp | Tools available, no guide |
-| P3 (oracle) | **41.1%** (23/56) | +35.7 pp | Correct snippets injected ← best for Codex |
+| P3 | 37.5% (21/56) | +32.1 pp | Tools available, no guide |
+| P2 (oracle) | **41.1%** (23/56) | +35.7 pp | Correct snippets injected ← best for Codex |
 | P4 | 25.0% (14/56) | +19.6 pp | SKILL.md + autonomous retrieval |
 | P5 | 30.4% (17/56) | +25.0 pp | AGENTS.md + autonomous retrieval |
 | P6 | 40.0% (22/55) | +34.6 pp | Both guides + autonomous retrieval |
@@ -783,10 +783,10 @@ The P6 > P5 monotonicity hypothesis is cleanly refuted. Adding more context surf
 ### 16.3 Key Findings
 
 1. **P0 is exactly 0% on signal bugs for Haiku** — confirms no training-data leakage on the 26-bug signal set.
-2. **P4 beats oracle injection (P3)** for Haiku: 69.9% vs 64.1%. Dynamic retrieval with SKILL.md guidance outperforms static snippet injection.
+2. **P4 beats oracle injection (P2)** for Haiku: 69.9% vs 64.1%. Dynamic retrieval with SKILL.md guidance outperforms static snippet injection.
 3. **Over-specification confirmed**: P6 < P4 < P5 for Haiku. Adding AGENTS.md on top of SKILL.md hurts.
-4. **Cross-model divergence**: Codex shows P3 > P4 (static injection beats dynamic retrieval), opposite to Haiku. Possible explanation: residual MCP integration overhead in codex provider.
-5. **LLM judge inflation**: Section 15 (judge) shows P3=0.89, P4=0.81. Pytest (this section) shows P3=64.1%, P4=69.9%. The judge inflates by ~25 pp and reverses the P3 vs P4 ordering — pytest is more reliable.
+4. **Cross-model divergence**: Codex shows P2 > P4 (static injection beats dynamic retrieval), opposite to Haiku. Possible explanation: residual MCP integration overhead in codex provider.
+5. **LLM judge inflation**: Section 15 (judge) shows P2=0.89, P4=0.81. Pytest (this section) shows P2=64.1%, P4=69.9%. The judge inflates by ~25 pp and reverses the P2 vs P4 ordering — pytest is more reliable.
 
 ### 16.4 Run Artifacts
 

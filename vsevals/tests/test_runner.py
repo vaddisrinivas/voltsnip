@@ -1525,8 +1525,8 @@ def test_run_one_memory_enabled_retrieves_snippets(
 ):
     """When variant.memory_enabled=True, _retrieve_snippets should be called."""
     task = _make_task(required_snippets=["key1"])
-    # P3-like: memory_enabled=True, direct mode, no tools
-    variant = _make_variant(id="P3", mode="direct", memory_enabled=True, retrieval_mode="injected")
+    # P2-like: memory_enabled=True, direct mode, no tools
+    variant = _make_variant(id="P2", mode="direct", memory_enabled=True, retrieval_mode="injected")
     mock_suite = MagicMock()
     mock_suite.task_map = {task.id: task}
     mock_suite.variant_map = {variant.id: variant}
@@ -1553,7 +1553,7 @@ def test_run_one_memory_enabled_retrieves_snippets(
 
     result = run_one(
         task_id="BUG01",
-        variant_id="P3",
+        variant_id="P2",
         model_name="mock:default",
         suite_path="suite.yaml",
         output_dir=str(tmp_path),

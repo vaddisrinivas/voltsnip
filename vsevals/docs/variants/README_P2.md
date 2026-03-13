@@ -2,111 +2,90 @@
 
 ## 1. Intent
 
-`P2` is the raw tool-enabled retrieval baseline.
+`P2` measures the effect of oracle context injection without interactive tools.
 
-It turns tools on with no sidecar guidance and no pre-injected snippets. The model must decide:
+It prefetches required snippets and injects them into prompt context, giving the model high-quality memory up front while keeping tool loops disabled.
 
-- whether to retrieve,
-- what query/key strategy to use,
-- how to combine retrieved context with local code inspection.
-
-This variant isolates unguided retrieval behavior.
+This isolates "given the right memory, can the model apply it?".
 
 ## 2. Canonical config shape
 
 ```yaml
 id: P2
 mode: agent
-memory_enabled: false
-tools_enabled: true
-retrieval_mode: agent_decides
+memory_enabled: true
+tools_enabled: false
+retrieval_mode: injected
 instruction_mode: none
-context_surface: tools_only
+context_surface: system
 max_tool_roundtrips: 4
 include_oracle: false
 ```
 
-## 3. Execution path in code
+## 3. Critical nuance: declared mode vs runtime path
 
-`P2` enters `_run_agent()` because `mode=agent` and `tools_enabled=true`.
+Although `mode=agent`, runtime enters non-tool direct branch because `tools_enabled=false`.
 
-Behavior by provider:
+So operationally `P2` is single-call after prefetch + prompt injection.
 
-- `claudecode`/`codex`: subprocess tool loop; traces parsed from JSONL after run
-- `openai` tool mode: Responses API with MCP (server-side loop)
-- `anthropic` tool mode: SDK loop + Python handlers
+## 4. Retrieval behavior
 
-No prefetch retrieval occurs before prompt build (`memory_enabled=false`).
+Prefetch happens before prompt build via `_retrieve_snippets()`:
 
-## 4. Prompt surface behavior
+- keys source: `task.voltsnip.required_snippets`
+- fetch API: `VoltSnipClient.get_by_canonical_keys(...)`
+- limits: task/config snippet limit + max chars
 
-`context_surface=tools_only`:
+No semantic search is used in this stage.
 
-- no snippet keys/context injected in user/system prompt
-- no sidecar files written
-- system receives minimal tool-availability banner only
+## 5. Prompt surface behavior
 
-The model must infer retrieval strategy from task objective + available tools.
+`context_surface=system` injects into system prompt:
 
-## 5. Tool surface details
+- snippet bodies (`VoltSnip Context` block)
+- guiding snippet keys
+- repository policy block
 
-Requested tool schemas are VoltSnip-focused (`search_memory`, `get_snippet_by_canonical_key` etc.).
+User prompt still contains task metadata/target metadata; memory payload sits in system side.
 
-Provider realization differs:
+## 6. Tools and sidecars
 
-- ClaudeCode: native `Read/Glob/Grep` + VoltSnip MCP tools, `Bash` disallowed policy
-- Codex: local HarnessMCP tools + shell under sandbox policy
-- Anthropic: Python-executed handlers
-- OpenAI: remote MCP tool loop via Responses API
+- tools disabled
+- no sidecars written
+- tool traces expected empty
 
-## 6. Budget semantics
+## 7. Artifact expectations
 
-`max_tool_roundtrips` is exposed in prompt and passed in orchestration.
+`P2` runs should show:
 
-Practical enforcement differs:
+- `summary_metrics.snippet_count > 0` for tasks with required snippets
+- `summary_metrics.tool_call_count = 0`
+- injected snippet content visible in `prompt.system`
 
-- anthropic handler path enforces loop bounds in-process
-- subprocess/server-side loops may not be hard-capped equivalently
+## 8. What P2 tells you
 
-Interpret high tool-call counts with provider semantics in mind.
+`P2` is an upper-bound style memory-injection control for non-tool execution.
 
-## 7. Retrieved snippet accounting
+Useful for:
 
-Because subprocess providers execute tools outside Python handlers, harness back-fills snippets from parsed tool traces (`_merge_tool_snippets`).
+- separating retrieval quality problems from application quality problems
+- estimating gains achievable by perfect retrieval
 
-This is critical for fair memory usage metrics in `summary_metrics.snippet_count`.
+If `P2` still fails where `P2/P4/P5/P6` also fail, issue is likely model reasoning/application, not retrieval discovery.
 
-## 8. Artifact expectations
+## 9. Common failure patterns
 
-Compared with `P0/P1`:
+- model ignores injected snippet despite presence
+- line-range output contract violations
+- misapplication of partially relevant snippet
+- conflict between injected snippet and task-specific edge case
 
-- non-empty `tool_traces` expected when retrieval actually used
-- `prompt_after_tools` may differ due back-filled snippet state
-- subprocess providers should emit `subprocess.stdout.<provider>.jsonl`
+## 10. Interpretation guidance
 
-## 9. What P2 tells you
+Compare:
 
-`P2` answers whether models can self-direct retrieval without curation.
+- `P2 - P0`: pure value of pre-injected memory
+- `P2 - P2`: self-directed retrieval vs oracle injection tradeoff
 
-It is useful for diagnosing:
-
-- discovery/query formulation quality,
-- unnecessary tool churn,
-- failure to retrieve despite tool availability.
-
-## 10. Common failure patterns
-
-- no retrieval calls despite needing memory
-- noisy or broad semantic queries that miss canonical snippet
-- over-retrieval with low signal integration
-- tool transport/provider-specific errors (MCP connectivity, auth, parsing)
-
-## 11. Interpretation guidance
-
-Pair with:
-
-- `P0`/`P1`: net value of enabling tools at all
-- `P4`/`P5`/`P6`: value of guidance surfaces on top of tool availability
-
-If `P2` underperforms guided variants significantly, your bottleneck is likely retrieval strategy, not tool presence.
+Strong `P2` + weak `P2` indicates retrieval strategy bottleneck.
 

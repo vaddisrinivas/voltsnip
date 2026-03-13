@@ -32,15 +32,20 @@ include_oracle: false
 
 For `skills_md_no_keys`, prompt builder writes sidecars:
 
-- `SKILL.md`
-- `CLAUDE.md`
-- `AGENTS.md`
+- `skills/voltsnip-guide/SKILL.md` — plugin entry (YAML frontmatter + skill content)
+- `SKILL.md` — cwd fallback (readable directly)
 
-All three contain skill guidance text from static `skills.md` file (fallback inline text if missing).
-
-Key property:
+Key properties:
 
 - no canonical snippet key list is injected into prompt/sidecars
+- skill is **on-demand**: description visible at startup; full content loaded only when skill is invoked
+
+### Provider delivery
+
+| Provider | Mechanism |
+|---|---|
+| ClaudeCode | `--plugin-dir <tmpdir>` loads `skills/voltsnip-guide/SKILL.md`; `Skill` tool added to `--allowedTools` |
+| Codex | `skills/` mapped to `.agents/skills/voltsnip-guide/SKILL.md`; Codex auto-discovers at startup |
 
 ## 5. Why this matters
 

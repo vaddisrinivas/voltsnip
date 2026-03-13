@@ -10,8 +10,8 @@ run_one(task, variant)  │ 1. Load task + variant from suite                   
                         │ 3. [memory variants] retrieve seed snippets         │
                         │ 4. Build prompt via prompt.build_prompt()           │
                         │ 5. Call LLM via dispatch.call_llm()                 │
-                        │    • direct/no-tools (P0-P1, P3): single call       │
-                        │    • tool-enabled (P2, P4-P6): LLM + tool loop      │
+                        │    • direct/no-tools (P0-P1, P2): single call       │
+                        │    • tool-enabled (P3, P4-P6): LLM + tool loop      │
                         │       (openai: Responses API + remote MCP)          │
                         │       (anthropic: SDK tool loop, Python-side)       │
                         │       (claudecode/codex: subprocess MCP tool loop;  │
@@ -79,8 +79,8 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
 DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8000"
 
-HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5", "P6"]
-HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5", "P6")
+HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]
+HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8")
 
 
 # ---------------------------------------------------------------------------
@@ -114,11 +114,13 @@ def run_hypothesis(
 _VARIANT_DOCS: dict[str, str] = {
     "P0": "Baseline: direct call, no memory, no tools.",
     "P1": "Baseline + explicit instruction (no memory, no tools).",
-    "P2": "Tools only — raw tool use, zero guidance (tools_only surface).",
-    "P3": "Memory injected into system prompt, no tools (oracle pre-fetch).",
+    "P2": "Memory injected into system prompt, no tools (oracle pre-fetch).",
+    "P3": "Tools only — raw tool use, zero guidance (tools_only surface).",
     "P4": "SKILL.md (no keys) + tools — optional retrieval, skill surface.",
     "P5": "AGENTS.md (no keys) + tools — optional retrieval, agent surface.",
     "P6": "SKILL.md + AGENTS.md (no keys) + tools — optional retrieval, full surface.",
+    "P7": "P3 + explicit instruction — explicit framing over unguided tools.",
+    "P8": "P4 + explicit instruction — plugin skill + explicit framing.",
 }
 for _vid, _doc in _VARIANT_DOCS.items():
     def _f(*, task_id: str, model_name: str, suite_path: str, output_dir: str, _v: str = _vid, **kw: Any) -> RunResult:
@@ -196,9 +198,9 @@ def run_one(
 
         # Step 3: retrieve seed snippets (memory variants only).
         # Pre-fetch whenever memory_enabled=true, regardless of retrieval_mode.
-        #   retrieval_mode=injected  → fetch, inject into prompt, no tools (P3)
+        #   retrieval_mode=injected  → fetch, inject into prompt, no tools (P2)
         #   retrieval_mode=agent_decides, memory_enabled=false → no pre-fetch;
-        #     agent must use tools to get snippets (P2, P4, P5, P6)
+        #     agent must use tools to get snippets (P3, P4, P5, P6)
         if variant.memory_enabled:
             t_ret = time.perf_counter()
             retrieved_snippets = _retrieve_snippets(task=task, variant=variant, voltsnip=voltsnip, cfg=resolved_cfg)
@@ -206,7 +208,7 @@ def run_one(
 
         # Step 4 + 5: build prompt and call model
         # Guardrail:
-        # - One-shot path for all non-tool variants (P0-P3 semantics).
+        # - One-shot path for all non-tool variants (P0-P2 semantics).
         # - Agent/tool loop only when tools are explicitly enabled (P4+).
         t_model = time.perf_counter()
         if variant.mode == "agent" and variant.tools_enabled:
@@ -644,7 +646,7 @@ def _invoke_tool(
 
 
 # ---------------------------------------------------------------------------
-# Snippet retrieval (for P2/P3: injected memory)
+# Snippet retrieval (for P2: injected memory)
 # ---------------------------------------------------------------------------
 
 
@@ -655,14 +657,14 @@ def _retrieve_snippets(
     voltsnip: VoltSnipClient | None,
     cfg: RunConfig,
 ) -> list[RetrievedSnippet]:
-    """Pre-fetch snippets to inject into the prompt for P2/P3 variants (oracle injection).
+    """Pre-fetch snippets to inject into the prompt for P2 variants (oracle injection).
 
     Uses the ground-truth canonical keys from ``task.voltsnip.required_snippets``
     to fetch exactly the right snippets — this is the *oracle* baseline: "given perfect
     context, does injecting it help?".
 
     Semantic retrieval (realistic RAG) is a separate variant so both can be compared
-    in the paper (P2_sem / P3_sem will be added alongside P2 / P3 oracle variants).
+    in the paper (P2_sem will be added alongside P2 oracle variants).
     """
     if not voltsnip:
         return []

@@ -313,7 +313,12 @@ def _build_codex_invocation(
     effective_cwd: str | None = _sidecar_dir_cleanup
     if sidecar_files:
         for filename, content in sidecar_files.items():
-            (Path(_sidecar_dir_cleanup) / filename).write_text(content, encoding="utf-8")
+            # Map skills/<name>/SKILL.md → .agents/skills/<name>/SKILL.md
+            # Codex auto-discovers .agents/skills/ at startup for on-demand skill invocation.
+            codex_filename = ".agents/" + filename if filename.startswith("skills/") else filename
+            dest = Path(_sidecar_dir_cleanup) / codex_filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
 
     harness_server: HarnessMCPServer | None = None
     extra_args: list[str] = []

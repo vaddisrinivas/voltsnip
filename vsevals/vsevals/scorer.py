@@ -446,9 +446,17 @@ def _score_legacy(
         + 0.10 * criteria_dim.score,
         4,
     )
+    # Legacy pass condition (independent of constraint_pass_threshold):
+    # overall >= 0.70 AND hidden >= 0.50 AND failure_modes >= 0.60
+    # (documented in module docstring; threshold is fixed, not user-configurable)
+    legacy_passed = (
+        overall >= 0.70
+        and hidden_dim.score >= 0.50
+        and failure_dim_.score >= 0.60
+    )
     return ScoreResult(
         overall_score=overall,
-        passed=overall >= float(cfg.constraint_pass_threshold),
+        passed=legacy_passed,
         hidden_requirements=hidden_dim,
         success_indicators=success_dim,
         failure_modes=failure_dim_,

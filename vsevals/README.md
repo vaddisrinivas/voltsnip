@@ -75,8 +75,8 @@ Quick table:
 |---|---|---|---|---|
 | P0 | direct | no | no | `user` |
 | P1 | direct | no | no | `user` + explicit instruction mode |
-| P2 | agent | no | yes | `tools_only` |
-| P3 | agent (declared) | yes | no | `system` |
+| P3 | agent | no | yes | `tools_only` |
+| P2 | agent (declared) | yes | no | `system` |
 | P4 | agent | no | yes | `skills_md_no_keys` |
 | P5 | agent | no | yes | `agents_md_no_keys` |
 | P6 | agent | no | yes | `skills_agents_md_no_keys` |
@@ -233,7 +233,7 @@ Both providers enforce the same accessible information surface:
 - **Tools**: VoltSnip MCP read tools only (`search_memory`, `get_snippet_by_canonical_key`, etc.)
 - **Filesystem**: no file-read tools; `Read/Glob/Grep` disallowed for claudecode; codex shell is `read-only` sandbox in a tmpdir that contains no orgops source
 - **cwd**: clean per-run tmpdir for both — permanent repo fixtures (`AGENTS.md`, `SKILL.md`) are not visible
-- **Sidecar guidance**: injected per variant via files written to tmpdir; absent for P0/P1/P2/P3
+- **Sidecar guidance**: injected per variant via files written to tmpdir; absent for P0/P1/P3/P2
 
 Remaining mechanical difference: claudecode enforces the boundary via `--allowedTools`/`--disallowedTools` flags; codex enforces it via `--sandbox read-only` + explicit MCP config. The accessible surface is identical.
 
@@ -352,7 +352,7 @@ vseval \
 uv run --project vsevals python vsevals/scripts/run_matrix.py \
   --suite /absolute/path/to/vsevals/suites/script30.yaml \
   --models claudecode:claude-sonnet-4-6,codex:gpt-5.3-codex \
-  --variants P0,P1,P2,P3,P4,P5,P6 \
+  --variants P0,P1,P3,P2,P4,P5,P6 \
   --tasks BUG41,BUG42 \
   --output-dir /absolute/path/to/vsevals_runs \
   --workers 2 \

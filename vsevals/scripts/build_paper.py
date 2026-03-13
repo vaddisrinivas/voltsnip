@@ -3,16 +3,18 @@
 Paper build script for the VoltSnip eval paper.
 
 Single command to:
-  1. Recompute all numbers from batch_1 run data
+  1. Recompute all numbers from run data
   2. Generate publication-quality figures (PDF)
   3. Update paper.tex with computed numbers
   4. Compile to PDF via tectonic
 
 Usage:
-  cd /Users/srinivasvaddi/moltsnip/vsevals
-  uv run python3 scripts/build_paper.py            # full build
-  uv run python3 scripts/build_paper.py --check     # verify numbers only (no writes)
-  uv run python3 scripts/build_paper.py --figures    # regenerate figures only
+  cd vsevals/
+  uv run python3 scripts/build_paper.py                              # auto-discover runs
+  uv run python3 scripts/build_paper.py --runs-dir vsevals_runs/     # explicit runs dir
+  uv run python3 scripts/build_paper.py --check                      # verify numbers only
+  uv run python3 scripts/build_paper.py --figures                    # regenerate figures only
+  uv run python3 scripts/build_paper.py --ablation-dir vsevals_runs/matrix_XYZ  # ablation run
 """
 
 from __future__ import annotations
@@ -37,7 +39,6 @@ import numpy as np
 # ── Paths ────────────────────────────────────────────────────────────────────
 
 ROOT = Path(__file__).resolve().parent.parent          # vsevals/
-BATCH_1 = ROOT / "vsevals_runs" / "batch_1"
 PAPER_DIR = ROOT / "paper"
 TEX_FILE = PAPER_DIR / "paper.tex"
 FIG_DIR = PAPER_DIR / "figures"
@@ -49,21 +50,9 @@ ALL_BUGS = {f"BUG{n}" for n in range(41, 71)}
 SIGNAL_BUGS = ALL_BUGS - NOISY_BUGS
 VARIANTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6"]
 
-HAIKU_RUNS = [
-    "matrix_20260303T193221340869Z",
-    "matrix_20260303T201709883387Z",
-    "matrix_20260303T215606747051Z",
-]
-CODEX_RUNS = [
-    "matrix_20260303T193214057044Z",
-    "matrix_20260303T201241727101Z",
-    "matrix_20260304T083357237819Z",
-]
-
-# Ablation run: P4 with all snippets hidden (is_hidden=true).
-# Set to None to skip ablation number updates. Set to the matrix dir name
-# once the run completes. The run can live in batch_1/ or vsevals_runs/ root.
-ABLATION_RUN: str | None = None  # e.g. "matrix_20260304T100359..."
+# Model family detection: providers whose rows belong to the "claude" group.
+_CLAUDE_PROVIDERS = {"claudecode", "anthropic"}
+_CODEX_PROVIDERS = {"codex", "openai"}
 
 # ── Colour palette ───────────────────────────────────────────────────────────
 
@@ -85,36 +74,48 @@ VARIANT_COLORS = {
 
 # ── Data loading ─────────────────────────────────────────────────────────────
 
-def load_csv(matrix_dir: str) -> list[dict[str, str]]:
-    """Load matrix_results.csv for one run."""
-    csv_path = BATCH_1 / matrix_dir / "matrix_results.csv"
-    with open(csv_path, newline="") as f:
-        return list(csv.DictReader(f))
-
-
 def load_csv_path(csv_path: Path) -> list[dict[str, str]]:
     """Load a CSV from an absolute path."""
     with open(csv_path, newline="") as f:
         return list(csv.DictReader(f))
 
 
-def load_all_runs() -> dict[str, list[list[dict[str, str]]]]:
-    """Load all batch_1 runs, grouped by model family."""
-    haiku_runs = [load_csv(d) for d in HAIKU_RUNS]
-    codex_runs = [load_csv(d) for d in CODEX_RUNS]
-    return {"haiku": haiku_runs, "codex": codex_runs}
+def _detect_family(rows: list[dict[str, str]]) -> str:
+    """Return 'claude' or 'codex' based on the provider column in a CSV."""
+    for row in rows:
+        provider = (row.get("model_provider") or row.get("model_name", "")).split(":")[0].lower()
+        if provider in _CLAUDE_PROVIDERS:
+            return "claude"
+        if provider in _CODEX_PROVIDERS:
+            return "codex"
+    return "other"
 
 
-def load_ablation_run() -> list[dict[str, str]] | None:
-    """Load the ablation run CSV if configured."""
-    if ABLATION_RUN is None:
+def discover_runs(runs_dir: Path) -> dict[str, list[list[dict[str, str]]]]:
+    """Auto-discover matrix_*/matrix_results.csv under runs_dir and group by model family."""
+    csv_files = sorted(runs_dir.glob("matrix_*/matrix_results.csv"))
+    if not csv_files:
+        # Also look one level deeper (e.g. vsevals_runs/batch_1/matrix_*/)
+        csv_files = sorted(runs_dir.glob("*/matrix_*/matrix_results.csv"))
+    result: dict[str, list[list[dict[str, str]]]] = {"claude": [], "codex": [], "other": []}
+    for csv_path in csv_files:
+        rows = load_csv_path(csv_path)
+        if not rows:
+            continue
+        family = _detect_family(rows)
+        result[family].append(rows)
+        print(f"  loaded {csv_path.parent.name} → {family} ({len(rows)} rows)")
+    return result
+
+
+def load_ablation_run(ablation_dir: Path | None) -> list[dict[str, str]] | None:
+    """Load the ablation run CSV from ablation_dir if provided."""
+    if ablation_dir is None:
         return None
-    # Check batch_1 first, then vsevals_runs root
-    for parent in [BATCH_1, ROOT / "vsevals_runs"]:
-        csv_path = parent / ABLATION_RUN / "matrix_results.csv"
-        if csv_path.exists():
-            return load_csv_path(csv_path)
-    print(f"  ⚠ Ablation run {ABLATION_RUN} not found in batch_1 or vsevals_runs")
+    csv_path = ablation_dir / "matrix_results.csv"
+    if csv_path.exists():
+        return load_csv_path(csv_path)
+    print(f"  ⚠ Ablation CSV not found in {ablation_dir}")
     return None
 
 
@@ -236,10 +237,10 @@ def set_paper_style():
     })
 
 
-def fig_surface_hierarchy(haiku_signal: dict, codex_all: dict) -> Path:
+def fig_surface_hierarchy(haiku_signal: dict, codex_all: dict, n_haiku: int = 0, n_codex: int = 0) -> Path:
     """
     Figure 1: Surface hierarchy bar chart.
-    Haiku signal-set and Codex all-bugs side by side.
+    Claude signal-set and Codex all-bugs side by side.
     """
     fig, ax = plt.subplots(figsize=(5.5, 3.2))
 
@@ -251,9 +252,11 @@ def fig_surface_hierarchy(haiku_signal: dict, codex_all: dict) -> Path:
     codex_rates = [codex_all[v]["passed"] / codex_all[v]["total"] * 100
                    if codex_all[v]["total"] > 0 else 0 for v in VARIANTS]
 
-    bars_h = ax.bar(x - width / 2, haiku_rates, width, label="Haiku (signal, n=3)",
+    haiku_label = f"Claude (signal, n={n_haiku})" if n_haiku else "Claude (signal)"
+    codex_label = f"Codex (all, n={n_codex})" if n_codex else "Codex (all)"
+    bars_h = ax.bar(x - width / 2, haiku_rates, width, label=haiku_label,
                     color=HAIKU_COLOR, edgecolor="white", linewidth=0.5)
-    bars_c = ax.bar(x + width / 2, codex_rates, width, label=f"Codex (all, n={len(CODEX_RUNS)})",
+    bars_c = ax.bar(x + width / 2, codex_rates, width, label=codex_label,
                     color=CODEX_COLOR, edgecolor="white", linewidth=0.5)
 
     # Annotate top bars
@@ -465,7 +468,7 @@ def verify_numbers(nums: dict[str, str]) -> None:
         frac = nums[f"haiku_all_{v}_frac"]
         print(f"    {v}: {pct}% ({frac})")
 
-    print(f"\n  Codex all bugs (n={len(CODEX_RUNS)}, errors excluded):")
+    print(f"\n  Codex all bugs (errors excluded):")
     for v in VARIANTS:
         pct = nums[f"codex_all_{v}_pct"]
         frac = nums[f"codex_all_{v}_frac"]
@@ -558,8 +561,8 @@ def update_tex_numbers(tex: str, nums: dict[str, str]) -> str:
     Update all computed numbers in paper.tex.
     Uses table-label-anchored replacements to avoid cross-table confusion.
     """
-    n_haiku = len(HAIKU_RUNS)
-    n_codex = len(CODEX_RUNS)
+    n_haiku = int(nums.get("n_claude_runs", 0))
+    n_codex = int(nums.get("n_codex_runs", 0))
     total_haiku = int(nums["total_scored_haiku"])
     total_codex = int(nums["total_scored_codex"])
     total_all = total_haiku + total_codex
@@ -853,6 +856,10 @@ def compile_pdf() -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Build paper.tex with computed numbers and figures")
+    parser.add_argument("--runs-dir", default=None,
+                        help="Directory containing matrix_* run subdirs (default: vsevals_runs/)")
+    parser.add_argument("--ablation-dir", default=None,
+                        help="Path to an ablation matrix_* dir (P4 with snippets hidden)")
     parser.add_argument("--check", action="store_true", help="Verify numbers only, don't write")
     parser.add_argument("--figures", action="store_true", help="Regenerate figures only")
     parser.add_argument("--no-compile", action="store_true", help="Skip PDF compilation")
@@ -860,29 +867,38 @@ def main():
 
     FIG_DIR.mkdir(parents=True, exist_ok=True)
 
+    runs_dir = Path(args.runs_dir) if args.runs_dir else ROOT / "vsevals_runs"
+
     # ── Step 1: Load data ──
-    print("── Loading batch_1 data ─────────────────────────────")
-    data = load_all_runs()
-    print(f"  Haiku: {len(data['haiku'])} runs")
-    print(f"  Codex: {len(data['codex'])} runs")
+    print(f"── Loading runs from {runs_dir} ─────────────────────")
+    data = discover_runs(runs_dir)
+    n_claude = len(data["claude"])
+    n_codex = len(data["codex"])
+    print(f"  Claude: {n_claude} runs")
+    print(f"  Codex:  {n_codex} runs")
+    if not n_claude and not n_codex:
+        print("  ✗ No runs found. Pass --runs-dir pointing to a directory with matrix_* subdirs.")
+        sys.exit(1)
 
     # ── Step 1b: Load ablation ──
     ablation = None
-    abl_rows = load_ablation_run()
+    abl_rows = load_ablation_run(Path(args.ablation_dir) if args.ablation_dir else None)
     if abl_rows:
         ablation = compute_ablation_p4(abl_rows)
         print(f"  Ablation: P4 signal = {ablation['passed']}/{ablation['total']}")
     else:
-        print("  Ablation: not configured")
+        print("  Ablation: not configured (pass --ablation-dir to include)")
 
     # ── Step 2: Compute numbers ──
     print("\n── Computing pass rates ─────────────────────────────")
-    haiku_signal = compute_pass_rates(data["haiku"], SIGNAL_BUGS)
-    haiku_all = compute_pass_rates(data["haiku"], ALL_BUGS)
-    codex_all = compute_pass_rates(data["codex"])  # no filter — include all, errors already excluded by status=ok
-    haiku_per_run = compute_per_run_rates(data["haiku"], SIGNAL_BUGS)
+    haiku_signal = compute_pass_rates(data["claude"], SIGNAL_BUGS)
+    haiku_all = compute_pass_rates(data["claude"], ALL_BUGS)
+    codex_all = compute_pass_rates(data["codex"])  # no filter — errors excluded by status=ok
+    haiku_per_run = compute_per_run_rates(data["claude"], SIGNAL_BUGS)
 
     nums = build_number_map(haiku_signal, haiku_all, codex_all, haiku_per_run, ablation)
+    nums["n_claude_runs"] = str(n_claude)
+    nums["n_codex_runs"] = str(n_codex)
     verify_numbers(nums)
 
     if args.check:
@@ -892,7 +908,7 @@ def main():
     # ── Step 3: Generate figures ──
     print("\n── Generating figures ───────────────────────────────")
     set_paper_style()
-    fig_surface_hierarchy(haiku_signal, codex_all)
+    fig_surface_hierarchy(haiku_signal, codex_all, n_haiku=n_claude, n_codex=n_codex)
     fig_per_run_variance(haiku_per_run)
     fig_lift_waterfall(haiku_signal)
 
@@ -905,7 +921,7 @@ def main():
     tex = TEX_FILE.read_text()
 
     tex = update_tex_numbers(tex, nums)
-    print("  ✓ Numbers updated from batch_1 data")
+    print("  ✓ Numbers updated")
 
     tex = inject_figures(tex)
     print("  ✓ Figure includes injected")

@@ -300,13 +300,13 @@ def validate_artifacts(
         if score:
             _check("passed" in score, "score.passed present")
             _check("overall_score" in score, "score.overall_score present")
-            # Score > 0 only expected for context-enabled variants (P3+).
-            # P0-P2 are designed to fail on composition bugs like BUG39.
-            has_context = variant_id.upper() not in ("P0", "P1", "P2")
+            # Score > 0 only expected for context-enabled variants (P2+).
+            # P0-P1 are designed to fail on composition bugs like BUG39.
+            has_context = variant_id.upper() not in ("P0", "P1")
             if real_mode and has_context:
                 _check(score.get("overall_score", 0) > 0, "score.overall_score > 0 (real + context variant)")
             elif real_mode:
-                _log(f"  score.overall_score = {score.get('overall_score')} (P0-P2: low score expected)")
+                _log(f"  score.overall_score = {score.get('overall_score')} (P0-P1: low score expected)")
 
     return failures
 

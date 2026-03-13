@@ -235,7 +235,7 @@ def test_write_matrix_report_sorted(tmp_path):
     """Results should be sorted by task_id, variant_id, model_name."""
     results = [
         _make_result(task_id="BUG03", variant_id="P0", model_name="mock:b"),
-        _make_result(task_id="BUG01", variant_id="P3", model_name="mock:a"),
+        _make_result(task_id="BUG01", variant_id="P2", model_name="mock:a"),
         _make_result(task_id="BUG01", variant_id="P0", model_name="mock:a"),
         _make_result(task_id="BUG02", variant_id="P0", model_name="mock:a"),
     ]
@@ -248,7 +248,7 @@ def test_write_matrix_report_sorted(tmp_path):
     assert task_ids == ["BUG01", "BUG01", "BUG02", "BUG03"]
     # Check variant sort within BUG01
     variants_bug01 = [ln.split("|")[2].strip() for ln in lines[:2]]
-    assert variants_bug01 == ["P0", "P3"]
+    assert variants_bug01 == ["P0", "P2"]
 
 
 def test_write_matrix_report_score_formatting(tmp_path):

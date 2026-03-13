@@ -37,8 +37,8 @@ CODEX_DIRS = [
     "matrix_20260304T083357237819Z",  # Codex Run 3
 ]
 
-TOOL_VARIANTS = {"P2", "P4", "P5", "P6"}
-ALL_VARIANTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6"]
+TOOL_VARIANTS = {"P3", "P4", "P5", "P6", "P7", "P8"}
+ALL_VARIANTS = ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]
 SIGNAL_BUGS = {
     "BUG42", "BUG43", "BUG44", "BUG45", "BUG46", "BUG47",
     "BUG49", "BUG50", "BUG51", "BUG52", "BUG53", "BUG54", "BUG55", "BUG56", "BUG57",

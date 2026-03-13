@@ -59,7 +59,7 @@ def variant_p0():
 @pytest.fixture
 def variant_p3():
     return VariantConfig(
-        id="P3",
+        id="P2",
         mode="agent",
         memory_enabled=True,
         tools_enabled=False,

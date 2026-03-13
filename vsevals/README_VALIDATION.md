@@ -76,7 +76,7 @@ PY
 ```
 
 Expected:
-- `variants= ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6']`
+- `variants= ['P0', 'P1', 'P3', 'P2', 'P4', 'P5', 'P6']`
 - `tasks= 30`
 
 ## 4) Prompt no-key behavior sanity (P4/P5/P6)
@@ -132,7 +132,7 @@ uv run --project vsevals python vsevals/scripts/rescore_pytest.py \
   --matrix-dir /Users/srinivasvaddi/moltsnip/vsevals/vsevals_runs_clean/matrix_20260302T050545698715Z \
   --suite /Users/srinivasvaddi/moltsnip/vsevals/suites/script30.yaml \
   --tasks BUG41 \
-  --variants P3 \
+  --variants P2 \
   --force \
   --pytest-docker-image moltsnip-hybrid-pytest:latest \
   --workers 1 \

@@ -37,9 +37,20 @@ variants:
     context_surface: user
     max_tool_roundtrips: 1
     include_oracle: false
-    purpose: "Baseline + explicit oracle criteria stated in prompt."
+    purpose: "Baseline + explicit execution instruction (oracle and expected_output withheld) — tests if instruction framing alone affects output vs P0."
 
   - id: P2
+    mode: direct
+    memory_enabled: true
+    tools_enabled: false
+    retrieval_mode: injected
+    instruction_mode: none
+    context_surface: system
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "Pre-fetched snippets injected into system prompt, no tools."
+
+  - id: P3
     mode: agent
     memory_enabled: false
     tools_enabled: true
@@ -49,17 +60,6 @@ variants:
     max_tool_roundtrips: 4
     include_oracle: false
     purpose: "Tools available, zero guidance — agent decides what to retrieve."
-
-  - id: P3
-    mode: agent
-    memory_enabled: true
-    tools_enabled: false
-    retrieval_mode: injected
-    instruction_mode: none
-    context_surface: system
-    max_tool_roundtrips: 4
-    include_oracle: false
-    purpose: "Pre-fetched snippets injected into system prompt, no tools."
 
   - id: P4
     mode: agent
@@ -93,6 +93,28 @@ variants:
     max_tool_roundtrips: 4
     include_oracle: false
     purpose: "Both guides + tools, no key hints — maximum context."
+
+  - id: P7
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: explicit
+    context_surface: tools_only
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "P3 + explicit instruction — tests if framing alone improves unguided tool use."
+
+  - id: P8
+    mode: agent
+    memory_enabled: false
+    tools_enabled: true
+    retrieval_mode: agent_decides
+    instruction_mode: explicit
+    context_surface: skills_md_no_keys
+    max_tool_roundtrips: 4
+    include_oracle: false
+    purpose: "P4 + explicit instruction — plugin skill + explicit framing."
 
 task_files:
   # http_resilience (BUG41-46)

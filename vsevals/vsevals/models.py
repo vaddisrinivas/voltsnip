@@ -49,8 +49,8 @@ class VariantConfig(BaseModel):
 
     P0   direct / no memory / no tools                         — baseline
     P1   direct / no memory / no tools + explicit instruction  — stronger baseline
-    P2   agent  / tools_only surface                           — zero-guidance retrieval
-    P3   agent  / pre-fetched memory injected in system prompt — no tools
+    P2   agent  / pre-fetched memory injected in system prompt — no tools
+    P3   agent  / tools_only surface                           — zero-guidance retrieval
     P4   agent  / skills_md_no_keys + tools                    — workflow guidance, no key hints
     P5   agent  / agents_md_no_keys + tools                    — agent workflow guidance, no key hints
     P6   agent  / skills_agents_md_no_keys + tools             — combined guides, no key hints
@@ -452,7 +452,7 @@ class RunConfig(BaseModel):
     #   anthropic   → extended thinking budget_tokens (low=1024 / medium=5000 / high=16000)
     #                 forces temperature=1 as required by the API
     #   codex CLI   → -c model_reasoning_effort=<value> (overrides ~/.codex/config.toml)
-    #   claudecode  → no-op (subprocess CLI has no thinking-budget flag)
+    #   claudecode  → --effort <value> (low | medium | high | max)
     # None = use provider default (no override sent).
     reasoning_effort: str | None = None
     # "native_sdk" uses openai/anthropic SDK directly; claudecode uses subprocess

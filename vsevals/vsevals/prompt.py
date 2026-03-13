@@ -6,8 +6,8 @@ Returns a PromptBundle with system_prompt + user_prompt.
 Context surface per variant:
   P0             — "user"                    : raw baseline, no memory, no tools
   P1             — "user"                    : baseline + explicit instruction
-  P2             — "tools_only"              : tools only, no sidecar guidance
-  P3             — "system"                  : injected memory in system prompt
+  P2             — "system"                  : injected memory in system prompt
+  P3             — "tools_only"              : tools only, no sidecar guidance
   P4             — "skills_md_no_keys"       : inline static SKILL.md guidance + tools
   P5             — "agents_md_no_keys"       : inline static AGENTS.md guidance + tools
   P6             — "skills_agents_md_no_keys": inline SKILL.md + AGENTS.md guidance + tools
@@ -48,28 +48,31 @@ DEFAULT_REPO_POLICY = """- Follow repository conventions and preserve API compat
 - Prefer minimal, production-safe changes.
 - Keep behavior deterministic and testable."""
 
-INLINE_SKILL_GUIDE = """# Skill Guidance (No Keys)
+INLINE_SKILL_GUIDE = """# VoltSnip — Code Pattern Retrieval
 
-Use the available MCP retrieval tools before writing code.
+VoltSnip is a semantic memory store containing org-specific code
+patterns, API usage examples, and scenario context for this repo.
 
-Execution contract:
-1. Start with one focused memory/tool search tied to the bug objective.
-2. Read the returned context and apply only the relevant pattern.
-3. If coverage is weak, run one refined follow-up retrieval.
-4. Keep edits minimal, deterministic, and scoped to the target lines.
-5. Return only the required JSON output payload.
+Available tools:
+- semantic_search: find relevant snippets by natural language query
+- fetch snippet by key: retrieve a specific known snippet
+
+Use VoltSnip when the fix involves an org-specific API, metric name,
+import path, or pattern that may not be derivable from the file alone.
+Results give concrete, repo-correct usage examples.
 """
 
-INLINE_AGENT_GUIDE = """# Agent Guidance (No Keys)
+INLINE_AGENT_GUIDE = """# Repository Context
 
-Operate in tool-assisted mode and retrieve context before coding.
+This codebase uses internal org-specific APIs (orgops.*) for metrics,
+logging, and operational integrations. These APIs are not standard
+library calls — their signatures and import paths must be looked up,
+not guessed.
 
-Workflow:
-1. Use available MCP tools to retrieve relevant memory/context first.
-2. Inspect code as needed with read/search tools.
-3. Apply a minimal fix aligned with the task objective.
-4. Avoid redundant tool calls; prefer targeted retrieval.
-5. Return only the required JSON output payload.
+Conventions:
+- Fixes must be minimal and scoped to the target lines.
+- Metric emission and operational hooks follow repo-specific patterns.
+- Return only the required JSON output payload.
 """
 
 _HARNESS_ROOT = Path(__file__).resolve().parents[1]
@@ -182,6 +185,16 @@ def build_prompt(
         explicit = ["Execution Instruction:"]
         if keys_visible:
             explicit.append("This is strict: verify and apply guidance from the listed Guiding Snippet Keys.")
+        elif variant.tools_enabled and surface == "skills_md_no_keys":
+            explicit.append(
+                "This is strict: you MUST invoke the voltsnip-guide skill to retrieve relevant code patterns "
+                "and context before implementing the fix. Do not attempt the fix without first consulting the skill."
+            )
+        elif variant.tools_enabled:
+            explicit.append(
+                "This is strict: you MUST perform at least one snippet retrieval tool call "
+                "before implementing the fix. Do not attempt the fix without first fetching relevant context."
+            )
         else:
             explicit.append("This is strict: satisfy the acceptance criteria and expected output exactly.")
         explicit.append("Keep output deterministic and minimal.")
@@ -199,27 +212,50 @@ def build_prompt(
     elif surface == "tools_only":
         b.system_blocks.append("Tool access is enabled. Fetch memory through tools when useful to solve the task.")
     elif surface == "skills_md_no_keys":
-        # P4: SKILL guide only.
-        # Claude Code: SKILL.md loaded as a plugin skill via --plugin-dir (claudecode.py
-        #   creates .claude-plugin/plugin.json and passes --plugin-dir <tmpdir>).
-        # Codex: AGENTS.md auto-read at startup (same content).
+        # P4: SKILL guide delivered as a plugin skill (on-demand invocation).
+        # Claude Code: --plugin-dir <tmpdir> loads skills/voltsnip-guide/SKILL.md;
+        #   Claude invokes via the Skill tool when it decides context is needed.
+        # Codex: .agents/skills/voltsnip-guide/SKILL.md auto-discovered at startup;
+        #   full content loaded on-demand when the model invokes the skill.
+        # SKILL.md also in cwd root as a directly readable fallback for both providers.
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
-        b.sidecar_files["SKILL.md"] = skills_doc
-        b.sidecar_files["AGENTS.md"] = skills_doc          # Codex auto-read
+        skill_with_frontmatter = (
+            "---\n"
+            "name: voltsnip-guide\n"
+            "description: Use this skill to retrieve relevant VoltSnip code patterns "
+            "and context snippets before implementing a fix.\n"
+            "---\n\n"
+            + skills_doc
+        )
+        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter  # plugin dir entry
+        b.sidecar_files["SKILL.md"] = skills_doc                                     # cwd fallback (readable)
     elif surface == "agents_md_no_keys":
         # P5: AGENTS guide only.
-        # Both providers auto-read CLAUDE.md / AGENTS.md at startup.
+        # Claude Code: CLAUDE.md auto-loaded at startup.
+        # Codex: AGENTS.md auto-read at startup.
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
         b.sidecar_files["CLAUDE.md"] = agents_doc
         b.sidecar_files["AGENTS.md"] = agents_doc
     elif surface == "skills_agents_md_no_keys":
-        # P6: SKILL guide + AGENTS guide as two separate documents.
-        # Claude Code: SKILL.md as plugin skill (--plugin-dir) + AGENTS.md auto-read.
-        # Codex: AGENTS.md auto-read + SKILL.md accessible via read_file tool.
+        # P6: repo context (always-visible) + VoltSnip skill (on-demand plugin).
+        # Claude Code: CLAUDE.md auto-loaded at startup (repo context);
+        #   skills/voltsnip-guide/SKILL.md loaded via --plugin-dir (on-demand, same as P4).
+        # Codex: AGENTS.md auto-read at startup; .agents/skills/voltsnip-guide/SKILL.md
+        #   auto-discovered (mapped from skills/ by codex provider).
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
-        b.sidecar_files["SKILL.md"] = skills_doc
+        skill_with_frontmatter = (
+            "---\n"
+            "name: voltsnip-guide\n"
+            "description: Use this skill to retrieve relevant VoltSnip code patterns "
+            "and context snippets before implementing a fix.\n"
+            "---\n\n"
+            + skills_doc
+        )
+        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter  # plugin dir entry
+        b.sidecar_files["SKILL.md"] = skills_doc                                     # cwd fallback
         b.sidecar_files["AGENTS.md"] = agents_doc
+        b.sidecar_files["CLAUDE.md"] = agents_doc  # always-visible repo context for Claude Code
     else:
         raise ValueError(f"unsupported context_surface: {surface!r}")
 
