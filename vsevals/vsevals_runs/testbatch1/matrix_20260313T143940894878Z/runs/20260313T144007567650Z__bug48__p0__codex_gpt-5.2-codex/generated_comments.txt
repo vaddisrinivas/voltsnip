@@ -1,0 +1,1 @@
+Switched to numeric version comparison and added an optional audit-log hook for each pending (to-be-applied) migration.

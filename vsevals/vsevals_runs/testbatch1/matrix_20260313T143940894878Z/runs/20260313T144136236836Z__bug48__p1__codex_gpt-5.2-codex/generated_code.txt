@@ -1,0 +1,22 @@
+        def _version_num(m: dict[str, Any]) -> int:
+            return int(str(m["version"]))
+
+        pending = list(self.available_migrations)
+        if self.applied_versions:
+            max_applied = max(int(v) for v in self.applied_versions)
+            pending = [
+                m
+                for m in self.available_migrations
+                if int(str(m["version"])) > max_applied
+            ]
+
+        pending = sorted(pending, key=_version_num)
+
+        audit_log = getattr(self, "audit_log", None)
+        if audit_log is None:
+            audit_log = []
+            self.audit_log = audit_log
+        for migration in pending:
+            audit_log.append(f"Applied migration {migration['version']}")
+
+        return pending

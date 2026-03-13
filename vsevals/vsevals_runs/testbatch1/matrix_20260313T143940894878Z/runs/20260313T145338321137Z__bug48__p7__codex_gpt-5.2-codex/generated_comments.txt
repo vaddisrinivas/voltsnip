@@ -1,0 +1,1 @@
+Use numeric version comparisons and wrap pending migrations to emit an audit event when each migration's SQL is accessed for execution.

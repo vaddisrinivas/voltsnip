@@ -1,0 +1,1 @@
+Switched migration version comparisons and sorting to numeric order to prevent lexicographic bugs while keeping behavior otherwise unchanged.

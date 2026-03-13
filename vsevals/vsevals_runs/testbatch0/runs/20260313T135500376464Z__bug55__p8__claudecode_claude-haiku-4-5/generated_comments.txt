@@ -1,0 +1,1 @@
+Fixed inverted comparison operator from > to < on line 53 so early refresh triggers when remaining TTL fraction is low (close to expiry) rather than high (far from expiry); refreshes_triggered counter tracks the stampede prevention metric.

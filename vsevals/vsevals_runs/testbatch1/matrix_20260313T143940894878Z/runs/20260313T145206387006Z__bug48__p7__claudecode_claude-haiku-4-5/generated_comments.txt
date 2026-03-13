@@ -1,0 +1,1 @@
+Fixed numeric version comparison: use int() instead of string comparison for proper ordering (e.g., 10 > 9 not 10 < 9).

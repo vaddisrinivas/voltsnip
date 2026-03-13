@@ -1,0 +1,1 @@
+Fixes the inverted threshold comparison and emits the cache.stampede.prevented metric via an optional hook when a refresh is triggered.

@@ -1,0 +1,12 @@
+    # BUG_59: split 4xx and 5xx while emitting mapping metric
+    from orgops import metrics
+
+    if 400 <= status_code < 500:
+        category = "client_error"
+    elif 500 <= status_code < 600:
+        category = "server_error"
+    else:
+        category = "unknown"
+
+    metrics.emit("error.mapped", {"category": category, "status_code": status_code})
+    return category

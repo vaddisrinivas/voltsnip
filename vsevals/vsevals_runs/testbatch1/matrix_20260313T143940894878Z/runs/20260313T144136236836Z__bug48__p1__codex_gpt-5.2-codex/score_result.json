@@ -1,0 +1,58 @@
+{
+  "overall_score": 0.0,
+  "hidden_requirements": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "success_indicators": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "failure_modes": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria": {
+    "matched": 0,
+    "total": 1,
+    "score": 0.0,
+    "notes": [
+      "missing: bug48_version_ordering_and_audit"
+    ]
+  },
+  "evaluation_criteria_notes": [
+    "bug48_version_ordering_and_audit"
+  ],
+  "constraint_scoring_used": true,
+  "constraint_checks_passed": 0,
+  "constraint_checks_total": 1,
+  "constraint_pass_threshold": 0.7,
+  "constraint_results": [
+    {
+      "id": "bug48_version_ordering_and_audit",
+      "passed": false,
+      "llm_verdict": false,
+      "judge_reason": null,
+      "expected": true,
+      "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+    }
+  ],
+  "judge_payload": {
+    "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+    "user_json": "{\"candidate\": {\"code\": \"        def _version_num(m: dict[str, Any]) -> int:\\n            return int(str(m[\\\"version\\\"]))\\n\\n        pending = list(self.available_migrations)\\n        if self.applied_versions:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = [\\n                m\\n                for m in self.available_migrations\\n                if int(str(m[\\\"version\\\"])) > max_applied\\n            ]\\n\\n        pending = sorted(pending, key=_version_num)\\n\\n        audit_log = getattr(self, \\\"audit_log\\\", None)\\n        if audit_log is None:\\n            audit_log = []\\n            self.audit_log = audit_log\\n        for migration in pending:\\n            audit_log.append(f\\\"Applied migration {migration['version']}\\\")\\n\\n        return pending\\n\", \"comments\": \"Fixed version comparisons to be numeric and added audit logging for each pending migration.\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+  },
+  "judge_raw_response": null,
+  "passed": false
+}

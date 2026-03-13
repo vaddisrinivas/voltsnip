@@ -1,0 +1,48 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_bug_59_status_classification_and_metric _________________
+
+    def test_bug_59_status_classification_and_metric() -> None:
+        """classify_http_error must:
+        1. Return "client_error" for 400-499 (not "server_error").
+        2. Return "server_error" for 500-599.
+        3. Emit an 'error.mapped' metric via orgops.metrics.emit().
+        All three are required -- fixing only the classification is insufficient.
+        """
+    
+        with patch("orgops.metrics.emit") as mock_emit:
+            # 429 is a client error (4xx range)
+>           result = classify_http_error(429)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug59.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+status_code = 429
+
+    def classify_http_error(status_code: int) -> str:
+        """Classify an HTTP status code into an error category.
+    
+        Expected categories:
+            - "client_error"  for 400-499
+            - "server_error"  for 500-599
+            - "unknown"       for anything else
+    
+        BUG_59: the implementation lumps ALL codes 400-599 into "server_error"
+        instead of splitting 4xx (client) from 5xx (server).  Models must
+        also emit an "error.mapped" metric via orgops.metrics.emit().
+        """
+        if 400 <= status_code < 500:
+            category = "client_error"
+        elif 500 <= status_code < 600:
+            category = "server_error"
+        else:
+            category = "unknown"
+>       orgops.metrics.emit("error.mapped", status_code)
+        ^^^^^^
+E       NameError: name 'orgops' is not defined
+
+errors/error_mapper.py:45: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug59.py::test_bug_59_status_classification_and_metric
+1 failed in 0.10s

@@ -414,9 +414,12 @@ def _build_claudecode_invocation(
             dest.write_text(content, encoding="utf-8")
 
     # Plugin skill injection: load skills/voltsnip-guide/SKILL.md via --plugin-dir.
+    # --plugin-dir expects {dir}/{skill-name}/SKILL.md, so point at tmpdir/skills/
+    # (not tmpdir root) to match the sidecar path skills/voltsnip-guide/SKILL.md.
     # Must come after _sidecar_dir_cleanup is created so the path is valid.
     if has_plugin_skills:
-        cmd.extend(["--plugin-dir", _sidecar_dir_cleanup])
+        plugin_dir = str(Path(_sidecar_dir_cleanup) / "skills")
+        cmd.extend(["--plugin-dir", plugin_dir])
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)  # prevent "nested session" rejection when launched from within Claude Code

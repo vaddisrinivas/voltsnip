@@ -1,0 +1,1 @@
+Fix the threshold comparison and emit a best-effort stampede-prevented metric when an early refresh triggers.

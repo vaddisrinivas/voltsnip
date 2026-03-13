@@ -1,0 +1,1 @@
+Fixed numeric version comparison in get_pending_migrations by converting version strings to integers for sorting and max comparisons; added audit logging to apply_pending for each applied migration via orgops.auditing.write_event().

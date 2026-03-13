@@ -1,0 +1,1 @@
+Fixed inverted threshold comparison from > to < for correct early-refresh behavior and added orgops.metrics.emit for operational stampede-prevention tracking.

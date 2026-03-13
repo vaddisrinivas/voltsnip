@@ -1,0 +1,14 @@
+        if ttl <= 0:
+            return False
+
+        ratio = time_remaining / ttl
+
+        # Refresh when ratio is LOW (close to expiry)
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            emit = getattr(self, "_emit_metric", None)
+            if callable(emit):
+                emit("cache.stampede.prevented", key_name)
+            return True
+
+        return False

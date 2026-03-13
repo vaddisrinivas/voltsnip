@@ -1,0 +1,13 @@
+        if not self.applied_versions:
+            return sorted(
+                self.available_migrations,
+                key=lambda m: int(m["version"]),
+            )
+
+        max_applied = max(self.applied_versions, key=lambda v: int(v))
+        pending = [
+            m
+            for m in self.available_migrations
+            if int(m["version"]) > int(max_applied)
+        ]
+        return sorted(pending, key=lambda m: int(m["version"]))

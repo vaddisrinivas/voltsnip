@@ -1,0 +1,275 @@
+{
+  "run_id": "20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/suite.yaml",
+  "output_root": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs",
+  "task_id": "BUG55",
+  "task_name": "stampede_threshold_inverted_and_metric",
+  "variant_id": "P5",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "agents_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "concurrency_cache",
+  "task_difficulty": "hard",
+  "task_line_start": 34,
+  "task_line_end": 57,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+    "voltsnip/script30/hard/bug55/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG55\nTask Name: stampede_threshold_inverted_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_early so entries refresh when close to expiry, not far from it.\n\nTarget File: cache/stampede_guard.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug55.py -k bug_55\n\nContext Code:\n```python\ndef should_refresh_early(\n    self,\n    time_remaining: float,\n    ttl: float,\n    key_name: str = \"unknown\",\n) -> bool:\n    \"\"\"Return True when the entry should be refreshed before expiry.\n\n    BUG_55: the ratio comparison is inverted, causing early refreshes\n    when the entry is FAR from expiry (most of the TTL left) rather\n    than CLOSE to expiry (little TTL left).\n    \"\"\"\n    if ttl <= 0:\n        return False\n\n    ratio = time_remaining / ttl\n\n    # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n    # (far from expiry) instead of when ratio is LOW (close to expiry)\n    if ratio > self.threshold:  # BUG_55: should be < not >\n        self.refreshes_triggered += 1\n        return True\n\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Stampede guard for cache early-refresh decisions.\n\nThis module provides probabilistic early refresh to prevent cache\nstampede scenarios.  When a cached entry is close to expiry, the guard\ntriggers an early refresh so the new value is ready before the old one\nexpires.  The operational metrics pipeline is notified whenever an\nearly refresh is triggered.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass StampedeGuard:\n    \"\"\"Decides whether to refresh a cache entry before its TTL expires.\n\n    The core heuristic: when the *remaining* fraction of the TTL drops\n    below a configurable *threshold*, trigger an early refresh to avoid\n    a thundering-herd on expiry.\n\n    Usage::\n\n        guard = StampedeGuard(threshold=0.2)\n        if guard.should_refresh_early(time_remaining=2.0, ttl=10.0, key_name=\"users\"):\n            schedule_background_refresh(\"users\")\n    \"\"\"\n\n    def __init__(self, threshold: float = 0.2) -> None:\n        if not 0.0 < threshold < 1.0:\n            raise ValueError(\"threshold must be between 0 and 1 exclusive\")\n        self.threshold = threshold\n        self.refreshes_triggered: int = 0\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio > self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return guard statistics.\"\"\"\n        return {\n            \"threshold\": self.threshold,\n            \"refreshes_triggered\": self.refreshes_triggered,\n        }\n```\n\nExpected Output:\nFix comparison from > to < for correct early-refresh AND emit cache.stampede.prevented metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug55/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG55\nTask Name: stampede_threshold_inverted_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_early so entries refresh when close to expiry, not far from it.\n\nTarget File: cache/stampede_guard.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug55.py -k bug_55\n\nContext Code:\n```python\ndef should_refresh_early(\n    self,\n    time_remaining: float,\n    ttl: float,\n    key_name: str = \"unknown\",\n) -> bool:\n    \"\"\"Return True when the entry should be refreshed before expiry.\n\n    BUG_55: the ratio comparison is inverted, causing early refreshes\n    when the entry is FAR from expiry (most of the TTL left) rather\n    than CLOSE to expiry (little TTL left).\n    \"\"\"\n    if ttl <= 0:\n        return False\n\n    ratio = time_remaining / ttl\n\n    # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n    # (far from expiry) instead of when ratio is LOW (close to expiry)\n    if ratio > self.threshold:  # BUG_55: should be < not >\n        self.refreshes_triggered += 1\n        return True\n\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Stampede guard for cache early-refresh decisions.\n\nThis module provides probabilistic early refresh to prevent cache\nstampede scenarios.  When a cached entry is close to expiry, the guard\ntriggers an early refresh so the new value is ready before the old one\nexpires.  The operational metrics pipeline is notified whenever an\nearly refresh is triggered.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass StampedeGuard:\n    \"\"\"Decides whether to refresh a cache entry before its TTL expires.\n\n    The core heuristic: when the *remaining* fraction of the TTL drops\n    below a configurable *threshold*, trigger an early refresh to avoid\n    a thundering-herd on expiry.\n\n    Usage::\n\n        guard = StampedeGuard(threshold=0.2)\n        if guard.should_refresh_early(time_remaining=2.0, ttl=10.0, key_name=\"users\"):\n            schedule_background_refresh(\"users\")\n    \"\"\"\n\n    def __init__(self, threshold: float = 0.2) -> None:\n        if not 0.0 < threshold < 1.0:\n            raise ValueError(\"threshold must be between 0 and 1 exclusive\")\n        self.threshold = threshold\n        self.refreshes_triggered: int = 0\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio > self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return guard statistics.\"\"\"\n        return {\n            \"threshold\": self.threshold,\n            \"refreshes_triggered\": self.refreshes_triggered,\n        }\n```\n\nExpected Output:\nFix comparison from > to < for correct early-refresh AND emit cache.stampede.prevented metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4",
+    "context_surface": "agents_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/concurrency_cache/guiding_principle/v1",
+      "voltsnip/script30/hard/bug55/scenario_context/v1",
+      "voltsnip/bug22/task/bug22/example_stampede_locking/v2",
+      "voltsnip/script30/hard/bug56/scenario_context/v1",
+      "voltsnip/script30/hard/bug41/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "CLAUDE.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?",
+      "AGENTS.md": "# VoltSnip AGENT Workflow (Static, No Prelisted Keys)\n\nYou are in tool-assisted agent mode.\nUse MCP tools to retrieve just enough context to produce a correct, minimal fix.\nDo not assume pre-fetched memory exists.\n\n## Agent Priorities\n\n1. Understand exact bug objective and constraints.\n2. Retrieve targeted context via MCP tools.\n3. Validate fit against local code.\n4. Implement minimal deterministic fix.\n5. Return strictly formatted JSON output.\n\n## MCP Tooling Model\n\nDiscovery:\n- `mcp__voltsnip__search_memory`\n\nPrecision retrieval:\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nRepository verification (when available):\n- `read_file`, `glob_files`, `grep_files`\n\nOperational rule:\n- Discovery first, precision second, code edit last.\n\n## Agent Execution Loop\n\n1. Parse task objective, target scope, and behavioral expectation.\n2. Run one focused `search_memory` call based on bug semantics.\n3. Inspect candidate results; choose the best semantic match.\n4. Inspect local code using read/search tools to map integration points.\n5. If context is still incomplete, run one refined retrieval.\n6. Apply fix with minimal footprint.\n7. Re-check against objective and output constraints.\n8. Emit final JSON payload.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as seed intents. Adapt wording to task-specific failure mode.\n\n## Retrieval Decision Rules\n\nCall `search_memory` when:\n- You need pattern discovery.\n- Task semantics are clear but implementation approach is uncertain.\n\nCall `get_snippet_by_canonical_key` when:\n- You already have a valid canonical key from prior tool output.\n- You need a complete snippet for high-fidelity adaptation.\n\nDo not:\n- Guess canonical keys.\n- Spam repeated low-information searches.\n\n## Local Code Verification Rules\n\nBefore editing:\n- Confirm exact target behavior in current implementation.\n- Confirm surrounding call sites and data contracts.\n- Identify edge cases implied by the task (bounds, error paths, race windows, privacy constraints).\n\nAfter editing:\n- Ensure fix is scoped and contract-preserving.\n- Ensure no unrelated behavior drift.\n\n## Quality Guardrails\n\n- Prefer correctness over cleverness.\n- Prefer deterministic logic over non-deterministic shortcuts.\n- Avoid broad refactors unless task explicitly requires them.\n- Do not introduce speculative abstractions.\n\n## MCP Failure / Low-Signal Handling\n\nIf retrieval quality is poor:\n- Rephrase query with stronger behavioral constraints.\n- Add one discriminative keyword from failure mode.\n- Run at most one refined follow-up before proceeding.\n\nIf MCP tool errors occur:\n- Retry once with reduced payload complexity.\n- Continue with best available evidence if persistent errors remain.\n\n## Efficiency and Budgeting\n\n- One strong retrieval + one verification pass usually beats many exploratory calls.\n- Stop retrieving once you can justify a concrete fix.\n- Keep tool usage purposeful and auditable.\n\n## Output Contract\n\n- Output must be a single JSON object in the required schema.\n- No markdown, no additional prose, no diff format.\n- When target file constraints require full-file output, provide full rewritten file.\n- When line-range constraints are specified, output only replacement for that range.\n\n## Final Self-Check Before Emitting\n\n- Does the change satisfy the stated bug objective?\n- Is the change minimal and localized?\n- Is output format exactly compliant?\n- Did retrieval meaningfully inform the implementation?"
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "9c8b3adf-e79d-4462-b570-53216f10c583",
+      "canonical_key": "voltsnip/script30/hard/bug55/scenario_context/v1",
+      "title": "Stampede guard requires correct threshold comparison AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The StampedeGuard.should_refresh_early method must both fix the threshold comparison (< instead of >) AND emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name). The operational dashboard depends on this metric to track stampede prevention events.",
+      "code": "# Stampede Guard — Two Requirements\n\nThe `StampedeGuard.should_refresh_early` method has TWO requirements:\n\n## 1. Correct Threshold Comparison\nTrigger early refresh when the remaining fraction is BELOW the threshold\n(close to expiry), not above it (far from expiry):\n```python\nratio = time_remaining / ttl\nif ratio < self.threshold:  # not >\n    # trigger early refresh\n```\n\n## 2. Metric Emission (REQUIRED)\nThe operational dashboard monitors `cache.stampede.prevented` events.\nWhen an early refresh is triggered, the function MUST emit this metric\nvia `orgops.metrics.emit()`:\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n```\n\n## Complete Correct Pattern\n```python\ndef should_refresh_early(self, time_remaining, ttl, key_name=\"unknown\"):\n    import orgops.metrics\n    if ttl <= 0:\n        return False\n    ratio = time_remaining / ttl\n    if ratio < self.threshold:\n        self.refreshes_triggered += 1\n        orgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n        return True\n    return False\n```\n\nFixing ONLY the comparison is insufficient — the operational dashboard\nwill not track stampede prevention events without the metric emission.\nBoth fixes are required for production correctness.\n"
+    },
+    {
+      "id": "92d5608c-eff6-4157-b106-53ae2e68facf",
+      "canonical_key": "voltsnip/bug22/task/bug22/example_stampede_locking/v2",
+      "title": "BUG22 stampede-safe cache miss example",
+      "language": "python",
+      "tags": [
+        "eval-bug22",
+        "bug22",
+        "concurrency_cache",
+        "stampede"
+      ],
+      "description": "Reference pattern for per-key synchronization that prevents stampede without deadlock.",
+      "code": "import threading\\n\\nclass StampedeGuard:\\n    def __init__(self):\\n        self._lock = threading.Lock()\\n        self._inflight = {}\\n\\n    def run_once(self, key, builder):\\n        with self._lock:\\n            evt = self._inflight.get(key)\\n            if evt is None:\\n                evt = threading.Event()\\n                self._inflight[key] = evt\\n                owner = True\\n            else:\\n                owner = False\\n        if owner:\\n            try:\\n                return builder()\\n            finally:\\n                with self._lock:\\n                    self._inflight.pop(key, None)\\n                evt.set()\\n        evt.wait()\\n        return None\\n"
+    },
+    {
+      "id": "825c1a8c-51ed-4416-b84c-771c1599def0",
+      "canonical_key": "voltsnip/script30/hard/bug56/scenario_context/v1",
+      "title": "LFU eviction requires time-decayed scoring AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "concurrency_cache",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The compute_lfu_score function must use time-decayed frequency (access_count / (1 + age_hours)) AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# LFU Eviction Score — Two Requirements\n\n## 1. Time-Decayed Frequency\n```python\nscore = access_count / (1 + age_hours)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"cache.eviction.lfu\", score)\n```\n"
+    },
+    {
+      "id": "5300123c-c5e8-4a0a-bbda-f30fec8a2190",
+      "canonical_key": "voltsnip/script30/hard/bug41/scenario_context/v1",
+      "title": "Retry backoff requires exponential delay AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "http_resilience",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The compute_backoff_delay function must use exponential backoff AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# Retry Backoff — Two Requirements\n\n## 1. Exponential Backoff\n```python\ndelay = min(base_delay * (2 ** attempt), max_delay)\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"retry.backoff.applied\", delay_seconds)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG55\nTask Name: stampede_threshold_inverted_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix should_refresh_early so entries refresh when close to expiry, not far from it.\n\nTarget File: cache/stampede_guard.py\n\nTarget Lines:\n34-57 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 34-57 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug55.py -k bug_55\n\nContext Code:\n```python\ndef should_refresh_early(\n    self,\n    time_remaining: float,\n    ttl: float,\n    key_name: str = \"unknown\",\n) -> bool:\n    \"\"\"Return True when the entry should be refreshed before expiry.\n\n    BUG_55: the ratio comparison is inverted, causing early refreshes\n    when the entry is FAR from expiry (most of the TTL left) rather\n    than CLOSE to expiry (little TTL left).\n    \"\"\"\n    if ttl <= 0:\n        return False\n\n    ratio = time_remaining / ttl\n\n    # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n    # (far from expiry) instead of when ratio is LOW (close to expiry)\n    if ratio > self.threshold:  # BUG_55: should be < not >\n        self.refreshes_triggered += 1\n        return True\n\n    return False\n```\n\nTarget File Content (full file):\n```python\n\"\"\"Stampede guard for cache early-refresh decisions.\n\nThis module provides probabilistic early refresh to prevent cache\nstampede scenarios.  When a cached entry is close to expiry, the guard\ntriggers an early refresh so the new value is ready before the old one\nexpires.  The operational metrics pipeline is notified whenever an\nearly refresh is triggered.\n\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Any\n\n\nclass StampedeGuard:\n    \"\"\"Decides whether to refresh a cache entry before its TTL expires.\n\n    The core heuristic: when the *remaining* fraction of the TTL drops\n    below a configurable *threshold*, trigger an early refresh to avoid\n    a thundering-herd on expiry.\n\n    Usage::\n\n        guard = StampedeGuard(threshold=0.2)\n        if guard.should_refresh_early(time_remaining=2.0, ttl=10.0, key_name=\"users\"):\n            schedule_background_refresh(\"users\")\n    \"\"\"\n\n    def __init__(self, threshold: float = 0.2) -> None:\n        if not 0.0 < threshold < 1.0:\n            raise ValueError(\"threshold must be between 0 and 1 exclusive\")\n        self.threshold = threshold\n        self.refreshes_triggered: int = 0\n\n    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio > self.threshold:  # BUG_55: should be < not >\n            self.refreshes_triggered += 1\n            return True\n\n        return False\n\n    @property\n    def stats(self) -> dict[str, Any]:\n        \"\"\"Return guard statistics.\"\"\"\n        return {\n            \"threshold\": self.threshold,\n            \"refreshes_triggered\": self.refreshes_triggered,\n        }\n```\n\nExpected Output:\nFix comparison from > to < for correct early-refresh AND emit cache.stampede.prevented metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nAGENTS.md guide + tools, no key hints — MUST search instruction.\n\nTool Budget:\nMaximum tool roundtrips: 4"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! The memory search reveals the exact pattern needed. The fix requires **two changes**:\n\n1. Fix the comparison from `>` to `<` (close to expiry, not far)\n2. Emit the `cache.stampede.prevented` metric via `orgops.metrics.emit()`\n\nHere's the corrected method for lines 34-57:\n\n```json\n{\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # FIXED: changed > to <\\n            self.refreshes_triggered += 1\\n            orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name)\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted threshold comparison (< instead of >) and added cache.stampede.prevented metric emission for operational monitoring.\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__search_memory",
+      "tool_call_id": "toolu_011egtaCSxrgcMQ6gtE1VVyg",
+      "tool_args": {
+        "query": "cache metric stampede emit monitoring",
+        "k": 3
+      },
+      "tool_result": {
+        "retrieved": 3
+      },
+      "error": null,
+      "started_at": "2026-03-13T13:44:30.369158Z",
+      "finished_at": "2026-03-13T13:44:30.369310Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "Grep",
+      "tool_call_id": "toolu_01BpdUheRAobEcdTyDeGD9Qm",
+      "tool_args": {
+        "pattern": "stampede|metric|emit",
+        "glob": "**/*.py",
+        "type": "py",
+        "head_limit": 20
+      },
+      "tool_result": {
+        "raw": "No files found"
+      },
+      "error": null,
+      "started_at": "2026-03-13T13:44:30.369174Z",
+      "finished_at": "2026-03-13T13:44:30.369397Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Perfect! The memory search reveals the exact pattern needed. The fix requires **two changes**:\n\n1. Fix the comparison from `>` to `<` (close to expiry, not far)\n2. Emit the `cache.stampede.prevented` metric via `orgops.metrics.emit()`\n\nHere's the corrected method for lines 34-57:\n\n```json\n{\"code\": \"    def should_refresh_early(\\n        self,\\n        time_remaining: float,\\n        ttl: float,\\n        key_name: str = \\\"unknown\\\",\\n    ) -> bool:\\n        \\\"\\\"\\\"Return True when the entry should be refreshed before expiry.\\n\\n        BUG_55: the ratio comparison is inverted, causing early refreshes\\n        when the entry is FAR from expiry (most of the TTL left) rather\\n        than CLOSE to expiry (little TTL left).\\n        \\\"\\\"\\\"\\n        import orgops.metrics\\n\\n        if ttl <= 0:\\n            return False\\n\\n        ratio = time_remaining / ttl\\n\\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\\n        if ratio < self.threshold:  # FIXED: changed > to <\\n            self.refreshes_triggered += 1\\n            orgops.metrics.emit(\\\"cache.stampede.prevented\\\", key_name)\\n            return True\\n\\n        return False\", \"comments\": \"Fixed inverted threshold comparison (< instead of >) and added cache.stampede.prevented metric emission for operational monitoring.\"}\n```",
+  "parsed_output": {
+    "code": "    def should_refresh_early(\n        self,\n        time_remaining: float,\n        ttl: float,\n        key_name: str = \"unknown\",\n    ) -> bool:\n        \"\"\"Return True when the entry should be refreshed before expiry.\n\n        BUG_55: the ratio comparison is inverted, causing early refreshes\n        when the entry is FAR from expiry (most of the TTL left) rather\n        than CLOSE to expiry (little TTL left).\n        \"\"\"\n        import orgops.metrics\n\n        if ttl <= 0:\n            return False\n\n        ratio = time_remaining / ttl\n\n        # BUG_55: inverted comparison -- refreshes when ratio is HIGH\n        # (far from expiry) instead of when ratio is LOW (close to expiry)\n        if ratio < self.threshold:  # FIXED: changed > to <\n            self.refreshes_triggered += 1\n            orgops.metrics.emit(\"cache.stampede.prevented\", key_name)\n            return True\n\n        return False",
+    "comments": "Fixed inverted threshold comparison (< instead of >) and added cache.stampede.prevented metric emission for operational monitoring."
+  },
+  "token_usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 6,
+    "total_tokens": 24,
+    "cached_tokens": 33901,
+    "thinking_tokens": null,
+    "cost_usd": 0.00273608
+  },
+  "timings": {
+    "started_at": "2026-03-13T13:43:51.787763Z",
+    "finished_at": "2026-03-13T13:44:30.503547Z",
+    "latency_ms": 38715
+  },
+  "summary_metrics": {
+    "latency_ms": 38715,
+    "prompt_chars": 5034,
+    "output_chars": 1392,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 3984,
+    "snippet_injected_chars": 2436,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 4,
+    "tool_call_count": 2,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 1,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 38564,
+    "model_request_started_at": "2026-03-13T13:43:51.806453Z",
+    "model_request_finished_at": "2026-03-13T13:44:30.370880Z",
+    "model_request_id": "7ab304ea-1092-4d75-adb1-b82a440507e4",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 6,
+      "total_tokens": 24,
+      "cached_tokens": 33901,
+      "thinking_tokens": null,
+      "cost_usd": 0.00273608
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs/20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs/20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs/20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs/20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch0/runs/20260313T134351787591Z__bug55__p5__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": null,
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.13s\n",
+    "stderr": "",
+    "duration_ms": 823,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

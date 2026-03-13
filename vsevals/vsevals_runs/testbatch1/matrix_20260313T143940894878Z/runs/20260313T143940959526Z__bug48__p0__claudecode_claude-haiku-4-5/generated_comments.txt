@@ -1,0 +1,1 @@
+Convert version comparisons from lexicographic string sorting to numeric integer sorting by using int() for all version values.

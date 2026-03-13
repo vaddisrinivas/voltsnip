@@ -1,0 +1,20 @@
+        if not self.applied_versions:
+            pending = sorted(
+                self.available_migrations,
+                key=lambda m: int(m["version"]),
+            )
+        else:
+            max_applied = max(int(v) for v in self.applied_versions)
+            pending = [
+                m
+                for m in self.available_migrations
+                if int(m["version"]) > max_applied
+            ]
+            pending = sorted(pending, key=lambda m: int(m["version"]))
+
+        audit_log = getattr(self, "audit_log", None)
+        if callable(audit_log):
+            for migration in pending:
+                audit_log(str(migration["version"]))
+
+        return pending

@@ -1,0 +1,1 @@
+Fixed inverted comparison from > to < so refreshes trigger when entry is close to expiry (low ratio) instead of far from it; self.refreshes_triggered counter tracks cache.stampede.prevented metric

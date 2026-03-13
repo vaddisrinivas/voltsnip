@@ -1,0 +1,136 @@
+{
+  "run_id": "20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs",
+  "task_id": "BUG59",
+  "task_name": "http_status_classification_and_metric",
+  "variant_id": "P0",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "error",
+  "variant_mode": "direct",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": false,
+  "variant_retrieval_mode": "none",
+  "variant_instruction_mode": "none",
+  "variant_context_surface": "user",
+  "variant_max_tool_roundtrips": 1,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 27,
+  "task_line_end": 42,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug59/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable.",
+    "context_surface": "user",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "variant_mode",
+      "variant_hypothesis",
+      "repo_policy"
+    ],
+    "injected_snippet_keys": [],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": null,
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExecution Mode:\nDirect mode: produce the final full-file rewrite payload without agent tool loops.\n\nVariant Hypothesis:\nRaw baseline — no tools, no memory. Model uses only training data.\n\nRepository Policy:\n- Follow repository conventions and preserve API compatibility.\n- Prefer minimal, production-safe changes.\n- Keep behavior deterministic and testable."
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ],
+  "tool_traces": [],
+  "raw_model_output": "",
+  "parsed_output": {
+    "code": "",
+    "comments": ""
+  },
+  "token_usage": {
+    "prompt_tokens": null,
+    "completion_tokens": null,
+    "total_tokens": null,
+    "cached_tokens": 0,
+    "thinking_tokens": null,
+    "cost_usd": null
+  },
+  "timings": {
+    "started_at": "2026-03-13T15:41:22.838381Z",
+    "finished_at": "2026-03-13T15:41:24.653599Z",
+    "latency_ms": 1815
+  },
+  "summary_metrics": {
+    "latency_ms": 1815,
+    "prompt_chars": 5220,
+    "output_chars": 0,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4170,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": false,
+    "structured_output_succeeded": false,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": null,
+    "model_request_started_at": null,
+    "model_request_finished_at": null,
+    "model_request_id": null,
+    "model_finish_reason": null,
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cached_tokens": 0,
+      "thinking_tokens": null,
+      "cost_usd": null
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs/20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs/20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs/20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs/20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T154122771632Z/runs/20260313T154122838135Z__bug59__p0__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": null,
+  "pytest_result": null,
+  "error": {
+    "type": "RuntimeError",
+    "message": "claudecode stream error: Failed to authenticate. API Error: 401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"OAuth token has expired. Please obtain a new token or refresh your existing token.\"},\"request_id\":\"req_011CZ1LGrXUb3qf77pXvwH9T\"}",
+    "error_class": "AUTH_ERROR"
+  }
+}

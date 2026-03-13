@@ -1,0 +1,1 @@
+Fixed version comparisons to be numeric and added audit logging for each pending migration.

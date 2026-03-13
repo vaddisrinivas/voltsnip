@@ -1,0 +1,1 @@
+Convert all version comparisons from string to int: sort key uses int(), max() uses key=int, and comparison uses int() on both sides to fix lexicographic ordering bug where '10' sorted before '2'.

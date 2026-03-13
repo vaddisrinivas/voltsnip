@@ -1,0 +1,1 @@
+Fixed the threshold comparison and added a safe metric emission hook when an early refresh triggers.

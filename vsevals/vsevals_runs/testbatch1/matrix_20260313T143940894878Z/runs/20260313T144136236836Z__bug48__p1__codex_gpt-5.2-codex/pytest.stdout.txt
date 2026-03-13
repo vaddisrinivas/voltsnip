@@ -1,0 +1,32 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_bug_48_migration_version_and_audit ____________________
+
+    def test_bug_48_migration_version_and_audit() -> None:
+        """MigrationRunner must:
+        1. Compare versions numerically so "10" sorts after "9" (not before "2").
+        2. Call orgops.auditing.write_event("migration.applied", version=version)
+           for each migration applied.
+        Both are required -- fixing only the ordering is insufficient.
+        """
+        from data.migration_runner import MigrationRunner
+    
+        applied_versions = {"1", "2", "3", "9"}
+        available_migrations = [
+            {"version": "1", "sql": "CREATE TABLE a;"},
+            {"version": "2", "sql": "CREATE TABLE b;"},
+            {"version": "3", "sql": "CREATE TABLE c;"},
+            {"version": "9", "sql": "CREATE TABLE i;"},
+            {"version": "10", "sql": "CREATE TABLE j;"},
+            {"version": "11", "sql": "CREATE TABLE k;"},
+            {"version": "20", "sql": "CREATE TABLE t;"},
+        ]
+    
+>       runner = MigrationRunner(applied_versions, available_migrations)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: __init__() should return None, not 'list'
+
+tests/unit/test_bug48.py:29: TypeError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - Ty...
+1 failed in 0.11s

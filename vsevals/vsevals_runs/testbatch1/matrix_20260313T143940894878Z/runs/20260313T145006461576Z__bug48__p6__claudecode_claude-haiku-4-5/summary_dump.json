@@ -1,0 +1,118 @@
+{
+  "run_id": "20260313T145006461576Z__bug48__p6__claudecode_claude-haiku-4-5",
+  "task_id": "BUG48",
+  "task_name": "migration_version_lexicographic_and_audit",
+  "variant_id": "P6",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "metrics": {
+    "latency_ms": 60749,
+    "prompt_chars": 5701,
+    "output_chars": 1905,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4651,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 0,
+    "voltsnip_tool_call_count": 0,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": false,
+    "used_voltsnip_tools": false,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 60729,
+    "model_request_started_at": "2026-03-13T14:50:06.481207Z",
+    "model_request_finished_at": "2026-03-13T14:51:07.210785Z",
+    "model_request_id": "3e13c880-76df-4eab-87c5-b1b3d34ffe74",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": 0,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 3,
+      "total_tokens": 13,
+      "cached_tokens": 13150,
+      "thinking_tokens": null,
+      "cost_usd": 0.001064
+    }
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug48_version_ordering_and_audit"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug48_version_ordering_and_audit"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug48_version_ordering_and_audit",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": null,
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug48/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"    def get_pending_migrations(self) -> list[dict[str, Any]]:\\n        \\\"\\\"\\\"Return migrations not yet applied, sorted by version.\\\"\\\"\\\"\\n        if not self.applied_versions:\\n            pending = sorted(\\n                self.available_migrations,\\n                key=lambda m: int(m[\\\"version\\\"]),\\n            )\\n        else:\\n            max_applied = max(int(v) for v in self.applied_versions)\\n            pending = [\\n                m\\n                for m in self.available_migrations\\n                if int(m[\\\"version\\\"]) > max_applied\\n            ]\\n            pending = sorted(pending, key=lambda m: int(m[\\\"version\\\"]))\\n        \\n        for m in pending:\\n            orgops.auditing.write_event(\\\"migration.applied\\\", version=str(m[\\\"version\\\"]))\\n        \\n        return pending\", \"comments\": \"Fixed numeric version comparison (int instead of str) for correct sorting and pending detection; added audit logging for each pending migration via orgops.auditing.write_event().\"}, \"constraints\": [{\"id\": \"bug48_version_ordering_and_audit\", \"voltsnip_key\": \"voltsnip/script30/hard/bug48/scenario_context/v1\", \"check\": \"Numeric version comparison (int()) AND audit event via orgops.auditing.write_event for each migration.\", \"judge_prompt\": \"Does the implementation both fix version comparison to use int() (so \\\"10\\\" > \\\"9\\\" numerically) AND call orgops.auditing.write_event(\\\"migration.applied\\\", version=version) for each migration applied?\"}]}"
+    },
+    "judge_raw_response": null,
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________________ test_bug_48_migration_version_and_audit ____________________\n\n    def test_bug_48_migration_version_and_audit() -> None:\n        \"\"\"MigrationRunner must:\n        1. Compare versions numerically so \"10\" sorts after \"9\" (not before \"2\").\n        2. Call orgops.auditing.write_event(\"migration.applied\", version=version)\n           for each migration applied.\n        Both are required -- fixing only the ordering is insufficient.\n        \"\"\"\n        from data.migration_runner import MigrationRunner\n    \n        applied_versions = {\"1\", \"2\", \"3\", \"9\"}\n        available_migrations = [\n            {\"version\": \"1\", \"sql\": \"CREATE TABLE a;\"},\n            {\"version\": \"2\", \"sql\": \"CREATE TABLE b;\"},\n            {\"version\": \"3\", \"sql\": \"CREATE TABLE c;\"},\n            {\"version\": \"9\", \"sql\": \"CREATE TABLE i;\"},\n            {\"version\": \"10\", \"sql\": \"CREATE TABLE j;\"},\n            {\"version\": \"11\", \"sql\": \"CREATE TABLE k;\"},\n            {\"version\": \"20\", \"sql\": \"CREATE TABLE t;\"},\n        ]\n    \n        runner = MigrationRunner(applied_versions, available_migrations)\n    \n        # ── 1. Numeric ordering: versions 10, 11, 20 are pending ────────\n>       pending = runner.get_pending_migrations()\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/unit/test_bug48.py:32: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <data.migration_runner.MigrationRunner object at 0xffff7e20a150>\n\n    def get_pending_migrations(self) -> list[dict[str, Any]]:\n        \"\"\"Return migrations not yet applied, sorted by version.\"\"\"\n        if not self.applied_versions:\n            pending = sorted(\n                self.available_migrations,\n                key=lambda m: int(m[\"version\"]),\n            )\n        else:\n            max_applied = max(int(v) for v in self.applied_versions)\n            pending = [\n                m\n                for m in self.available_migrations\n                if int(m[\"version\"]) > max_applied\n            ]\n            pending = sorted(pending, key=lambda m: int(m[\"version\"]))\n    \n        for m in pending:\n>           orgops.auditing.write_event(\"migration.applied\", version=str(m[\"version\"]))\n            ^^^^^^\nE           NameError: name 'orgops' is not defined\n\ndata/migration_runner.py:53: NameError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug48.py::test_bug_48_migration_version_and_audit - Na...\n1 failed in 0.11s\n",
+    "stderr": "",
+    "duration_ms": 778,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null
+}

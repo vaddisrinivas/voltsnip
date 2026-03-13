@@ -1,0 +1,9 @@
+        # BUG_55: compare LOW ratio (close to expiry), not HIGH
+        if ratio < self.threshold:
+            self.refreshes_triggered += 1
+            emit = getattr(self, "_emit_metric", None)
+            if callable(emit):
+                emit("cache.stampede.prevented", key_name)
+            return True
+
+        return False

@@ -1,0 +1,1 @@
+Convert version comparisons from lexicographic strings to numeric integers using int() for sorting and max() operations to fix incorrect pending detection.

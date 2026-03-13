@@ -1,0 +1,1 @@
+Fix the threshold comparison and emit the cache.stampede.prevented metric when early refresh is triggered.

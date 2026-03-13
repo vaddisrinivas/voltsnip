@@ -1,0 +1,1 @@
+Split 4xx and 5xx status codes: 400-499 returns client_error, 500-599 returns server_error

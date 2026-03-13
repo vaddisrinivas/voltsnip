@@ -1,0 +1,251 @@
+{
+  "run_id": "20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs",
+  "task_id": "BUG59",
+  "task_name": "http_status_classification_and_metric",
+  "variant_id": "P7",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "tools_only",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 27,
+  "task_line_end": 42,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug59/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP3 + explicit instruction — tests if framing alone improves unguided tool use.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST perform at least one snippet retrieval tool call before implementing the fix. Do not attempt the fix without first fetching relevant context.\nKeep output deterministic and minimal.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug59/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task.",
+    "user_prompt": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP3 + explicit instruction — tests if framing alone improves unguided tool use.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST perform at least one snippet retrieval tool call before implementing the fix. Do not attempt the fix without first fetching relevant context.\nKeep output deterministic and minimal.",
+    "context_surface": "tools_only",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug59/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {}
+  },
+  "retrieved_snippets": [],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.\n\nTool access is enabled. Fetch memory through tools when useful to solve the task."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP3 + explicit instruction — tests if framing alone improves unguided tool use.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST perform at least one snippet retrieval tool call before implementing the fix. Do not attempt the fix without first fetching relevant context.\nKeep output deterministic and minimal."
+    },
+    {
+      "role": "assistant",
+      "content": "Now I have the context. The metric emission requires calling `orgops.metrics.emit()` with the classification result. I'll implement the fix:\n\n```json\n{\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n    \\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"error.mapped\\\", category=category, status_code=status_code)\\n    \\n    return category\", \"comments\": \"Split 4xx/5xx classification and emit error.mapped metric via orgops.metrics.emit()\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
+      "tool_call_id": "toolu_013eUmaN9C5G6xuxvBeuobR9",
+      "tool_args": {
+        "q": "orgops metrics emit error mapping"
+      },
+      "tool_result": {
+        "retrieved": 20
+      },
+      "error": null,
+      "started_at": "2026-03-13T16:03:51.609759Z",
+      "finished_at": "2026-03-13T16:03:51.610229Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "Now I have the context. The metric emission requires calling `orgops.metrics.emit()` with the classification result. I'll implement the fix:\n\n```json\n{\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n    \\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"error.mapped\\\", category=category, status_code=status_code)\\n    \\n    return category\", \"comments\": \"Split 4xx/5xx classification and emit error.mapped metric via orgops.metrics.emit()\"}\n```",
+  "parsed_output": {
+    "code": "def classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    if 400 <= status_code < 500:\n        category = \"client_error\"\n    elif 500 <= status_code < 600:\n        category = \"server_error\"\n    else:\n        category = \"unknown\"\n    \n    import orgops.metrics\n    orgops.metrics.emit(\"error.mapped\", category=category, status_code=status_code)\n    \n    return category",
+    "comments": "Split 4xx/5xx classification and emit error.mapped metric via orgops.metrics.emit()"
+  },
+  "token_usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 14,
+    "total_tokens": 32,
+    "cached_tokens": 35501,
+    "thinking_tokens": null,
+    "cost_usd": 0.00289608
+  },
+  "timings": {
+    "started_at": "2026-03-13T16:03:14.858548Z",
+    "finished_at": "2026-03-13T16:03:51.612196Z",
+    "latency_ms": 36753
+  },
+  "summary_metrics": {
+    "latency_ms": 36753,
+    "prompt_chars": 5489,
+    "output_chars": 1101,
+    "prompt_system_chars": 1133,
+    "prompt_user_chars": 4356,
+    "snippet_injected_chars": 0,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 0,
+    "tool_call_count": 1,
+    "voltsnip_tool_call_count": 1,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 36734,
+    "model_request_started_at": "2026-03-13T16:03:14.877561Z",
+    "model_request_finished_at": "2026-03-13T16:03:51.611888Z",
+    "model_request_id": "782b48f3-f4a6-4a5d-b020-cf5683e52ef7",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 18,
+      "completion_tokens": 14,
+      "total_tokens": 32,
+      "cached_tokens": 35501,
+      "thinking_tokens": null,
+      "cost_usd": 0.00289608
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160314858362Z__bug59__p7__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug59_classification_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug59_classification_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": null,
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    if 400 <= status_code < 500:\\n        category = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        category = \\\"server_error\\\"\\n    else:\\n        category = \\\"unknown\\\"\\n    \\n    import orgops.metrics\\n    orgops.metrics.emit(\\\"error.mapped\\\", category=category, status_code=status_code)\\n    \\n    return category\", \"comments\": \"Split 4xx/5xx classification and emit error.mapped metric via orgops.metrics.emit()\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": null,
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 1,
+    "passed": false,
+    "stdout": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_________________ test_bug_59_status_classification_and_metric _________________\n\n    def test_bug_59_status_classification_and_metric() -> None:\n        \"\"\"classify_http_error must:\n        1. Return \"client_error\" for 400-499 (not \"server_error\").\n        2. Return \"server_error\" for 500-599.\n        3. Emit an 'error.mapped' metric via orgops.metrics.emit().\n        All three are required -- fixing only the classification is insufficient.\n        \"\"\"\n    \n        with patch(\"orgops.metrics.emit\") as mock_emit:\n            # 429 is a client error (4xx range)\n            result = classify_http_error(429)\n    \n        # --- Requirement 1: correct classification for 4xx ---\n        assert result == \"client_error\", (\n            f\"Expected 'client_error' for status 429, got '{result}' \"\n            \"(bug lumps all 4xx+5xx into 'server_error')\"\n        )\n    \n        # --- Requirement 1b: verify 5xx still returns server_error ---\n        with patch(\"orgops.metrics.emit\"):\n            server_result = classify_http_error(502)\n        assert server_result == \"server_error\", (\n            f\"Expected 'server_error' for status 502, got '{server_result}'\"\n        )\n    \n        # --- Requirement 1c: verify unknown for non-error codes ---\n        with patch(\"orgops.metrics.emit\"):\n            unknown_result = classify_http_error(200)\n        assert unknown_result == \"unknown\", (\n            f\"Expected 'unknown' for status 200, got '{unknown_result}'\"\n        )\n    \n        # --- Requirement 2: metric emission ---\n        mock_emit.assert_called_once()\n        call_args = mock_emit.call_args\n        assert call_args[0][0] == \"error.mapped\", (\n            \"Must emit 'error.mapped' metric for operational monitoring\"\n        )\n>       assert call_args[0][1] == 429, (\n               ^^^^^^^^^^^^^^^\n            \"Metric value must be the status code (429)\"\n        )\nE       IndexError: tuple index out of range\n\ntests/unit/test_bug59.py:48: IndexError\n=========================== short test summary info ============================\nFAILED tests/unit/test_bug59.py::test_bug_59_status_classification_and_metric\n1 failed in 0.10s\n",
+    "stderr": "",
+    "duration_ms": 710,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null,
+  "rescore_provenance": {
+    "scorer_commit": "b11a5294",
+    "judge_prompt_variant": "both",
+    "judge_model": "openai:gpt-5.2+anthropic:claude-opus-4-6",
+    "output_suffix": "gpt-5.2+claude-opus-4-6",
+    "rescore_timestamp": "2026-03-13T16:32:19Z"
+  }
+}

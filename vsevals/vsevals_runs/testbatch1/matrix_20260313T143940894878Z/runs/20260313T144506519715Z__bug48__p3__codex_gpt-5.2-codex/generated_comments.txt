@@ -1,0 +1,1 @@
+Switched version comparisons to numeric ordering and audit-logged each migration returned as pending.

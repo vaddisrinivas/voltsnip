@@ -1,0 +1,1 @@
+Fixes the inverted threshold comparison so early refresh triggers only when close to expiry.

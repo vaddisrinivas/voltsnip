@@ -1,0 +1,21 @@
+        from orgops.auditing import write_event
+
+        def _version_int(migration: dict[str, Any]) -> int:
+            return int(migration["version"])
+
+        if not self.applied_versions:
+            pending = sorted(self.available_migrations, key=_version_int)
+            for migration in pending:
+                write_event("migration.applied", version=str(migration["version"]))
+            return pending
+
+        max_applied = max(int(v) for v in self.applied_versions)
+        pending = [
+            m
+            for m in self.available_migrations
+            if _version_int(m) > max_applied
+        ]
+        pending = sorted(pending, key=_version_int)
+        for migration in pending:
+            write_event("migration.applied", version=str(migration["version"]))
+        return pending

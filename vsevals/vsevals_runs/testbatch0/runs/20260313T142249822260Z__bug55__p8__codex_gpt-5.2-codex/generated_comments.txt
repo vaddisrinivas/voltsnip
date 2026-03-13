@@ -1,0 +1,1 @@
+Fixes the threshold comparison and conditionally emits the cache.stampede.prevented metric without changing public APIs.

@@ -1,0 +1,1 @@
+Fixed classify_http_error to correctly split 4xx status codes as client_error and 5xx as server_error instead of lumping both as server_error.

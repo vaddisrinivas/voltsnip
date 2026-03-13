@@ -1,0 +1,36 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________________ test_bug_55_stampede_threshold_and_metric ___________________
+
+    def test_bug_55_stampede_threshold_and_metric() -> None:
+        """StampedeGuard.should_refresh_early must:
+        1. Trigger early refresh when time_remaining/ttl < threshold (CLOSE to expiry),
+           not when the ratio is > threshold (FAR from expiry).
+        2. Emit a 'cache.stampede.prevented' metric via orgops.metrics.emit(key_name)
+           when an early refresh is triggered.
+        Both are required -- fixing only the comparison is insufficient.
+        """
+    
+>       guard = StampedeGuard(threshold=0.2)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_bug55.py:19: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <cache.stampede_guard.StampedeGuard object at 0xffff9679ee70>
+threshold = 0.2
+
+    def __init__(self, threshold: float = 0.2) -> None:
+        if not 0.0 < threshold < 1.0:
+            raise ValueError("threshold must be between 0 and 1 exclusive")
+        self.threshold = threshold
+        self.refreshes_triggered: int = 0
+    
+>       if ttl <= 0:
+           ^^^
+E       NameError: name 'ttl' is not defined
+
+cache/stampede_guard.py:34: NameError
+=========================== short test summary info ============================
+FAILED tests/unit/test_bug55.py::test_bug_55_stampede_threshold_and_metric - ...
+1 failed in 0.13s

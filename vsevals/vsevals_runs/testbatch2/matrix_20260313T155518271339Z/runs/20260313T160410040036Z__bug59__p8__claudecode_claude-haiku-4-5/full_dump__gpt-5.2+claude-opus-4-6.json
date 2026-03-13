@@ -1,0 +1,305 @@
+{
+  "run_id": "20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5",
+  "suite_path": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/suites/script30.yaml",
+  "output_root": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs",
+  "task_id": "BUG59",
+  "task_name": "http_status_classification_and_metric",
+  "variant_id": "P8",
+  "model_name": "claudecode:claude-haiku-4-5",
+  "status": "ok",
+  "variant_mode": "agent",
+  "variant_memory_enabled": false,
+  "variant_tools_enabled": true,
+  "variant_retrieval_mode": "agent_decides",
+  "variant_instruction_mode": "explicit",
+  "variant_context_surface": "skills_md_no_keys",
+  "variant_max_tool_roundtrips": 4,
+  "task_category": "error_contracts",
+  "task_difficulty": "hard",
+  "task_line_start": 27,
+  "task_line_end": 42,
+  "required_snippet_keys": [
+    "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+    "voltsnip/script30/hard/bug59/scenario_context/v1"
+  ],
+  "prompt": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP4 + explicit instruction — plugin skill + explicit framing.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST invoke the voltsnip-guide skill to retrieve relevant code patterns and context before implementing the fix. Do not attempt the fix without first consulting the skill.\nKeep output deterministic and minimal.",
+    "context_surface": "skills_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug59/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "skills/voltsnip-guide/SKILL.md": "---\nname: voltsnip-guide\ndescription: Use this skill to retrieve relevant VoltSnip code patterns and context snippets before implementing a fix.\n---\n\n---\nname: voltsnip-eval\ndescription: Bug-fix retrieval workflow using VoltSnip MCP tools. Apply when executing code-fix evaluation tasks with MCP-based snippet retrieval.\n---\n# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "SKILL.md": "---\nname: voltsnip-eval\ndescription: Bug-fix retrieval workflow using VoltSnip MCP tools. Apply when executing code-fix evaluation tasks with MCP-based snippet retrieval.\n---\n# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints."
+    }
+  },
+  "prompt_after_tools": {
+    "system_prompt": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors.",
+    "user_prompt": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP4 + explicit instruction — plugin skill + explicit framing.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST invoke the voltsnip-guide skill to retrieve relevant code patterns and context before implementing the fix. Do not attempt the fix without first consulting the skill.\nKeep output deterministic and minimal.",
+    "context_surface": "skills_md_no_keys",
+    "visible_sections": [
+      "task_id",
+      "task_name",
+      "user_prompt",
+      "description",
+      "target_file",
+      "target_span",
+      "test_command",
+      "context_code",
+      "target_file_content",
+      "expected_output",
+      "variant_mode",
+      "variant_hypothesis",
+      "tool_budget"
+    ],
+    "injected_snippet_keys": [
+      "voltsnip/script30/category/error_contracts/guiding_principle/v1",
+      "voltsnip/script30/hard/bug59/scenario_context/v1"
+    ],
+    "injected_repo_policy": true,
+    "sidecar_files": {
+      "skills/voltsnip-guide/SKILL.md": "---\nname: voltsnip-guide\ndescription: Use this skill to retrieve relevant VoltSnip code patterns and context snippets before implementing a fix.\n---\n\n---\nname: voltsnip-eval\ndescription: Bug-fix retrieval workflow using VoltSnip MCP tools. Apply when executing code-fix evaluation tasks with MCP-based snippet retrieval.\n---\n# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints.",
+      "SKILL.md": "---\nname: voltsnip-eval\ndescription: Bug-fix retrieval workflow using VoltSnip MCP tools. Apply when executing code-fix evaluation tasks with MCP-based snippet retrieval.\n---\n# VoltSnip SKILL Guidance (Static, No Prelisted Keys)\n\nThis guide defines how to use MCP retrieval effectively during bug-fix tasks.\nIt is intentionally static: no task-specific key lists, no repository path hints,\nand no preselected snippets.\n\n## Objective\n\nUse MCP retrieval to gather high-signal implementation patterns, then apply a minimal,\ncorrect, production-safe fix for the requested bug.\n\n## MCP Tools You Can Use\n\nPrimary memory tools:\n- `mcp__voltsnip__search_memory`\n- `mcp__voltsnip__get_snippet_by_canonical_key`\n\nCommon repository-inspection tools (provider-dependent):\n- `read_file`\n- `glob_files`\n- `grep_files`\n\nPrinciple:\n- `search_memory` is discovery.\n- `get_snippet_by_canonical_key` is precision retrieval after discovery.\n- File tools verify where and how to apply the pattern.\n\n## Tool Semantics\n\n### `mcp__voltsnip__search_memory`\n\nUse when:\n- You need relevant examples but do not know exact snippet identifiers.\n- You need breadth first, then narrow.\n\nRecommended inputs:\n- `query`: concise intent statement with bug behavior + desired behavior.\n- `intent`: optional alternate phrasing if available.\n- `language`: include when implementation language is known.\n- `tags`: include only if you have strong priors.\n\nWhat good output looks like:\n- Results that match bug semantics (not just lexical overlap).\n- Patterns showing the same failure mode and recovery behavior.\n- Implementations with clear adaptation potential.\n\n### `mcp__voltsnip__get_snippet_by_canonical_key`\n\nUse when:\n- A prior tool output already gave an exact canonical key.\n- You need the full snippet payload for faithful adaptation.\n\nAvoid when:\n- You are guessing key names.\n- Discovery hasn’t happened yet.\n\n## Category Reference (Targeted Search Intents)\n\n- `http_resilience`: `\"retry exponential backoff jitter idempotent status codes\"`\n- `db_patterns`: `\"database transaction session commit rollback N+1\"`\n- `error_contracts`: `\"error payload contract HTTP status serializable\"`\n- `logging_privacy`: `\"structured log PII redact correlation severity\"`\n- `concurrency_cache`: `\"cache stampede TTL task-local thread isolation\"`\n\nUse these as starting points. Refine query terms based on task wording and observed code.\n\n## Retrieval Workflow\n\n1. Read the task objective and failure mode carefully.\n2. Run one focused `search_memory` call.\n3. Evaluate top results for semantic fit, not keyword overlap.\n4. If needed, run one refined follow-up `search_memory` call.\n5. If an exact canonical key is surfaced and deeper detail is needed, call `get_snippet_by_canonical_key`.\n6. Stop retrieval once confidence is sufficient.\n\n## Query Construction Rules\n\n- Keep query short and behavior-specific.\n- Include both defect and expected correction.\n- Prefer terms that encode invariants (e.g., idempotency, rollback, redaction, bounded retries).\n- Avoid broad words that produce noisy matches.\n\n## Relevance Triage Checklist\n\nSelect snippets that:\n- Address the same bug class, not merely adjacent concerns.\n- Show deterministic behavior under edge cases.\n- Preserve external contract semantics where required.\n- Can be adapted with minimal structural change.\n\nReject snippets that:\n- Require architectural rewrites unrelated to the task.\n- Change API behavior without requirement.\n- Depend on assumptions not present in current code.\n\n## Integration Rules\n\n- Apply pattern semantics, not blind copy-paste.\n- Adapt naming and local structure only as needed.\n- Keep edits localized to bug-relevant scope.\n- Preserve imports, typing, and surrounding behavior unless task requires change.\n\n## Failure Handling\n\nIf retrieval is weak:\n- Tighten query around explicit failure mode and expected postcondition.\n- Add one discriminative term from task objective.\n- Avoid repeated equivalent queries.\n\nIf tool call errors:\n- Retry once with simpler payload.\n- Continue with best available context if repeated failures persist.\n\n## MCP Efficiency Rules\n\n- Prefer one high-quality retrieval over many exploratory calls.\n- Avoid duplicate calls with equivalent intent.\n- Use file-inspection tools only when necessary to validate integration points.\n\n## Output Contract\n\n- Emit exactly one JSON object in the required schema.\n- No markdown fences.\n- No explanatory prose outside JSON.\n- Ensure code section satisfies task line-range/full-file constraints."
+    }
+  },
+  "retrieved_snippets": [
+    {
+      "id": "8ef62040-7e62-4819-9459-66b5a5b66f1a",
+      "canonical_key": "voltsnip/script30/hard/bug59/scenario_context/v1",
+      "title": "HTTP error classification requires 4xx/5xx split AND metric emission",
+      "language": "python",
+      "tags": [
+        "eval-script30",
+        "error_contracts",
+        "hard-tier",
+        "composition",
+        "metrics"
+      ],
+      "description": "The classify_http_error function must return 'client_error' for 400-499 and 'server_error' for 500-599 AND emit a metric via orgops.metrics.emit for operational monitoring.",
+      "code": "# HTTP Error Classification — Two Requirements\n\n## 1. Split 4xx / 5xx\n```python\nif 400 <= status_code < 500:\n    category = \"client_error\"\nelif 500 <= status_code < 600:\n    category = \"server_error\"\nelse:\n    category = \"unknown\"\n```\n\n## 2. Metric Emission (REQUIRED)\n```python\nimport orgops.metrics\norgops.metrics.emit(\"error.mapped\", status_code)\n```\n"
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a senior software engineer executing a controlled code-fix evaluation.\n\nOutput format:\nReturn ONLY valid JSON — no markdown fences, preamble, or trailing text:\n{\"code\": \"<see editing contract below>\", \"comments\": \"<one-sentence explanation of the change>\"}\n\nEditing contract:\n- When NO Target Lines are given: \"code\" must be the complete rewritten file content.\n- When Target Lines ARE given: \"code\" must contain ONLY the replacement for that line range.\n  The file header, imports, and all content outside the range are preserved automatically.\n  Do NOT include them — outputting the full file will corrupt the target file.\n- Never return a diff, patch, pseudocode, placeholder, or partial line fragment.\n- Keep changes minimal and localized to the stated bug objective.\n- Preserve public behavior unless the task explicitly requires a change.\n\nReliability contract:\n- Prefer deterministic fixes over clever rewrites.\n- Preserve imports, typing, and runtime safety.\n- If uncertain, preserve existing behavior and avoid speculative refactors."
+    },
+    {
+      "role": "user",
+      "content": "Task ID: BUG59\nTask Name: http_status_classification_and_metric\nTask Objective:\nApply only this task fix using configured target file and line range.\nKeep API and behavior stable except for this bug requirement.\nKeep changes minimal, deterministic, and production-safe.\n\nTask Description:\nFix classify_http_error to split 4xx (client_error) from 5xx (server_error) instead of lumping both as server_error.\n\nTarget File: errors/error_mapper.py\n\nTarget Lines:\n27-42 (1-based, inclusive)\nIMPORTANT: Output ONLY the replacement for lines 27-42 in \"code\".\nDo NOT output the full file. Imports and surrounding lines outside this range are preserved automatically.\n\nTest Command:\nuv run pytest -q tests/unit/test_bug59.py -k bug_59\n\nContext Code:\n```python\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n```\n\nTarget File Content (full file):\n```python\n\"\"\"HTTP error classification and structured error response building.\n\nThis module provides status-code classification for the org error pipeline.\nCallers use `classify_http_error` to map raw status codes to canonical\nerror categories that drive alerting, dashboards, and SLA accounting.\n\"\"\"\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom typing import Any\n\n\n@dataclass(frozen=True)\nclass ErrorResponse:\n    \"\"\"Immutable structured error returned to callers.\"\"\"\n\n    category: str\n    status_code: int\n    message: str\n    retryable: bool\n\n\n# Codes the org considers safe to retry automatically.\nRETRYABLE_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})\n\n\ndef classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    # BUG_59: treats 4xx and 5xx identically as server_error\n    if 400 <= status_code < 600:\n        return \"server_error\"\n    return \"unknown\"\n\n\ndef build_error_response(\n    status_code: int,\n    detail: str = \"\",\n) -> ErrorResponse:\n    \"\"\"Build a structured ErrorResponse for the given status code.\n\n    Combines classification with retryability to give callers a\n    single object they can log, return, or feed to the retry layer.\n    \"\"\"\n    category = classify_http_error(status_code)\n    retryable = status_code in RETRYABLE_CODES\n    message = detail or f\"HTTP {status_code}\"\n    return ErrorResponse(\n        category=category,\n        status_code=status_code,\n        message=message,\n        retryable=retryable,\n    )\n\n\ndef error_summary(responses: list[ErrorResponse]) -> dict[str, Any]:\n    \"\"\"Aggregate a list of ErrorResponse objects into a summary dict.\"\"\"\n    if not responses:\n        return {\"total\": 0, \"by_category\": {}}\n    by_cat: dict[str, int] = {}\n    for r in responses:\n        by_cat[r.category] = by_cat.get(r.category, 0) + 1\n    return {\n        \"total\": len(responses),\n        \"by_category\": by_cat,\n        \"retryable_count\": sum(1 for r in responses if r.retryable),\n    }\n```\n\nExpected Output:\nSplit 4xx as client_error from 5xx as server_error AND emit error.mapped metric.\n\nExecution Mode:\nAgent mode: decide context/tool usage within constraints.\n\nVariant Hypothesis:\nP4 + explicit instruction — plugin skill + explicit framing.\n\nTool Budget:\nMaximum tool roundtrips: 4\n\nExecution Instruction:\nThis is strict: you MUST invoke the voltsnip-guide skill to retrieve relevant code patterns and context before implementing the fix. Do not attempt the fix without first consulting the skill.\nKeep output deterministic and minimal."
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    import orgops.metrics\\n    \\n    if 400 <= status_code < 500:\\n        result = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        result = \\\"server_error\\\"\\n    else:\\n        result = \\\"unknown\\\"\\n    \\n    orgops.metrics.emit(\\\"error.mapped\\\", status_code)\\n    return result\", \"comments\": \"Split 4xx (client_error) from 5xx (server_error) and emit error.mapped metric via orgops.metrics.emit()\"}\n```"
+    }
+  ],
+  "tool_traces": [
+    {
+      "roundtrip": 1,
+      "tool_name": "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
+      "tool_call_id": "toolu_018EdqUa9r4ja1R5qmTPK4mx",
+      "tool_args": {
+        "q": "emit metric error classification",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 5
+      },
+      "error": null,
+      "started_at": "2026-03-13T16:05:02.856892Z",
+      "finished_at": "2026-03-13T16:05:02.857051Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 2,
+      "tool_name": "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
+      "tool_call_id": "toolu_0135DwjEtVUbHXFgKFySmfL6",
+      "tool_args": {
+        "q": "HTTP status code 4xx 5xx client server error",
+        "k": 5
+      },
+      "tool_result": {
+        "retrieved": 5
+      },
+      "error": null,
+      "started_at": "2026-03-13T16:05:02.856908Z",
+      "finished_at": "2026-03-13T16:05:02.857234Z",
+      "duration_ms": 0
+    },
+    {
+      "roundtrip": 3,
+      "tool_name": "mcp__voltsnip__read_snippet_by_canonical_key_api_v1_snippets_by_key",
+      "tool_call_id": "toolu_01R7Cvns56nMrcbji1ZGTrRB",
+      "tool_args": {
+        "canonical_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+      },
+      "tool_result": {
+        "raw": "{\"title\":\"HTTP error classification requires 4xx/5xx split AND metric emission\",\"description\":\"The classify_http_error function must return 'client_error' for 400-499 and 'server_error' for 500-599 AN"
+      },
+      "error": null,
+      "started_at": "2026-03-13T16:05:02.857268Z",
+      "finished_at": "2026-03-13T16:05:02.857396Z",
+      "duration_ms": 0
+    }
+  ],
+  "raw_model_output": "```json\n{\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    import orgops.metrics\\n    \\n    if 400 <= status_code < 500:\\n        result = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        result = \\\"server_error\\\"\\n    else:\\n        result = \\\"unknown\\\"\\n    \\n    orgops.metrics.emit(\\\"error.mapped\\\", status_code)\\n    return result\", \"comments\": \"Split 4xx (client_error) from 5xx (server_error) and emit error.mapped metric via orgops.metrics.emit()\"}\n```",
+  "parsed_output": {
+    "code": "def classify_http_error(status_code: int) -> str:\n    \"\"\"Classify an HTTP status code into an error category.\n\n    Expected categories:\n        - \"client_error\"  for 400-499\n        - \"server_error\"  for 500-599\n        - \"unknown\"       for anything else\n\n    BUG_59: the implementation lumps ALL codes 400-599 into \"server_error\"\n    instead of splitting 4xx (client) from 5xx (server).  Models must\n    also emit an \"error.mapped\" metric via orgops.metrics.emit().\n    \"\"\"\n    import orgops.metrics\n    \n    if 400 <= status_code < 500:\n        result = \"client_error\"\n    elif 500 <= status_code < 600:\n        result = \"server_error\"\n    else:\n        result = \"unknown\"\n    \n    orgops.metrics.emit(\"error.mapped\", status_code)\n    return result",
+    "comments": "Split 4xx (client_error) from 5xx (server_error) and emit error.mapped metric via orgops.metrics.emit()"
+  },
+  "token_usage": {
+    "prompt_tokens": 26,
+    "completion_tokens": 9,
+    "total_tokens": 35,
+    "cached_tokens": 63663,
+    "thinking_tokens": null,
+    "cost_usd": 0.00512904
+  },
+  "timings": {
+    "started_at": "2026-03-13T16:04:10.040232Z",
+    "finished_at": "2026-03-13T16:05:02.891851Z",
+    "latency_ms": 52851
+  },
+  "summary_metrics": {
+    "latency_ms": 52851,
+    "prompt_chars": 5413,
+    "output_chars": 940,
+    "prompt_system_chars": 1050,
+    "prompt_user_chars": 4363,
+    "snippet_injected_chars": 354,
+    "model_provider": "claudecode",
+    "model_id": "claude-haiku-4-5",
+    "snippet_count": 1,
+    "tool_call_count": 3,
+    "voltsnip_tool_call_count": 3,
+    "native_tool_call_count": 0,
+    "tool_error_count": 0,
+    "used_tools": true,
+    "used_voltsnip_tools": true,
+    "structured_output_attempted": true,
+    "structured_output_succeeded": true,
+    "fallback_parser_used": false,
+    "retrieval_latency_ms": null,
+    "voltsnip_retry_count": 0,
+    "voltsnip_rate_limit_count": 0,
+    "voltsnip_timeout_count": 0,
+    "voltsnip_error_count": 0,
+    "model_request_latency_ms": 52801,
+    "model_request_started_at": "2026-03-13T16:04:10.058545Z",
+    "model_request_finished_at": "2026-03-13T16:05:02.859910Z",
+    "model_request_id": "0a75f6c2-8bfd-4b43-8a1c-4feb39d44d3f",
+    "model_finish_reason": "stop",
+    "scoring_latency_ms": null,
+    "artifact_write_latency_ms": null,
+    "token_usage": {
+      "prompt_tokens": 26,
+      "completion_tokens": 9,
+      "total_tokens": 35,
+      "cached_tokens": 63663,
+      "thinking_tokens": null,
+      "cost_usd": 0.00512904
+    }
+  },
+  "artifacts": {
+    "run_dir": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5",
+    "full_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5/full_dump.json",
+    "summary_dump_json": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5/summary_dump.json",
+    "code_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5/generated_code.txt",
+    "comments_output": "/Users/srinivasvaddi/Projects/moltsnip_root/vsevals/vsevals_runs/testbatch2/matrix_20260313T155518271339Z/runs/20260313T160410040036Z__bug59__p8__claudecode_claude-haiku-4-5/generated_comments.txt"
+  },
+  "score": {
+    "overall_score": 0.0,
+    "hidden_requirements": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "success_indicators": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "failure_modes": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "evaluation_criteria": {
+      "matched": 0,
+      "total": 1,
+      "score": 0.0,
+      "notes": [
+        "missing: bug59_classification_and_metric"
+      ]
+    },
+    "evaluation_criteria_notes": [
+      "bug59_classification_and_metric"
+    ],
+    "constraint_scoring_used": true,
+    "constraint_checks_passed": 0,
+    "constraint_checks_total": 1,
+    "constraint_pass_threshold": 0.7,
+    "constraint_results": [
+      {
+        "id": "bug59_classification_and_metric",
+        "passed": false,
+        "llm_verdict": false,
+        "judge_reason": null,
+        "expected": true,
+        "voltsnip_key": "voltsnip/script30/hard/bug59/scenario_context/v1"
+      }
+    ],
+    "judge_payload": {
+      "instructions": "Judge each constraint independently as pass/fail for this candidate output. Use judge_prompt as the primary decision rule. Answer true if the described behavior IS present; false if it is NOT present. Return ONLY JSON: {\"results\":[{\"verdict\":true,\"reason\":\"...\"},{\"verdict\":false,\"reason\":\"...\"},...]} in the same order as input constraints. verdict must be a JSON boolean (true or false), not a string.",
+      "user_json": "{\"candidate\": {\"code\": \"def classify_http_error(status_code: int) -> str:\\n    \\\"\\\"\\\"Classify an HTTP status code into an error category.\\n\\n    Expected categories:\\n        - \\\"client_error\\\"  for 400-499\\n        - \\\"server_error\\\"  for 500-599\\n        - \\\"unknown\\\"       for anything else\\n\\n    BUG_59: the implementation lumps ALL codes 400-599 into \\\"server_error\\\"\\n    instead of splitting 4xx (client) from 5xx (server).  Models must\\n    also emit an \\\"error.mapped\\\" metric via orgops.metrics.emit().\\n    \\\"\\\"\\\"\\n    import orgops.metrics\\n    \\n    if 400 <= status_code < 500:\\n        result = \\\"client_error\\\"\\n    elif 500 <= status_code < 600:\\n        result = \\\"server_error\\\"\\n    else:\\n        result = \\\"unknown\\\"\\n    \\n    orgops.metrics.emit(\\\"error.mapped\\\", status_code)\\n    return result\", \"comments\": \"Split 4xx (client_error) from 5xx (server_error) and emit error.mapped metric via orgops.metrics.emit()\"}, \"constraints\": [{\"id\": \"bug59_classification_and_metric\", \"voltsnip_key\": \"voltsnip/script30/hard/bug59/scenario_context/v1\", \"check\": \"Correct 4xx/5xx split AND metric emission via orgops.metrics.emit.\", \"judge_prompt\": \"Does the implementation both split 400-499 as \\\"client_error\\\" and 500-599 as \\\"server_error\\\" AND emit an error.mapped metric via orgops.metrics.emit()?\"}]}"
+    },
+    "judge_raw_response": null,
+    "passed": false
+  },
+  "pytest_result": {
+    "ran": true,
+    "returncode": 0,
+    "passed": true,
+    "stdout": ".                                                                        [100%]\n1 passed in 0.09s\n",
+    "stderr": "",
+    "duration_ms": 688,
+    "error": null,
+    "docker_image": "moltsnip-pytest-script30:latest",
+    "patched_file": null
+  },
+  "error": null,
+  "rescore_provenance": {
+    "scorer_commit": "b11a5294",
+    "judge_prompt_variant": "both",
+    "judge_model": "openai:gpt-5.2+anthropic:claude-opus-4-6",
+    "output_suffix": "gpt-5.2+claude-opus-4-6",
+    "rescore_timestamp": "2026-03-13T16:32:20Z"
+  }
+}

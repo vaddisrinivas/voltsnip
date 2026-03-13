@@ -1,0 +1,1 @@
+Fixes the threshold comparison and emits the required stampede-prevented metric when an early refresh triggers.

@@ -1,0 +1,1 @@
+Fixed the comparison to refresh near expiry and emitted the cache.stampede.prevented metric when a refresh is triggered.

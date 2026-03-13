@@ -1,0 +1,1 @@
+Fixed the ratio comparison and added an optional metric emission hook for cache.stampede.prevented when a refresh is triggered.

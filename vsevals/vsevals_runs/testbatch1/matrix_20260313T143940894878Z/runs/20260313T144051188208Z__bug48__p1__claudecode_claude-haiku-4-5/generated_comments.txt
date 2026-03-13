@@ -1,0 +1,1 @@
+Convert version comparisons from lexicographic to numeric by casting to int, fixing the sort order where "10" was incorrectly before "2".
