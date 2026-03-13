@@ -199,19 +199,26 @@ def build_prompt(
     elif surface == "tools_only":
         b.system_blocks.append("Tool access is enabled. Fetch memory through tools when useful to solve the task.")
     elif surface == "skills_md_no_keys":
+        # P4: SKILL guide only.
+        # Claude Code: SKILL.md loaded as a plugin skill via --plugin-dir (claudecode.py
+        #   creates .claude-plugin/plugin.json and passes --plugin-dir <tmpdir>).
+        # Codex: AGENTS.md auto-read at startup (same content).
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
         b.sidecar_files["SKILL.md"] = skills_doc
-        b.sidecar_files["CLAUDE.md"] = skills_doc
-        b.sidecar_files["AGENTS.md"] = skills_doc
+        b.sidecar_files["AGENTS.md"] = skills_doc          # Codex auto-read
     elif surface == "agents_md_no_keys":
+        # P5: AGENTS guide only.
+        # Both providers auto-read CLAUDE.md / AGENTS.md at startup.
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
         b.sidecar_files["CLAUDE.md"] = agents_doc
         b.sidecar_files["AGENTS.md"] = agents_doc
     elif surface == "skills_agents_md_no_keys":
+        # P6: SKILL guide + AGENTS guide as two separate documents.
+        # Claude Code: SKILL.md as plugin skill (--plugin-dir) + AGENTS.md auto-read.
+        # Codex: AGENTS.md auto-read + SKILL.md accessible via read_file tool.
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
         b.sidecar_files["SKILL.md"] = skills_doc
-        b.sidecar_files["CLAUDE.md"] = agents_doc
         b.sidecar_files["AGENTS.md"] = agents_doc
     else:
         raise ValueError(f"unsupported context_surface: {surface!r}")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -285,21 +286,21 @@ def _build_codex_invocation(
     # Tool policy for codex (codex has no --allowedTools / --disallowedTools flags
     # like claudecode; control is via sandbox mode and MCP server config):
     #
-    #   --approval  -a never        non-interactive eval; never pause for human approval
-    #   --sandbox   read-only       ALL variants: model shell has read-only filesystem access.
-    #                               Reads (cat/ls/grep) may still run; writes are blocked.
-    #                               (MCP transport curl is spawned by codex infra, not sandboxed shell,
-    #                                so VoltSnip MCP calls work regardless of sandbox mode)
-    #   mcp_servers {}              no-tools: wipe any globally-configured MCP servers
-    #               voltsnip        tool variants: VoltSnip-only HarnessMCPServer via curl
-    #                               (include_fs_tools=False — filesystem MCP tools intentionally
-    #                                excluded: read_file/glob/grep would expose orgops/* source,
-    #                                undermining the VoltSnip lift signal)
+    #   --approval  -a never           non-interactive eval; never pause for human approval
+    #   --sandbox   read-only          ALL variants: shell writes are blocked (reads still
+    #                                  possible via sandbox, but cwd=tmpdir limits scope).
+    #   --disable   unified_exec       Block command_execution events so shell_tool bypass
+    #                                  is impossible even with --sandbox read-only.
+    #   mcp_servers {}                 no-tools: wipe any globally-configured MCP servers
+    #               voltsnip           tool variants: HarnessMCPServer exposes VoltSnip tools
+    #                                  + read_file/glob_files/grep_files (include_fs_tools=True,
+    #                                  fs_root=tmpdir) for parity with Claude Code's
+    #                                  Read/Glob/Grep on sidecar files.
     #
     # Parity with claudecode:
-    #   claudecode disallows Read/Glob/Grep (--disallowedTools) and has no Bash.
-    #   codex uses --sandbox read-only + cwd=tmpdir so model shell cannot reach orgops/*.
-    #   Both providers: VoltSnip MCP only; orgops API is only discoverable via VoltSnip.
+    #   claudecode allows Read/Glob/Grep from cwd=tmpdir.
+    #   codex gets equivalent read_file/glob_files/grep_files via HarnessMCPServer (fs_root=tmpdir).
+    #   Both providers: shell execution blocked; file reads scoped to tmpdir only.
     _APPROVAL_NEVER = ["-a", "never"]
     # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
     # Using repo_root as cwd was removed because:
@@ -325,13 +326,18 @@ def _build_codex_invocation(
         # fails silently.  The URL-based transport (mcp_servers.voltsnip.url=...) uses
         # codex's native HTTP MCP client which handles the JSON-RPC session correctly.
         base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
-        fs_root = Path(effective_cwd)  # tmpdir; include_fs_tools=False so fs_root is unused
-        harness_server = HarnessMCPServer(fs_root, base_url, include_fs_tools=False).start()
+        # include_fs_tools=True: expose read_file/glob_files/grep_files via MCP so
+        # Codex can inspect sidecar files (SKILL.md, AGENTS.md) in cwd=tmpdir.
+        # This matches Claude Code's Read/Glob/Grep capability for provider parity.
+        # fs_root=tmpdir ensures file access is scoped to the per-run sidecar dir only.
+        fs_root = Path(effective_cwd)
+        harness_server = HarnessMCPServer(fs_root, base_url, include_fs_tools=True).start()
         harness_mcp_url = f"http://127.0.0.1:{harness_server.port}/mcp"
         extra_args.extend([
             *_APPROVAL_NEVER,
             "--sandbox", "read-only",
-            "-c", "mcp_servers={}",  # wipe global servers (e.g. debugmate) for isolation
+            "--disable", "unified_exec",   # block command_execution events (shell bypass)
+            "-c", "mcp_servers={}",        # wipe global servers (e.g. debugmate) for isolation
             "-c", f"mcp_servers.voltsnip.url={harness_mcp_url}",
         ])
     else:
@@ -340,6 +346,7 @@ def _build_codex_invocation(
         extra_args.extend([
             *_APPROVAL_NEVER,
             "--sandbox", "read-only",
+            "--disable", "unified_exec",   # block command_execution events (shell bypass)
             "-c", "mcp_servers={}",
         ])
 
@@ -426,6 +433,16 @@ def _execute_codex(inv: CodexInvocation, run_dir: Path) -> CodexRawOutput:
     stderr_path = run_dir / "subprocess.stderr.codex.txt"
     stdout_path.write_text(proc.stdout or "", encoding="utf-8")
     stderr_path.write_text(proc.stderr or "", encoding="utf-8")
+
+    cmd_path = run_dir / "subprocess.cmd.codex.sh"
+    cmd_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "# Auto-generated — reproduces the exact codex subprocess invocation.\n"
+        f"cd {shlex.quote(inv.cwd or '.')}\n"
+        "exec " + shlex.join(inv.cmd) + "\n",
+        encoding="utf-8",
+    )
+    cmd_path.chmod(0o755)
 
     if proc.returncode != 0:
         raise RuntimeError(

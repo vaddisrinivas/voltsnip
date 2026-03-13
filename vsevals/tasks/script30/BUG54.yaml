@@ -49,7 +49,7 @@ tasks:
     - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
     - voltsnip/script30/hard/bug54/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix jitter from subtraction to addition so effective TTL is always >= base_ttl.

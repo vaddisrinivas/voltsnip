@@ -43,7 +43,7 @@ tasks:
     - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
     - voltsnip/script30/hard/bug53/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Clamp effective_timeout to at least 1 ms using max(timeout_ms - clock_skew_ms, 1).

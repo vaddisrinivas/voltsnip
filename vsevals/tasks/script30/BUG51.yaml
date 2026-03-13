@@ -33,7 +33,7 @@ tasks:
     - voltsnip/script30/category/db_patterns/guiding_principle/v1
     - voltsnip/script30/hard/bug51/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Remove the erroneous / 1000 divisor so both values are compared in milliseconds.

@@ -1,0 +1,16 @@
+    errors: list[str] = []
+    for i in range(len(chain) - 1):
+        expected = chain[i + 1].subject
+        actual = chain[i].issuer
+        if expected != actual:
+            errors.append(
+                f"chain break at {i}: issuer={actual!r} != next.subject={expected!r}"
+            )
+
+    is_valid = len(errors) == 0
+    return {
+        "valid": is_valid,
+        "depth": len(chain),
+        "errors": errors,
+        "root_self_signed": _is_self_signed(chain[-1]),
+    }

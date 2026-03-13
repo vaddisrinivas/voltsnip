@@ -40,7 +40,7 @@ tasks:
     - voltsnip/script30/category/db_patterns/guiding_principle/v1
     - voltsnip/script30/hard/bug48/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Use int() for version comparison so "10" is correctly detected as pending after "9".

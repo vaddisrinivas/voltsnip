@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -322,16 +323,15 @@ def _build_claudecode_invocation(
         "mcp__voltsnip__read_snippet_by_canonical_key_api_v1_snippets_by_key",
         "mcp__voltsnip__view_snippet_api_v1_snippets",
     ]
-    # Filesystem tools are explicitly disallowed to preserve parity with codex's
-    # temp-cwd + read-only-shell isolation policy.
-    _FILESYSTEM_TOOLS = [
-        "Read",
-        "Glob",
-        "Grep",
-    ]
     # Disallowed tools — mutating, executing, or otherwise unsafe for eval.
-    # This is the enforcement boundary: even if --dangerously-skip-permissions
-    # ignores --allowedTools, --disallowedTools is always honoured.
+    # Read/Glob/Grep are intentionally NOT blocked: Codex gets read_file/glob_files/
+    # grep_files via the harness MCP server (include_fs_tools=True), so both
+    # providers can inspect sidecar files in cwd=tmpdir.  Blocking Read/Glob/Grep
+    # here would break that parity.
+    #
+    # ReadMcpResourceTool and ListMcpResourcesTool are blocked: Codex has no
+    # equivalent MCP resource-access tools, so allowing them would create an
+    # asymmetric read surface.
     _DISALLOWED_TOOLS = [
         "Bash",
         "Edit",
@@ -348,14 +348,16 @@ def _build_claudecode_invocation(
         "EnterPlanMode",
         "ExitPlanMode",
         "EnterWorktree",
+        "ReadMcpResourceTool",
+        "ListMcpResourcesTool",
     ]
     if tool_schemas:
         allowed_tools = ",".join(_VOLTSNIP_TOOLS)
-        disallowed_tools = ",".join(_DISALLOWED_TOOLS + _FILESYSTEM_TOOLS)
+        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
     else:
         # No-tools variants: explicitly block native tools too.
         allowed_tools = ""
-        disallowed_tools = ",".join(_DISALLOWED_TOOLS + _FILESYSTEM_TOOLS)
+        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
 
     cmd = [
         "claude", "-p", combined_prompt,
@@ -394,6 +396,24 @@ def _build_claudecode_invocation(
     if sidecar_files:
         for filename, content in sidecar_files.items():
             (Path(_sidecar_dir_cleanup) / filename).write_text(content, encoding="utf-8")
+    # P4/P6: if SKILL.md is present, register it as a Claude Code plugin so it is
+    # loaded as a proper skill (not just a file for tool-based reading).
+    # Requires a .claude-plugin/plugin.json manifest alongside the SKILL.md.
+    # --plugin-dir points claude at this directory for the session only.
+    _has_skill = sidecar_files and "SKILL.md" in sidecar_files
+    if _has_skill:
+        plugin_dir = Path(_sidecar_dir_cleanup) / ".claude-plugin"
+        plugin_dir.mkdir(exist_ok=True)
+        (plugin_dir / "plugin.json").write_text(
+            json.dumps({
+                "name": "voltsnip-eval",
+                "version": "1.0.0",
+                "description": "VoltSnip eval skill for bug-fix evaluation tasks",
+            }),
+            encoding="utf-8",
+        )
+        # Load the SKILL.md plugin for this session only.
+        cmd.extend(["--plugin-dir", _sidecar_dir_cleanup])
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)  # prevent "nested session" rejection when launched from within Claude Code
@@ -441,6 +461,22 @@ def _execute_claudecode(inv: ClaudeCodeInvocation, run_dir: Path) -> ClaudeCodeR
     stderr_path = run_dir / "subprocess.stderr.claudecode.txt"
     stdout_path.write_text(proc.stdout or "", encoding="utf-8")
     stderr_path.write_text(proc.stderr or "", encoding="utf-8")
+
+    cmd_path = run_dir / "subprocess.cmd.claudecode.sh"
+    _env_lines = "\n".join(
+        f"export {k}={shlex.quote(v)}"
+        for k, v in (inv.env or {}).items()
+        if k in ("NO_COLOR", "CLAUDE_MODEL", "ANTHROPIC_API_KEY")
+    )
+    cmd_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "# Auto-generated — reproduces the exact claudecode subprocess invocation.\n"
+        f"cd {shlex.quote(inv.cwd or '.')}\n"
+        + (_env_lines + "\n" if _env_lines else "")
+        + "exec " + shlex.join(inv.cmd) + "\n",
+        encoding="utf-8",
+    )
+    cmd_path.chmod(0o755)
 
     if inv._debug_file_path:
         try:

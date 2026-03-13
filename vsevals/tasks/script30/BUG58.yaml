@@ -32,7 +32,7 @@ tasks:
     - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
     - voltsnip/script30/hard/bug58/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix modulus from hash(key) % (num_partitions + 1) to hash(key) % num_partitions.

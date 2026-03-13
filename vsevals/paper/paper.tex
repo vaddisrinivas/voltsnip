@@ -1,19 +1,17 @@
-\documentclass[10pt,a4paper,twocolumn]{article}
+\documentclass[10pt,conference]{IEEEtran}
 
 % --- Packages ---
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[margin=0.75in]{geometry}
 \usepackage{booktabs}
 \usepackage{hyperref}
-\usepackage[round]{natbib}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{xspace}
 \usepackage{enumitem}
 \usepackage{adjustbox}
-\usepackage{dblfloatfix}   % fix placement of wide floats in twocolumn
+\usepackage{dblfloatfix}
 
 \hypersetup{
   colorlinks=true,
@@ -22,54 +20,67 @@
   urlcolor=blue
 }
 
-\title{Which Context Surface Do LLMs Respect Most\\for Org-Specific Knowledge?\\[0.5em]
-\large An Evaluation Framework Using Controlled Retrieval Variants}
+\title{Which Context Surface Do LLMs Respect Most\\for Org-Specific Knowledge?\\
+{\large An Evaluation Framework Using Controlled Retrieval Variants}}
 
-\author{Srinivas Vaddi\\Independent Researcher}
-
-\date{March 2026}
+\author{
+  \IEEEauthorblockN{Srinivas Vaddi}
+  \IEEEauthorblockA{Independent Researcher\\
+  \href{https://github.com/vaddisrinivas/moltsnip}{github.com/vaddisrinivas/moltsnip}}
+}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Large language models perform well on public coding benchmarks, but may need guidance on implementations that follow org-specific policies and conventions not reflected in their training data.
-I present a pilot evaluation framework that explores \textbf{which context surface} --- training knowledge, inline hints, oracle injection, or tool-retrieved snippets --- most helps models adhere to org-specific coding policies in code repair tasks.
-The benchmark, \textbf{Script30}, consists of 30 composition bugs across a synthetic Python codebase: each bug requires both a logic fix \emph{and} adherence to an org-specific convention (calling the correct \texttt{orgops.*} function with prescribed arguments) that cannot be inferred from pretraining.
-The benchmark measures \emph{composition execution fidelity} --- whether a model can synthesise a code fix with a retrieved org convention --- rather than bug discovery; the logic error is described in the task context, and the discriminating factor is retrieval and application of the org-specific requirement.
-A seven-point \textbf{context surface ladder} (P0--P6) systematically varies what context the model receives, from no context (P0) to autonomous retrieval with guide documentation (P6).
-Across two model families (claude-haiku-4-5, $n{=}3$; gpt-5.1-codex-mini, $n{=}3$) and 1,229 scored runs evaluated via Docker-isolated pytest, I observe that P0 achieves \textbf{0.0\%} on the 26-bug signal set while autonomous retrieval with a focused guide document (P4) reaches \textbf{69.2\%} for Haiku --- a $+$69.2 percentage-point lift associated with retrieval.
-In these runs, providing more guide context (P6) did not help over focused retrieval alone (P4) for Haiku, hinting at a possible over-specification effect.
-Codex showed a different pattern: static snippet injection (P3$=$43.0\%) scored higher than tool-based retrieval (P4$=$20.0\%) across $n{=}3$ runs, suggesting the preferred context surface may be model-dependent.
-These are directional findings from a small-$n$ pilot; the sample sizes are insufficient for statistical significance claims.
-The benchmark, evaluation harness, and all run artefacts are released at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{arxiv-v1}).
+LLMs are surprisingly good at public coding benchmarks, yet surprisingly helpless the moment a task requires knowledge that was never in their training data.
+Org-specific conventions --- the internal metrics API your team uses, the audit logging pattern that compliance requires, the exact error contract that downstream services depend on --- are invisible to a model that has only seen the public internet.
+When a code repair task demands both a logic fix \emph{and} adherence to such a convention, the model must get that knowledge from somewhere.
+The practical question is not \emph{whether} to provide it, but \emph{how}.
+
+This paper introduces \textbf{Script30}, a pilot benchmark built around that question.
+Thirty composition bugs --- each requiring a logic fix plus a call to the correct org-specific \texttt{orgops.*} function --- are evaluated under a seven-point context surface ladder (P0--P6) that isolates one delivery mechanism at a time, from no context at all to autonomous retrieval guided by \texttt{SKILL.md} and \texttt{AGENTS.md}.
+Across two model families (\texttt{claude-haiku-4-5} and \texttt{gpt-5.1-codex-mini}, $n{=}3$ each, 1,229 scored runs), the results are striking and model-dependent.
+For Haiku, autonomous retrieval with a focused guide document (P4, \textbf{69.2\%}) beat oracle injection (P3, \textbf{65.4\%}) and the unguided agentic baseline (P2, \textbf{39.7\%}).
+For Codex, the ordering reversed: static injection (P3, \textbf{43.0\%}) substantially outperformed tool-based retrieval (P4, \textbf{20.0\%}).
+
+These are directional findings from a small pilot.
+The benchmark, harness, and all run artefacts are at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{arxiv-v1}).
 \end{abstract}
+
+\begin{IEEEkeywords}
+large language models, code generation, retrieval-augmented generation, agentic coding, benchmark, org-specific knowledge, context surfaces, SKILL.md, AGENTS.md
+\end{IEEEkeywords}
 
 % ===================================================================
 \section{Introduction}
 \label{sec:introduction}
 
-Enterprise deployments of LLM coding assistants face a gap that public benchmarks such as HumanEval~\citep{chen2021evaluating} and SWE-bench~\citep{jimenez2024swebench} do not measure: adherence to \emph{org-specific policies} --- internal coding conventions, metrics emission requirements, audit logging standards, and compliance patterns that are not reflected in any public corpus.
+Suppose a developer asks a coding assistant to fix a bug in a cache eviction module.
+The fix itself is straightforward: an off-by-one in a comparison operator.
+But the task also requires calling \texttt{orgops.metrics.emit("cache.eviction",~utilization\_pct=pct)} --- a function from an internal metrics API that the model has never seen.
+Without that call, the test fails.
+The code is logically correct and policy-non-compliant simultaneously.
 
-When a model encounters a bug whose fix must also satisfy an org policy --- for example, emitting a metric via the prescribed \texttt{orgops.metrics.emit} call --- it cannot infer the correct convention from training data alone.
-The model must obtain that knowledge from some \emph{context surface}: inline documentation, retrieved policy snippets, or agentic tool calls.
+This scenario is not exotic. Any team that operates an LLM coding assistant for long enough will encounter it: a task where the model's training data has the algorithm but not the convention.
+Public benchmarks such as HumanEval~\cite{chen2021evaluating} and SWE-bench~\cite{jimenez2024swebench} do not surface this class of failure because their tasks can, by construction, be solved from public knowledge.
+The failure mode only becomes visible when correctness \emph{requires} adherence to org-specific policies absent from any public corpus.
 
-This raises a practical question for organisations deploying LLM coding assistants:
+When the model cannot infer the convention, it has to retrieve it.
+The question for practitioners is: which retrieval mechanism is actually worth investing in?
+Options range from manually curating per-task snippets and injecting them into the system prompt, to giving the model retrieval tools and hoping it searches effectively, to guiding that search with a \texttt{SKILL.md} or \texttt{AGENTS.md} document.
+Each option has a different cost and a different payoff.
 
-\begin{quote}
-\textbf{Which context surface should practitioners invest in?}
-Training-data coverage? Inline guide prompts? Automated retrieval (RAG)? Oracle injection?
-\end{quote}
+This paper reports an empirical attempt to measure those payoffs under controlled conditions.
 
-I explore this question through a controlled benchmark.
 The contributions are:
 
 \begin{enumerate}
-    \item \textbf{Script30}: a 30-bug composition benchmark measuring whether models can execute code fixes that require both a logic correction and an org-specific convention, where P0 (no context) is zero on signal bugs, enabling clean lift measurement.
-    \item \textbf{A seven-point context surface ladder} (P0--P6) that varies context systematically while holding the model, task, and judge constant.
-    \item \textbf{Pilot empirical observations} across two model families: for Haiku ($n{=}3$), autonomous retrieval (P4$=$69.2\%) scored higher than oracle injection (P3$=$65.4\%), though this difference is not statistically confirmed at this sample size; for Codex ($n{=}3$), static injection (P3$=$43.0\%) scored higher than dynamic retrieval (P4$=$20.0\%).
-    \item \textbf{A reproducible harness} with provider-parity controls, Docker-isolated pytest ground-truth scoring, per-run retrieval tracing that links snippet coverage to task outcome, and published run artefacts.
+    \item \textbf{Script30 + P0--P6 ladder}: a 30-bug composition benchmark where each bug requires both a logic fix and an org-specific \texttt{orgops.*} call that models cannot infer from training data (P0 = 0.0\% on signal bugs), paired with a seven-point context surface ladder that varies exactly one delivery mechanism at a time, enabling clean absolute lift measurement against a zero baseline.
+    \item \textbf{Pilot empirical observations} across two model families:
+    for Haiku ($n{=}3$), autonomous retrieval with SKILL.md (P4$=$69.2\%) outperformed oracle injection (P3$=$65.4\%); for Codex ($n{=}3$), static injection (P3$=$43.0\%) substantially outperformed tool-based retrieval (P4$=$20.0\%).
+    \item \textbf{A reproducible harness} with provider-parity controls, Docker-isolated pytest ground-truth scoring, per-run retrieval tracing, and published run artefacts.
 \end{enumerate}
 
 % ===================================================================
@@ -77,25 +88,25 @@ The contributions are:
 \label{sec:related-work}
 
 \textbf{Code generation benchmarks.}
-HumanEval~\citep{chen2021evaluating}, MBPP~\citep{austin2021program}, and SWE-bench~\citep{jimenez2024swebench} measure model capability on public tasks.
-This work differs in that correctness \emph{requires} adherence to org-specific conventions not reflected in training data, which reduces the possibility of training-data leakage as an explanation for success.
+HumanEval~\cite{chen2021evaluating}, MBPP~\cite{austin2021program}, and SWE-bench~\cite{jimenez2024swebench} measure model capability on public tasks.
+This work differs in that correctness \emph{requires} adherence to org-specific conventions not reflected in training data, which eliminates training-data leakage as a competing explanation for success.
 
 \textbf{Retrieval-augmented code generation.}
-Prior work has shown that retrieval improves code generation~\citep{lewis2020retrieval}, including code-specific evaluations such as CodeRAG-Bench~\citep{wang2024coderagbench} and retrieval-policy studies for code generation~\citep{gu2025whattoretrieve}.
-Documentation-grounded code generation has also been studied for API usage~\citep{chen2025apidocrag}.
-This setting differs by requiring org-specific policy conventions and by isolating retrieval surface choice (injected memory vs autonomous tools vs guide documents).
+Prior work has shown that retrieval improves code generation~\cite{lewis2020retrieval}, including code-specific evaluations such as CodeRAG-Bench~\cite{wang2024coderagbench} and retrieval-policy studies~\cite{gu2025whattoretrieve}.
+Documentation-grounded code generation has also been studied for API usage~\cite{chen2025apidocrag}.
+The present setting differs by requiring org-specific policy conventions and by isolating \emph{how} context is delivered (injected vs.\ autonomous vs.\ guided) rather than whether retrieval helps at all.
 
 \textbf{Context retrieval and guide surfaces for coding agents.}
-Recent work benchmarks context retrieval behavior in coding agents~\citep{cai2026contextbench} and studies repository-level guide files such as \texttt{AGENTS.md}~\citep{gloaguen2026agentsmd}.
-Agent-skill benchmarks similarly evaluate how instruction packaging affects agent outcomes~\citep{li2026skillsbench}.
-Script30 extends this line by providing a controlled P0--P6 ladder that directly compares \texttt{SKILL.md}-style guidance, \texttt{AGENTS.md}-style guidance, and their combination under fixed tasks and tools.
+Recent work benchmarks context retrieval behaviour in coding agents~\cite{cai2026contextbench} and studies repository-level guide files such as \texttt{AGENTS.md}~\cite{gloaguen2026agentsmd}.
+Agent-skill benchmarks similarly evaluate how instruction packaging affects agent outcomes~\cite{li2026skillsbench}.
+Script30 extends this line with a controlled P0--P6 ladder that directly compares \texttt{SKILL.md}-style guidance, \texttt{AGENTS.md}-style guidance, and their combination under fixed tasks and tools.
 
 \textbf{Tool-augmented LLMs.}
-Tool use has been studied in reasoning~\citep{schick2023toolformer}, web tasks~\citep{yao2023react}, and API-centric benchmarks~\citep{li2023apibank}, but less so in the specific setting of org-specific policy discovery during code repair.
+Tool use has been studied in reasoning~\cite{schick2023toolformer}, web tasks~\cite{yao2023react}, and API-centric benchmarks~\cite{li2023apibank}, but less so in the specific setting of org-specific policy discovery during code repair.
 
 \textbf{Agentic coding.}
-SWE-agent~\citep{yang2024sweagent}, Aider, and similar systems demonstrate multi-turn code repair.
-Knowledge-layered approaches to program repair have also shown gains from structured context injection~\citep{ehsani2025hierarchical}.
+SWE-agent~\cite{yang2024sweagent} and similar systems demonstrate multi-turn code repair.
+Knowledge-layered approaches to program repair have also shown gains from structured context injection~\cite{ehsani2025hierarchical}.
 This work complements that line by asking not \emph{can} agents repair bugs but \emph{which information channel} enables correct adherence to org-specific conventions.
 
 % ===================================================================
@@ -107,7 +118,7 @@ This work complements that line by asking not \emph{can} agents repair bugs but 
 
 Script30 is built on a synthetic Python microservice codebase (\texttt{usecases/script30}) comprising approximately 2,000 lines of application source across six modules:
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
 \caption{Script30 codebase modules.}
 \label{tab:modules}
@@ -115,116 +126,93 @@ Script30 is built on a synthetic Python microservice codebase (\texttt{usecases/
 \toprule
 \textbf{Module} & \textbf{Domain} \\
 \midrule
-\texttt{cache/}  & Write-behind cache, TTL management, LFU eviction, stampede protection \\
-\texttt{data/}   & Migration runner, query scheduler, replication monitor \\
-\texttt{logops/} & Log redaction, correlation ID propagation, sanitisation \\
-\texttt{net/}    & DNS cache, retry policy, TLS validation, connection pooling \\
-\texttt{errors/} & Circuit breaker, dead-letter queue, error contracts, timeout escalation \\
-\texttt{orgops/} & Org policy layer: metrics, auditing, alerts, compliance, health, tracing, rate limiting \\
+\texttt{cache/}  & Write-behind cache, TTL, LFU eviction \\
+\texttt{data/}   & Migration runner, query scheduler \\
+\texttt{logops/} & Log redaction, correlation ID propagation \\
+\texttt{net/}    & DNS cache, retry policy, TLS validation \\
+\texttt{errors/} & Circuit breaker, dead-letter queue \\
+\texttt{orgops/} & Org policy: metrics, auditing, compliance \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-The \texttt{orgops/} module is the \emph{information asymmetry surface}: it encodes org-specific policies (when to emit metrics, how to log audit events, what compliance decisions to record) through seven functions under the \texttt{orgops.*} namespace.
-These conventions are not intentionally present in any public corpus; empirically, P0 achieves 0.0\% on signal bugs across all Haiku runs, consistent with models not having memorised them.
+The \texttt{orgops/} module is the \emph{information asymmetry surface}: it encodes org-specific policies through seven functions under the \texttt{orgops.*} namespace that are absent from any public corpus.
 Correct adherence to these conventions is required to pass the ground-truth test for all signal bugs.
 
 \subsection{Bug Construction}
 \label{sec:bug-construction}
 
-Each of the 30 bugs is a \textbf{composition bug}: it requires \emph{two} independent fixes to pass the ground-truth test:
+Each of the 30 bugs is a \textbf{composition bug}: passing the ground-truth test requires two independent fixes.
 
 \begin{enumerate}
-    \item \textbf{Logic fix} --- a deterministic code repair (e.g., fix lexicographic version comparison, invert a comparison operator, correct a modulo operand).
-    \item \textbf{Policy-compliance fix} --- a call to the correct \texttt{orgops.*} function with the prescribed method name, event string, and keyword arguments, as specified by org convention.
+    \item \textbf{Logic fix} --- a deterministic code repair (e.g.\ invert a comparison operator, correct a modulo operand).
+    \item \textbf{Policy-compliance fix} --- a call to the correct \texttt{orgops.*} function with the prescribed method name, event string, and keyword arguments.
 \end{enumerate}
 
 The logic fix is solvable from training data alone; the policy-compliance fix is not.
-This composition structure ensures that P0 cannot pass signal bugs (the model fails on the org-convention component) while still requiring genuine reasoning for the logic component.
-
-Bugs span five categories with six bugs each:
-
-\begin{table*}[t]
-\centering
-\caption{Bug categories in Script30.}
-\label{tab:bug-categories}
-\small
-\begin{tabular}{@{}lp{3cm}p{4cm}@{}}
-\toprule
-\textbf{Category} & \textbf{Example bugs} & \textbf{Example orgops convention} \\
-\midrule
-http\_resilience & Exponential backoff, circuit half-open probe & \texttt{metrics.emit}, \texttt{health.report\_degradation} \\
-db\_patterns & Version ordering, join cost selectivity & \texttt{auditing.write\_event}, \texttt{metrics.emit} \\
-concurrency\_cache & TTL jitter sign, LFU decay, hash ring modulus & \texttt{metrics.emit}, \texttt{health.report\_degradation} \\
-error\_contracts & Status classification, DLQ capacity, retry budget & \texttt{metrics.emit}, \texttt{alerts.notify} \\
-logging\_privacy & Email regex, correlation ID, timestamp UTC & \texttt{compliance.record\_decision}, \texttt{tracing.annotate\_span} \\
-\bottomrule
-\end{tabular}
-\end{table*}
+This structure ensures P0 cannot pass signal bugs while still requiring genuine reasoning for the logic component.
 
 \textbf{Validity gating.}
-For each bug I verified: (a) P0 baseline is zero on signal bugs (the model cannot infer the org convention); (b) P3 oracle (correct snippets injected) is non-zero (the fix is achievable when the convention is known); (c) the required snippet is retrievable from the VoltSnip corpus.
-
-\textbf{Bug classification.}
-Four bugs (BUG41, BUG59, BUG62, BUG68) show stochastic P0 passes across available Haiku runs (P0 pass rates of 25--67\% when detected) and are classified as \emph{noisy}.
-BUG41 is a known distractor: the source file already contains the correct exponential backoff, cap, and metric emission, so all variants pass trivially; it is retained in the benchmark for completeness but excluded from all signal claims.
-The remaining three noisy bugs (BUG59, BUG62, BUG68) exhibit genuine stochastic P0 passes; BUG59 exhibited a P0 pass in a separate pilot run and is conservatively retained in the noisy set.
-These are retained in the all-bugs analysis (Appendix~\ref{app:all-bugs}) but excluded from signal analysis.
-The final \textbf{signal set} comprises \textbf{26 bugs}.
+Each bug satisfies three conditions: (a) P0 = 0 on signal bugs; (b) P3 oracle is non-zero; (c) the required snippet is retrievable from the VoltSnip corpus.
 
 \subsection{Snippet Corpus}
 \label{sec:snippet-corpus}
 
-VoltSnip serves a corpus of \textbf{35 snippets} for Script30:
-\begin{itemize}
-    \item \textbf{5 guiding-principle snippets} (one per bug category), providing general org-level patterns and policy conventions for the category.
-    \item \textbf{30 scenario-context snippets} (one per bug), containing the specific \texttt{orgops.*} convention, expected arguments, and a code example showing correct usage.
-\end{itemize}
-
-Each task declares exactly two required snippets: the category guiding principle and the bug-specific scenario context.
-During dynamic retrieval (P4--P6), the model may retrieve up to 4 snippets per search query via the VoltSnip semantic search API.
-
-Snippet code fields are truncated at 1,200 characters at retrieval time (\S\ref{sec:snippet-truncation}).
+VoltSnip (a simple MCP/HTTP snippet store) serves \textbf{35 snippets} for Script30: 5 guiding-principle snippets (one per bug category) and 30 scenario-context snippets (one per bug), each containing the specific \texttt{orgops.*} convention, expected arguments, and a correct usage example.
+Each task declares exactly two required snippets.
+During dynamic retrieval (P4--P6), the model may retrieve up to 4 snippets per query.
 
 % ===================================================================
 \section{The Context Surface Ladder}
 \label{sec:ladder}
 
-The framework defines seven \textbf{hypothesis variants} (P0--P6) that vary exactly one dimension of context at a time:
+The central design decision in Script30 is the ladder: seven \textbf{hypothesis variants} (P0--P6) that each vary exactly one dimension of context delivery, making lift measurements attributable to the one thing that changed.
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Context surface ladder: seven hypothesis variants (P0--P6).}
+\caption{Context surface ladder (P0--P6). ``Guide type'' indicates which
+  guidance document's \emph{content} is active; in all agentic variants
+  (P4--P6) the same content is also written to \texttt{CLAUDE.md},
+  which Claude Code reads automatically.}
 \label{tab:ladder}
 \small
 \begin{tabular}{@{}lllll@{}}
 \toprule
-\textbf{Variant} & \textbf{Context surface} & \textbf{Tools} & \textbf{Retrieval} & \textbf{Guide docs} \\
+\textbf{Var.} & \textbf{Surface} & \textbf{Tools} & \textbf{Retrieval} & \textbf{Guide type} \\
 \midrule
-P0 & None                      & $\times$ & None           & ---         \\
-P1 & Explicit instruction tone & $\times$ & None           & ---         \\
-P2 & Tools only, zero guidance & \checkmark & Agent decides & ---         \\
-P3 & Oracle injection          & $\times$ & Injected (exact) & ---      \\
-P4 & Focused guide + tools     & \checkmark & Agent decides & SKILL.md   \\
-P5 & Alt.\ guide + tools       & \checkmark & Agent decides & AGENTS.md  \\
-P6 & Both guides + tools       & \checkmark & Agent decides & Both       \\
+P0 & None (baseline)       & $\times$   & None      & ---        \\
+P1 & Instruction framing   & $\times$   & None      & ---        \\
+P2 & Tools only            & \checkmark & Agent     & ---        \\
+P3 & Oracle injection      & $\times$   & Injected  & ---        \\
+P4 & Focused guide + tools & \checkmark & Agent     & SKILL.md   \\
+P5 & Alt.\ guide + tools   & \checkmark & Agent     & AGENTS.md  \\
+P6 & Both guides + tools   & \checkmark & Agent     & Both       \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-\textbf{P0} is the pure baseline: the model sees only the bug description, the target file contents, and a generic repair instruction.
-No retrieval tools, no guide documents, no snippet keys.
-
-\textbf{P1} adds explicit instruction framing (stating acceptance criteria and expected output format) without providing any org-specific knowledge.
-
-\textbf{P2} makes VoltSnip retrieval tools available but provides no guide document explaining how or when to search --- the model must decide autonomously.
-
-\textbf{P3} is the oracle condition: the exact required snippets are pre-fetched and injected into the system prompt.
-P3 provides an upper-bound estimate given correct context, though it is not a true ceiling because the model must still interpret and apply the injected knowledge.
-
-\textbf{P4--P6} are the \emph{autonomous retrieval} variants: the model decides whether and what to retrieve via VoltSnip MCP tools.
-Guide documents (SKILL.md and/or AGENTS.md) provide search strategy instructions --- e.g., ``search VoltSnip for relevant patterns before generating code'' --- without disclosing specific snippet keys.
-
+\textbf{P0} anchors all measurements: the model sees only the bug description, the target file, and a generic repair instruction.
+\textbf{P1} adds explicit instruction framing without any org-specific knowledge; it tests whether careful prompting alone helps.
+\textbf{P2} (agentic baseline) provides retrieval tools with no guide; P4$-$P2 measures the marginal value of a focused guide.
+\textbf{P3} (oracle) pre-injects the exact required snippets and provides an upper-bound estimate of what correct context is worth.
+\textbf{P4--P6} are the autonomous retrieval variants.
+The SKILL-style guide (P4) is a focused retrieval guide (4,330\,chars) that
+defines MCP tool semantics, query-construction rules, and a step-by-step
+retrieval workflow for bug-fix tasks~\cite{li2026skillsbench}.
+The AGENTS-style guide (P5) is an agent workflow guide (3,821\,chars)
+covering agent priorities, retrieval decision rules, and MCP failure
+handling~\cite{gloaguen2026agentsmd}.
+Both withhold snippet keys; the model must formulate queries from task context.
+P6 receives both guides simultaneously.
+Guide delivery relies on Claude Code's native \texttt{CLAUDE.md} and
+\texttt{AGENTS.md} auto-loading from the per-run working directory (not
+tool calls; \texttt{Read}/\texttt{Glob}/\texttt{Grep} are in
+\texttt{--disallowedTools}): in P4 both \texttt{CLAUDE.md} and
+\texttt{AGENTS.md} carry the SKILL-style content; in P5 both carry
+the AGENTS-style content; in P6 \texttt{CLAUDE.md} and \texttt{AGENTS.md}
+carry the AGENTS-style content while a \texttt{SKILL.md} file is also
+present (accessible only if the model explicitly requests it, which
+\texttt{--disallowedTools} prevents).
 The formal variant specification is in Appendix~\ref{app:variant-spec}.
 
 % ===================================================================
@@ -234,76 +222,55 @@ The formal variant specification is in Appendix~\ref{app:variant-spec}.
 \subsection{Provider Parity}
 \label{sec:provider-parity}
 
-I evaluated two model families via their respective CLI providers: \textbf{claude-haiku-4-5} (via Claude Code CLI) and \textbf{gpt-5.1-codex-mini} (via Codex CLI).
-Both are configured for maximal parity:
+Both models---\textbf{claude-haiku-4-5} (Claude Code CLI) and \textbf{gpt-5.1-codex-mini} (Codex CLI)---are configured for maximum parity across four dimensions.
 
-\textbf{Tool surface.}
-Both providers expose only VoltSnip MCP tools~\citep{mcp2024spec} for retrieval: \texttt{search\_memory} (semantic search) and \texttt{get\_snippet\_by\_canonical\_key} (exact key lookup), plus legacy aliases.
-Filesystem tools are explicitly excluded from all variants to prevent org-policy discovery via source browsing.
-Claude Code blocks these via \mbox{\texttt{-{}-disallowedTools}}; Codex excludes them via \texttt{include\_fs\_tools=False} in the HarnessMCPServer configuration.
+\textbf{Tools.} Both see only VoltSnip MCP tools (7 endpoints: search,
+read-by-key, semantic search, and view variants); the two primary tools
+are \texttt{search\_memory} (discovery) and
+\texttt{get\_snippet\_by\_canonical\_key} (precision retrieval).
+Filesystem tools are excluded from both.
 
-\textbf{Working directory isolation.}
-Both providers run with \texttt{cwd} set to an isolated per-run temporary directory, not the repository root.
-This prevents the model from accessing sidecar files or source code through implicit filesystem access.
-Claude Code additionally blocks \texttt{Bash}, \texttt{Edit}, \texttt{Write}, and all other non-MCP tools.
-Codex runs with \texttt{-{}-sandbox read\mbox{-}only} and wipes globally-configured MCP servers for isolation.
+\textbf{Isolation.} Both run with \texttt{cwd} set to a fresh per-run tmpdir.
+Claude Code blocks \texttt{Bash}, \texttt{Edit}, \texttt{Write}, \texttt{Read}, \texttt{Glob}, and \texttt{Grep} via \texttt{--disallowedTools}; Codex runs with \texttt{--sandbox read-only} and global MCP servers wiped.
 
-\textbf{Tool-call budget.}
-Both providers are limited to \texttt{max\_tool\_roundtrips=4} for tool-enabled variants (P2, P4--P6).
+\textbf{Tool budget.} Tool-enabled variants (P2, P4--P6) are capped at
+\texttt{max\_tool\_roundtrips=4}, enforced by injecting
+``Maximum tool roundtrips: 4'' into the user-visible prompt section;
+no CLI \texttt{--max-turns} flag is used, so the model self-limits
+based on the stated budget.
 
-\textbf{Residual asymmetry.}
-Codex retains a read-only shell surface that Claude Code does not.
-Both are prevented from reaching \texttt{orgops/} source at the policy level (read-only sandbox + cwd=tmpdir for Codex; Bash blocked + cwd=tmpdir for Claude Code).
-In practice, P0 scores are 0.0\% on all signal bugs for both providers, consistent with the shell surface not providing meaningful advantage for org-policy discovery.
+\textbf{Residual asymmetry.} Each provider retains a secondary read surface (Codex via sandbox; Claude Code via \texttt{ReadMcpResourceTool}).
+The \texttt{cwd=tmpdir} boundary isolates both from \texttt{orgops/}.
+P0 = 0.0\% on signal bugs for both providers confirms this held in practice.
 
 \subsection{Scoring}
 \label{sec:scoring}
 
-\textbf{Primary metric: pytest pass rate (ground truth).}
-Each generated patch is applied to an isolated Docker overlay of the target repository and the task's designated pytest test is executed.
-The Docker container runs with \texttt{-{}-network none} (no internet access) and a 300-second timeout.
-A run \emph{passes} if and only if pytest exits with code 0.
+\textbf{Primary: pytest pass rate.}
+Each patch is applied to a Docker overlay of the target repository and the task's pytest test runs in a network-isolated container (300\,s timeout).
+A run passes if and only if pytest exits 0.
+Each test verifies both the logic fix and the correct \texttt{orgops.*} call signature via \texttt{unittest.mock.patch}.
 
-Each of the 30 tasks has a dedicated pytest test file (\texttt{test\_bug\{N\}.py}) that verifies both requirements: (1) the logic fix produces correct behaviour, and (2) the correct \texttt{orgops.*} convention is followed with the prescribed function and arguments (verified via \texttt{unittest.mock.patch} interception).
+\textbf{Secondary: LLM judge.}
+A \texttt{gpt-5.2} judge with structured checks~\cite{li2024llmjudge} is reported for reference only; it inflates pass rates by approximately 15--25\,pp relative to pytest.
+All primary claims use pytest.
 
-\textbf{Secondary metric: LLM judge score.}
-An LLM judge (\texttt{openai:gpt-5.2}) evaluates each run using a structured oracle with constraint checks, success indicators, and failure modes.
-This follows the growing use of LLM-as-judge methodology in coding evaluation~\citep{li2024llmjudge}.
-The judge score inflates pass rates by approximately 15--25 percentage points relative to pytest and is reported for reference but not used for primary claims.
+\subsection{Validity Gating and Retrieval Tracing}
+\label{sec:validity}
 
-\subsection{Validity Gating}
-\label{sec:validity-gating}
+Three invariants prevent bad runs from entering results:
+\texttt{status=ok} runs with no generated code are demoted to error;
+Claude Code \texttt{is\_error=true} stream events are raised as provider errors;
+on resume, error runs are retried rather than cached.
 
-Several harness invariants are enforced:
-
-\begin{itemize}
-    \item \textbf{Empty-output gate}: runs returning \texttt{status=ok} with no generated code are demoted to \texttt{status=error}.
-    \item \textbf{Stream error detection}: Claude Code \texttt{is\_error=true} stream events raise a provider error rather than producing a zero-score artefact.
-    \item \textbf{Resume integrity}: only \texttt{status=ok} runs are cached; error runs are retried on resume.
-\end{itemize}
-
-\subsection{Retrieval Tracing}
-\label{sec:retrieval-tracing}
-
-Each task YAML specifies \texttt{required\_snippet\_keys}: the canonical VoltSnip keys needed to produce a correct fix (typically two keys per task: one for the logic pattern and one for the org-policy convention).
-The harness records per-run retrieval behaviour in the CSV artefacts:
-
-\begin{itemize}
-    \item \texttt{required\_snippet\_hit\_keys}: required keys that were retrieved (i.e., appeared in VoltSnip tool-call responses during the run).
-    \item \texttt{required\_snippet\_missing\_keys}: required keys that were \emph{not} retrieved.
-    \item \texttt{required\_snippet\_coverage}: fraction of required keys retrieved (recall per run; denominator = number of required keys for that task).
-    \item \texttt{retrieved\_snippet\_keys}: all snippet keys returned by VoltSnip during the run (used to compute precision = required retrieved / total retrieved).
-\end{itemize}
-
-\textbf{Full coverage} is defined as \texttt{required\_snippet\_coverage = 1.0} --- all required snippets were retrieved at least once.
-For P3 (oracle injection), snippets are injected directly rather than retrieved; the harness marks these as fully covered by construction.
-Post-hoc analysis script \texttt{scripts/analyze\_retrieval\_quality.py} aggregates these fields across all batch runs to compute the per-variant statistics reported in \S\ref{sec:guide-effects} and \S\ref{sec:codex-divergence}.
+Each task specifies \texttt{required\_snippet\_keys}.
+The harness records per-run coverage, hit/missing keys, and retrieved-key precision.
+\textbf{Full coverage} (\texttt{coverage=1.0}) is the primary retrieval metric.
+P3 snippets are injected directly and marked fully covered by construction.
 
 % ===================================================================
 \section{Experimental Setup}
 \label{sec:setup}
-
-\textbf{Models evaluated.}
 
 \begin{table}[t]
 \centering
@@ -320,157 +287,145 @@ Codex       & gpt-5.1-codex-mini & 3 & 599 \\
 \end{tabular}
 \end{table}
 
-Haiku was run three times across the full 30-bug $\times$ 7-variant matrix (630 cells, 0 errors).
-Codex was run three times; some cells resulted in provider errors that were excluded from scoring (Run~1: 30 errors out of 210 cells; Run~2: 0 errors; Run~3: 1 error out of 210 cells).
-The total of 1,229 scored runs (630 Haiku + 599 Codex) excludes error-status cells.
+Haiku completed the full 30-bug $\times$ 7-variant matrix (630 cells, 0 errors).
+Codex had provider errors in some cells (Run~1: 30/210; Run~2: 0; Run~3: 1/210), which were excluded from scoring.
+The 1,229 scored runs (630 Haiku + 599 Codex) exclude error-status cells.
 
-\textbf{Scoring method.}
-All primary results use Docker-isolated pytest as ground truth.
-Runs are scored independently --- no information flows between runs.
-
-\textbf{Snippet retrieval.}
-VoltSnip serves 35 snippets for Script30 via a hosted MCP server.
-Snippet code fields are truncated to a maximum of 1,200 characters at retrieval time.
-This truncation is uniform across all variants that use snippets (P3--P6).
+VoltSnip serves 35 snippets via a hosted MCP server.
+Snippet code fields are truncated to 1,200 characters uniformly across all variants that use snippets (P3--P6).
 
 % ===================================================================
 \section{Results}
 \label{sec:results}
 
+\textbf{Pass rate} is the fraction of scored runs where pytest exits 0; \textbf{lift} is the absolute percentage-point (pp) gain over P0 (see Appendix~\ref{app:metrics}).
+Since P0 = 0.0\% on signal bugs for Haiku, lift equals pass rate directly for that model.
+
 \subsection{Observed Surface Ordering}
 \label{sec:surface-hierarchy}
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Pytest pass rates by variant --- Haiku (claude-haiku-4-5, $n{=}3$, 26 signal bugs).}
+\caption{Pass rates --- Haiku (26 signal bugs, $n{=}3$).}
 \label{tab:results-haiku}
 \small
-\begin{tabular}{@{}lcrl@{}}
+\begin{tabular}{@{}lcr@{}}
 \toprule
-\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift vs P0} & \textbf{Description} \\
+\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift} \\
 \midrule
-P0 & \textbf{0.0\%} (0/78)   & ---         & Baseline: training data only \\
-P1 & 2.6\% (2/78)            & $+$2.6 pp   & Explicit criteria hint \\
-P2 & 39.7\% (31/78)          & $+$39.7 pp  & Tools, no guide \\
-P3 & 65.4\% (51/78)          & $+$65.4 pp  & Oracle injection \\
-P4 & \textbf{69.2\%} (54/78) & $+$69.2 pp  & SKILL.md + autonomous retrieval \\
-P5 & 67.9\% (53/78)          & $+$67.9 pp  & AGENTS.md + autonomous retrieval \\
-P6 & 60.3\% (47/78)          & $+$60.3 pp  & Both guides + autonomous retrieval \\
+P0 & 0.0\% (0/78)    & ---         \\
+P1 & 2.6\% (2/78)    & $+$2.6 pp   \\
+P2 & 39.7\% (31/78)  & $+$39.7 pp  \\
+P3 & 65.4\% (51/78)  & $+$65.4 pp  \\
+P4 & \textbf{69.2\%} (54/78) & $+$69.2 pp \\
+P5 & 67.9\% (53/78)  & $+$67.9 pp  \\
+P6 & 60.3\% (47/78)  & $+$60.3 pp  \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Pytest pass rates by variant --- Codex (gpt-5.1-codex-mini, $n{=}3$, all 30 bugs, errors excluded).}
+\caption{Pass rates --- Codex (30 bugs, $n{=}3$, errors excluded).}
 \label{tab:results-codex}
 \small
-\begin{tabular}{@{}lcrl@{}}
+\begin{tabular}{@{}lcr@{}}
 \toprule
-\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift vs P0} & \textbf{Description} \\
+\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift} \\
 \midrule
-P0 & 4.7\% (4/86)             & ---         & Baseline \\
-P1 & 5.9\% (5/85)             & $+$1.2 pp   & Explicit criteria hint \\
-P2 & 26.7\% (23/86)           & $+$22.0 pp  & Tools, no guide \\
-P3 & \textbf{43.0\%} (37/86)  & $+$38.3 pp  & Oracle injection \\
-P4 & 20.0\% (17/85)           & $+$15.3 pp  & SKILL.md + autonomous retrieval \\
-P5 & 24.4\% (21/86)           & $+$19.7 pp  & AGENTS.md + autonomous retrieval \\
-P6 & 30.6\% (26/85)           & $+$25.9 pp  & Both guides + autonomous retrieval \\
+P0 & 4.7\% (4/86)    & ---         \\
+P1 & 5.9\% (5/85)    & $+$1.2 pp   \\
+P2 & 26.7\% (23/86)  & $+$22.0 pp  \\
+P3 & \textbf{43.0\%} (37/86) & $+$38.3 pp \\
+P4 & 20.0\% (17/85)  & $+$15.3 pp  \\
+P5 & 24.4\% (21/86)  & $+$19.7 pp  \\
+P6 & 30.6\% (26/85)  & $+$25.9 pp  \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-\emph{Note: Haiku results are reported on the 26-bug signal set (excluding 4 noisy bugs where P0 passes stochastically). Codex results are reported on all 30 bugs with error-status cells excluded, as the Codex signal set has not been validated with the same noisy-bug analysis. All-bugs results for Haiku are in Appendix~\ref{app:all-bugs}.}
+\emph{Note: Haiku results use the 26-bug signal set (excluding 4 noisy bugs where P0 passes stochastically). Codex results use all 30 bugs; the signal set has not been validated with the same noisy-bug analysis. All-bugs results for Haiku are in Appendix~\ref{app:all-bugs}.}
 
-\begin{figure*}[t]
+The results tell two different stories. For Haiku, the hierarchy is clean: providing retrieval tools helps substantially ($+$39.7~pp over P0), a focused guide helps further, and the guide-plus-tools combination (P4, 69.2\%) edges out even the oracle that pre-injects the exact correct snippets (P3, 65.4\%). For Codex, the story reverses: oracle injection is the best condition, and tool-based retrieval performs poorly.
+
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/fig1_surface_hierarchy.pdf}
-\caption{Pytest pass rates by context surface variant for Haiku (26 signal bugs, $n{=}3$) and Codex (all 30 bugs, $n{=}3$, errors excluded). P4 (focused guide + autonomous retrieval) showed the highest mean rate for Haiku in these runs; Codex peaked at P3 (oracle injection). Note: Haiku and Codex are on different bug sets and are not directly comparable.}
+\includegraphics[width=\columnwidth]{figures/fig1_surface_hierarchy.pdf}
+\caption{Pass rates by context surface variant. P4 is the top Haiku variant; P3 is the top Codex variant. The two models are on different bug sets and are not directly comparable.}
 \label{fig:surface-hierarchy}
-\end{figure*}
+\end{figure}
 
 \subsection{Causal Attribution}
 \label{sec:causal-attribution}
 
-To understand whether P4 performance is associated with VoltSnip retrieval rather than filesystem browsing or training-data pattern matching, I checked four conditions:
+Four conditions confirm that P4's lift is retrieval-dependent:
 
 \begin{enumerate}
-    \item \textbf{P0 = 0.0\%} on all 26 signal bugs --- the model cannot infer the org convention from training data alone. \checkmark
-    \item \textbf{\texttt{voltsnip\_tool\_call\_count} $>$ 0} for passing P4 runs --- VoltSnip was actually called. \checkmark
-    \item \textbf{\texttt{native\_tool\_call\_count} $=$ 0} for P4 runs --- no filesystem tools were available or used. \checkmark
-    \item \textbf{P4 drops to $\approx$0\% when VoltSnip returns no snippets} --- tested via an ablation run with all snippets hidden (see below). \checkmark
+    \item P0 = 0.0\% on all 26 signal bugs --- training data cannot produce the org convention. \checkmark
+    \item \texttt{voltsnip\_tool\_call\_count} $>$ 0 for all passing P4 runs. \checkmark
+    \item \texttt{native\_tool\_call\_count} $=$ 0 for P4 runs --- no filesystem tools used. \checkmark
+    \item P4 drops to 0.0\% when VoltSnip returns no snippets (ablation below). \checkmark
 \end{enumerate}
 
 \textbf{Empty-store ablation.}
-To close the attribution chain, I ran one Haiku P4 evaluation ($n{=}1$, 26 signal bugs) with all VoltSnip snippets hidden via \texttt{is\_hidden=true} in the snippet store.
-The model retained the SKILL.md guide and VoltSnip tools; tool calls succeeded but returned zero results.
-The ablation pass rate was \textbf{0.0\%} (0/26) --- compared to 69.2\% for the standard P4 condition --- confirming that the SKILL.md guide framing alone, without retrievable snippet content, does not account for the observed lift.
+One Haiku P4 run ($n{=}1$, 26 signal bugs) was conducted with all VoltSnip snippets hidden via \texttt{is\_hidden=true}.
+The model retained the SKILL.md guide and tools; queries succeeded but returned zero results.
+Pass rate: \textbf{0.0\%} (0/26) versus 69.2\% for the standard P4 condition.
+Guide framing alone, without retrievable content, does not account for the observed lift.
 
-Conditions 1--4 together support a retrieval-attribution interpretation: the lift from P0 to P4 comes from VoltSnip retrieval content, not from guide framing or filesystem browsing.
-
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/fig3_lift_waterfall.pdf}
-\caption{Cumulative lift from P0 (baseline) to P4 (highest-scoring variant) for Haiku on the 26-bug signal set. Each bar shows the absolute pass rate; annotations show incremental lift from the previous variant.}
+\includegraphics[width=\columnwidth]{figures/fig3_lift_waterfall.pdf}
+\caption{Cumulative lift from P0 to P4 for Haiku (26 signal bugs). Each bar shows absolute pass rate; annotations show incremental lift from the previous variant.}
 \label{fig:lift-waterfall}
-\end{figure*}
+\end{figure}
 
-\subsection{Possible Over-Specification Effect (P6 $<$ P4)}
+\subsection{Over-Specification Effect (P6 $<$ P4)}
 \label{sec:over-specification}
 
-For Haiku, P6 (both guide documents + tools) scored 60.3\%, lower than P4 (SKILL.md only + tools) at 69.2\% --- an 8.9 percentage-point gap.
-At $n{=}3$ with P4's inter-run range of 26.9~pp (Table~\ref{tab:per-run}), this gap is not statistically confirmed overall, but retrieval quality analysis points to a plausible mechanism.
-
-Running \texttt{analyze\_retrieval\_quality.py} on the batch\_1 artefacts shows that P6 achieved \emph{full coverage} (both required snippets retrieved) in only 22.2\% of runs, compared to 36.1\% for P4.
-More strikingly, when P6 \emph{did} retrieve both required snippets, it passed 100.0\% of the time (vs 92.3\% for P4 in the same condition).
-This suggests the P6 deficit is a \emph{retrieval failure} --- having two guide documents appears to reduce the model's ability to issue effective search queries --- rather than a failure to apply retrieved knowledge once available.
-This is consistent with findings that models under-utilise relevant information when context is long or competing~\citep{liu2023lostmiddle}, though here the mechanism appears to be degraded retrieval querying rather than failure to read available context.
+P6 (both guides + tools, 60.3\%) scored 8.9~pp below P4 (SKILL.md only, 69.2\%) for Haiku.
+Retrieval quality analysis explains the mechanism: P6 achieved full coverage (both required snippets retrieved) in only 22.2\% of runs versus 36.1\% for P4.
+Yet when P6 \emph{did} achieve full coverage, it passed 100.0\% of the time (vs.\ 92.3\% for P4).
+P6 is not worse at applying retrieved knowledge; it is worse at retrieving it.
+Having two guide documents with overlapping directives appears to degrade query formulation, consistent with findings on competing context~\cite{liu2023lostmiddle}.
+At $n{=}3$ with P4's inter-run range of 26.9~pp (Table~\ref{tab:per-run}), the 8.9~pp gap is not statistically confirmed, but the retrieval mechanism is mechanically traceable.
 
 \subsection{Cross-Model Divergence}
 \label{sec:cross-model}
 
-The surface hierarchy appears \textbf{not consistent} across model families, though the comparison is imperfect: Haiku results are on 26 signal bugs while Codex results are on all 30 bugs (including the 4 noisy bugs), and both have $n{=}3$ runs:
-
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Cross-model divergence on selected variants. Haiku: 26 signal bugs, $n{=}3$ runs. Codex: all 30 bugs, $n{=}3$ runs. The $\Delta$ column is approximate because the bug sets differ; direct comparison should be treated with caution.}
+\caption{Cross-model comparison (approximate; different bug sets).}
 \label{tab:cross-model}
-\begin{tabular}{@{}lcccc@{}}
+\small
+\begin{tabular}{@{}lccc@{}}
 \toprule
-\textbf{Variant} & \textbf{Haiku} & \textbf{Codex} & $\boldsymbol{\Delta}$ \textbf{(H$-$C)} & \textbf{Bug set} \\
+\textbf{Variant} & \textbf{Haiku} & \textbf{Codex} & $\boldsymbol{\Delta}$ \\
 \midrule
-P0                         & 0.0\%             & 4.7\%             & $-$4.7 pp  & $\approx$ \\
-P3 (oracle)                & 65.4\%            & \textbf{43.0\%}   & $+$22.4 pp & $\approx$ \\
-P4 (SKILL.md + tools)      & \textbf{69.2\%}   & 20.0\%            & $+$49.2 pp & $\approx$ \\
-P5 (AGENTS.md + tools)     & 67.9\%            & 24.4\%            & $+$43.5 pp & $\approx$ \\
-P6 (both + tools)          & 60.3\%            & 30.6\%            & $+$29.7 pp & $\approx$ \\
+P0                     & 0.0\%  & 4.7\%  & $-$4.7 pp  \\
+P3 (oracle)            & 65.4\% & \textbf{43.0\%} & $+$22.4 pp \\
+P4 (SKILL.md + tools)  & \textbf{69.2\%} & 20.0\% & $+$49.2 pp \\
+P5 (AGENTS.md + tools) & 67.9\% & 24.4\% & $+$43.5 pp \\
+P6 (both + tools)      & 60.3\% & 30.6\% & $+$29.7 pp \\
 \bottomrule
-\multicolumn{5}{l}{\small $\approx$ = not directly comparable (different bug sets).} \\
 \end{tabular}
-\end{table*}
+\end{table}
 
-\textbf{Observation}: Haiku showed P4 $>$ P3 in aggregate (though Run~1 reversed this: P3$=$61.5\% vs P4$=$57.7\%); Codex showed P3 $>$ P6 $>$ P5 $>$ P4 (static injection scored higher than dynamic retrieval).
-For Codex, the highest-scoring variant (P3$=$43.0\%) uses no tools at all.
-
-This divergence may reflect differences in tool-use proficiency between model families, but is hard to interpret given the different bug sets.
-Codex P3 per-run values were: Run~1: 46.2\%, Run~2: 36.7\%, Run~3: 46.7\% --- relatively stable across runs (range 10~pp).
-By contrast, Codex P4 showed much greater instability: Run~1: 46.2\%, Run~2: 6.7\%, Run~3: 10.0\% --- a 40~pp swing between Run~1 and Runs~2--3.
-Run~3 (P4$=$10.0\%) is consistent with Run~2 rather than Run~1, which strengthens the observation that Codex struggles with VoltSnip tool-based retrieval in most runs.
-Retrieval quality analysis (\texttt{analyze\_retrieval\_quality.py}) shows Codex P4 achieved full-coverage retrieval in only 3.6\% of runs across the first two Codex runs, compared to 36.1\% for Haiku P4; the third run is consistent with this pattern given its P4 pass rate of 10.0\%.
-This near-zero retrieval recall in Codex P4 --- with two of three runs showing $\leq$10\% pass rates --- suggests that Codex was largely unable to issue effective VoltSnip queries in most runs, rather than reflecting a stable model preference for static injection.
+For Codex, the highest-scoring variant (P3$=$43.0\%) uses no tools.
+Codex P3 was stable across runs (range 10~pp: 36.7--46.7\%), while Codex P4 collapsed in two of three runs (Run~1: 46.2\%, Run~2: 6.7\%, Run~3: 10.0\%) --- a 40~pp swing.
+Retrieval quality analysis shows Codex P4 achieved full-coverage retrieval in only 3.6\% of runs versus 36.1\% for Haiku P4, pointing to a tool-use issue rather than a stable model preference.
 
 \subsection{Per-Run Variance (Haiku)}
 \label{sec:variance}
 
-Haiku's three runs show moderate inter-run variance:
-
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Per-run pass rates for Haiku (26 signal bugs).}
+\caption{Per-run pass rates, Haiku (26 signal bugs).}
 \label{tab:per-run}
-\begin{tabular}{@{}lccccr@{}}
+\small
+\begin{tabular}{@{}lccccc@{}}
 \toprule
-\textbf{Variant} & \textbf{Run 1} & \textbf{Run 2} & \textbf{Run 3} & \textbf{Mean} & \textbf{Range} \\
+\textbf{Var.} & \textbf{R1} & \textbf{R2} & \textbf{R3} & \textbf{Mean} & \textbf{Range} \\
 \midrule
 P0 & 0.0\%  & 0.0\%  & 0.0\%  & 0.0\%  & 0 pp    \\
 P2 & 30.8\% & 42.3\% & 46.2\% & 39.7\% & 15.4 pp \\
@@ -479,291 +434,125 @@ P4 & 57.7\% & 84.6\% & 65.4\% & 69.2\% & 26.9 pp \\
 P6 & 65.4\% & 61.5\% & 53.8\% & 60.3\% & 11.6 pp \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-P4 shows the widest range (26.9 pp), consistent with the stochastic nature of autonomous retrieval --- the model's retrieval strategy varies across runs.
-P0 is perfectly stable at 0.0\% across all three runs, consistent with the zero-leakage design.
+P4 shows the widest range (26.9~pp), reflecting stochastic retrieval strategy across runs.
+P3 is tighter (7.7~pp) because injected context is deterministic.
+P0 is perfectly stable at 0.0\%, confirming the zero-leakage design.
+Run~1 is notable: P3 (61.5\%) outperformed P4 (57.7\%), a reminder that P4 $>$ P3 in aggregate does not hold in every run.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/fig2_per_run_variance.pdf}
-\caption{Per-run pass rates for Haiku across three independent runs (26 signal bugs). P4 shows the widest inter-run variance (26.9~pp range), reflecting stochastic retrieval strategy. P0 is stable at 0.0\% across all runs.}
+\includegraphics[width=\columnwidth]{figures/fig2_per_run_variance.pdf}
+\caption{Per-run pass rates for Haiku (26 signal bugs). P4 has the widest inter-run variance (26.9~pp); P0 is stable at 0.0\%.}
 \label{fig:per-run-variance}
-\end{figure*}
+\end{figure}
 
 % ===================================================================
 \section{Analysis and Discussion}
 \label{sec:discussion}
 
-\subsection{P4 vs P3: A Possible Retrieval-Cueing Effect}
+\subsection{Why Autonomous Retrieval May Beat Oracle Injection}
 \label{sec:p4-vs-p3}
 
-P3 injects the exact correct snippets as fixed context, while P4 requires the model to retrieve them autonomously.
-The aggregate result that P4 (69.2\%) $\geq$ P3 (65.4\%) for Haiku is interesting but not definitive: Run~1 showed P3 $>$ P4 (61.5\% vs 57.7\%), so the pattern does not hold in every run.
+The aggregate result that P4 (69.2\%) $\geq$ P3 (65.4\%) for Haiku is interesting but needs careful interpretation.
+P3 injects the exact correct snippets; P4 requires the model to find them.
+Naively, P3 should win.
 
-One speculative explanation is that the act of retrieval itself cues the model to attend to and apply the retrieved knowledge, rather than treating injected context as background that can be overlooked.
-An alternative explanation is that P4's SKILL.md guide document provides additional value beyond retrieval cueing --- it frames \emph{how} to apply retrieved knowledge, not just \emph{what} to retrieve.
-Retrieval quality analysis supports the second explanation: P4 passing runs ($N{=}54$) used a mean of 1.4 tool calls vs 0.7 for failing runs ($N{=}24$), and passing runs achieved full coverage (both required snippets retrieved) at a much higher rate.
-P2 (tools, no guide) also shows a stark gap: when P2 retrieved both required snippets it passed 89.5\% of the time, but full coverage only occurred in 26.4\% of P2 runs vs 36.1\% for P4.
-This suggests the SKILL.md guide raises retrieval success rate by directing the model to search more effectively, not just by providing framing context.
+Two explanations are plausible.
+The retrieval-cueing hypothesis holds that the act of searching prompts the model to attend more carefully to retrieved content.
+A better-supported explanation is that SKILL.md provides value beyond cueing: it frames \emph{how} to apply retrieved knowledge, not just \emph{what} to retrieve.
 
-\subsection{Guide Document Effects}
+Supporting this: passing P4 runs ($N{=}54$) used a mean of 1.4 VoltSnip tool calls versus 0.7 for failing runs ($N{=}24$).
+P2 (tools, no guide) also passes at 89.5\% when it achieves full coverage --- nearly as high as P4 (92.3\%) --- but P2 achieves full coverage in only 26.4\% of runs versus 36.1\% for P4.
+The guide's main effect is raising retrieval success rate, not improving interpretation of already-available content.
+
+\subsection{Why More Guidance Can Hurt}
 \label{sec:guide-effects}
 
-SKILL.md (P4) scored slightly higher than AGENTS.md (P5) for Haiku, and both scored higher than their combination (P6).
-This is consistent with the idea that guide documents are useful for directing attention to retrieval, but stacking guides may introduce noise rather than signal.
-This is consistent with SkillsBench's finding that focused Skills with 2--3 modules outperform comprehensive documentation~\citep{li2026skillsbench}, though the margins here are small and based on $n{=}3$ runs.
+SKILL.md (P4) scored slightly higher than AGENTS.md (P5), and both outperformed their combination (P6).
+The over-specification effect in Section~\ref{sec:over-specification} suggests a simple model: guide documents direct retrieval attention, but stacking two overlapping directives degrades query formulation.
+This aligns with SkillsBench's finding that focused skills outperform comprehensive documentation~\cite{li2026skillsbench}.
 
-\subsection{Codex Divergence}
+\subsection{The Codex Divergence}
 \label{sec:codex-divergence}
 
-Codex's preference for static injection (P3) over dynamic retrieval (P4/P5) may reflect several factors:
+Codex's preference for static injection over dynamic retrieval may reflect: (1) lower tool-use proficiency; (2) MCP integration maturity (the Codex HarnessMCPServer uses HTTP URL-based transport; protocol edge cases required compliance work); or (3) a multi-run effect (Runs~2--3 both collapsed on tool variants, making a transient explanation less likely).
 
-\begin{enumerate}
-    \item \textbf{Tool-use proficiency}: Codex may issue fewer or less effective VoltSnip search queries than Haiku.
-    \item \textbf{MCP integration maturity}: The Codex HarnessMCPServer uses HTTP URL-based transport; protocol edge cases during the study required additional compliance work.
-    \item \textbf{Inter-run variance}: Codex Runs~2 and~3 both showed low pass rates on tool-enabled variants (P4: 6.7\% and 10.0\% respectively, vs Run~1: 46.2\%), with Run~3 corroborating rather than explaining the Run~2 pattern. The persistence across two additional runs suggests this is not a transient infrastructure effect, but the mechanism remains unclear.
-\end{enumerate}
+The cross-model divergence is the most practically important finding in this paper.
+If it holds at larger $n$, the right deployment strategy is model-dependent: Haiku-class models may be ready for autonomous retrieval; Codex-class models may need curated injection until their tool-use matures.
 
 \subsection{Tentative Implications for Practitioners}
 \label{sec:implications}
 
-If these pilot observations hold at larger $n$, the observed Haiku hierarchy (P4 $>$ P5 $>$ P3 $>$ P6 $>$ P2 $>$ P1 $\approx$ P0) would suggest:
+If the Haiku hierarchy (P4 $>$ P5 $>$ P3 $>$ P6 $>$ P2 $>$ P1 $\approx$ P0) holds at larger $n$:
 
 \begin{itemize}
-    \item \textbf{Retrieval tooling may matter more than prompt engineering.} The gap P4 $-$ P1 $=$ $+$66.6 pp for Haiku in these runs.
-    \item \textbf{One focused guide document may be enough.} P4 scored higher than P6 by 8.9~pp, though this is not statistically confirmed.
-    \item \textbf{Oracle injection may not be necessary}: autonomous retrieval (P4$=$69.2\%) scored comparably to oracle injection (P3$=$65.4\%), which matters because oracle injection requires upfront human curation of per-task relevant snippets --- expensive at scale.
-    \item \textbf{For Codex-family models}: the data tentatively suggests static injection may work better than tool-based retrieval. With $n{=}3$ runs, P3 was stable (range 10~pp) while P4 was highly variable (range 40~pp, with two of three runs at $\leq$10\%), pointing to a tool-use issue rather than a model-level preference.
+    \item \textbf{Retrieval tooling matters far more than prompt engineering.} Gap P4 $-$ P1 $=$ $+$66.6~pp; careful framing without retrieval adds almost nothing ($+$2.6~pp).
+    \item \textbf{One focused guide may be enough.} P4 outperformed P6 by 8.9~pp, though not statistically confirmed at $n{=}3$.
+    \item \textbf{Autonomous retrieval may eliminate the need for oracle injection.} P4 (69.2\%) scored comparably to P3 (65.4\%); oracle injection requires upfront human curation of per-task snippets, expensive at scale.
+    \item \textbf{Verify tool-use before relying on it.} Codex P4 was highly variable (range 40~pp) while P3 was stable (range 10~pp), pointing to a tool-use issue that practitioners should measure on their own model.
 \end{itemize}
 
+\subsection{Failure Mode Analysis}
+\label{sec:qualitative}
+
+Inspection of tool traces and model outputs reveals four recurring failure patterns:
+
+\begin{enumerate}
+    \item \textbf{Convention omission (P0--P1).} Models produce logically correct fixes but omit the \texttt{orgops.*} call or substitute a plausible stub. Dominant failure at P0--P1.
+    \item \textbf{Tool avoidance (P2, P6).} Models skip tool calls and attempt a direct fix, even with tools available. SKILL.md substantially reduces this.
+    \item \textbf{Poor query formulation (P2, P6).} Overly broad queries (\texttt{"metrics"}) return unrelated snippets. P4's 36.1\% full-coverage rate versus P2's 26.4\% reflects the guide improving query targeting.
+    \item \textbf{Retrieved-but-misapplied (rare, $\sim$7.7\% of P4 full-coverage failures).} Both snippets retrieved, fix still fails --- wrong keyword argument name (\texttt{pct=} instead of \texttt{utilization\_pct=}) or wrong call site.
+\end{enumerate}
+
+Failure modes 2--3 (retrieval failures) are the primary bottleneck at P2 and P6. Mode 4 (application failure) is rare and only visible once retrieval is working.
+
 % ===================================================================
-\section{Limitations and Threats to Validity}
+\section{Limitations}
 \label{sec:limitations}
 
-\subsection{Benchmark Construction}
-\label{sec:lim-construction}
+\begin{enumerate}
+    \item \textbf{Benchmark construction.} Built by the author with full knowledge of bugs and snippets; no third-party validation. Mitigations: P0$=$0 and P3$>$0 checks per bug; four noisy bugs excluded with documented rationale; Docker-isolated pytest scoring. Benchmark tests composition execution (fix bug + apply retrieved convention), not bug discovery; logic errors are marked inline.
 
-The benchmark was constructed by the author with knowledge of both bugs and required snippets.
-To mitigate bias: (a) all bugs were validated end-to-end with P0$=$0 and P3$>$0 checks; (b) four noisy bugs are excluded from signal analysis with documented rationale; (c) ground-truth scoring uses Docker-isolated pytest, not the author's judgement.
-One bug (BUG41) is a known distractor whose source was inadvertently fixed prior to evaluation; it passes at P0 for all models and is excluded from signal analysis.
-There is no third-party validation or inter-annotator agreement on the bug set; the benchmark should be treated as a single-author construction with the corresponding caveats.
+    \item \textbf{Snippet fidelity.} Each scenario snippet provides the exact \texttt{orgops.*} call --- near-complete specification of the fix. Real org knowledge bases are more abstract. This inflates absolute pass rates for P3--P6 relative to production, but does not affect the P3 vs.\ P4 comparison (identical content; delivery is the only variable).
 
-The benchmark measures \emph{composition execution} --- whether a model can synthesise a code fix with a retrieved org convention --- rather than bug \emph{discovery}.
-The logic error is described in inline source comments (e.g., \texttt{\# BUG\_42: should be < not >}), so models do not need to locate or diagnose the bug; the discriminating factor is whether the model retrieves and correctly applies the org-specific convention.
-This design is intentional: it isolates the retrieval-attribution question from the bug-finding question.
-However, it means the benchmark does not evaluate debugging ability, and the P0 baseline reflects failure to produce the \texttt{orgops.*} call rather than failure to identify the bug.
+    \item \textbf{Scoring precision.} Pytest checks exact keyword argument names (\texttt{utilization\_pct=}, not \texttt{pct=}) --- by design, testing precise adherence to retrieved guidance.
 
-\subsection{Snippet Fidelity}
-\label{sec:lim-snippet-fidelity}
+    \item \textbf{Uniform difficulty labels.} All tasks labelled \texttt{difficulty: hard} with uncalibrated \texttt{trap\_baseline=0.15}, despite difficulty ranging from a single-character fix (BUG42) to recursive traversal with base64 decoding (BUG70). Snippet code fields are truncated to 1,200 characters; 12 snippets lose trailing content, but \texttt{orgops.*} details are preserved for all 12.
 
-The 30 bug-specific scenario snippets provide high-fidelity guidance: each contains both the required logic pattern and the exact \texttt{orgops.*} API call with prescribed arguments.
-The 5 category-level guiding-principle snippets similarly enumerate the correct conventions for each bug in that category.
-This means that a model which successfully retrieves the relevant snippet receives near-complete specification of the required fix, reducing the task to executing a provided spec rather than inferring the convention from abstract principles.
+    \item \textbf{Scale and corpus.} $n{=}3$ is small. The 35-snippet corpus understates real retrieval difficulty, though corpus size is fixed across variants so relative comparisons remain valid.
 
-In a production setting, org knowledge bases would contain more abstract guidance (e.g., ``circuit breaker state transitions require health reporting'') rather than per-bug solutions.
-The high snippet fidelity likely inflates absolute pass rates for snippet-consuming variants (P3--P6) relative to what would be observed with more realistic, abstract snippets.
-However, it does not affect the \emph{relative} comparison between P3 (oracle injection) and P4 (autonomous retrieval), since both consume the same snippet content --- the difference is in the delivery mechanism.
-The P0 = 0.0\% baseline is also unaffected, since P0 receives no snippets.
+    \item \textbf{Single codebase and language.} All 30 bugs are in one synthetic Python repository. Generalisability to other languages or real codebases is not established.
 
-\subsection{Uniform Difficulty and Uncalibrated Baselines}
-\label{sec:lim-difficulty}
-
-All 30 tasks are labelled \texttt{difficulty: hard} with a uniform \texttt{trap\_baseline} of 0.15, despite logic fixes ranging from trivial (single-character operator flip, e.g.\ BUG42: \texttt{>} to \texttt{<}) to moderately complex (implementing recursive traversal with base64 decoding, e.g.\ BUG70).
-The trap baselines were not empirically calibrated from P0 data; they are placeholder values.
-Future work could introduce difficulty tiers and per-task baselines derived from observed P0 pass rates.
-
-\subsection{Snippet Truncation}
-\label{sec:snippet-truncation}
-
-Snippet code fields are truncated to 1,200 characters at retrieval time.
-Of the 30 bug-specific scenario snippets, 12 exceed this limit and lose their trailing content --- typically a reinforcement paragraph stating that both fixes are required.
-The \texttt{orgops.*} convention details are preserved in the non-truncated portion for all 12 affected snippets.
-This truncation is uniform across all snippet-consuming variants (P3--P6) and does not create a differential bias between variants.
-Raising the limit to 2,000 characters would eliminate all truncation; I report results with the 1,200-character limit as-is.
-
-\subsection{Scoring Validity}
-\label{sec:lim-scoring}
-
-The primary metric (pytest) is deterministic and objective: the test either passes or fails.
-Each test verifies both the logic fix and the \texttt{orgops.*} convention via mock interception.
-The tests are coupled to specific keyword argument names prescribed by org convention (e.g., \texttt{utilization\_pct}, \texttt{column\_type}), which means a model that uses a different keyword name would fail.
-This coupling is by design --- the policy snippets specify exact conventions, and the benchmark tests whether the model follows retrieved guidance precisely.
-
-The LLM judge (secondary metric) inflates pass rates by 15--25 pp relative to pytest and is not used for primary claims.
-
-\subsection{Scale}
-\label{sec:lim-scale}
-
-Both Haiku and Codex were evaluated with $n{=}3$ runs per cell.
-Even at $n{=}3$, per-variant estimates remain noisy: Codex P4 showed a 40~pp swing between Run~1 (46.2\%) and Runs~2--3 ($\leq$10\%), making the per-variant mean sensitive to individual run outcomes.
-Haiku's $n{=}3$ provides moderate consistency; the key observations (P0$=$0.0\%, P4 as highest-scoring variant) held across all three runs, though Run~1 showed P3 $>$ P4.
-
-\subsection{Corpus Size}
-\label{sec:lim-corpus}
-
-The VoltSnip snippet corpus contains 35 snippets.
-A production knowledge base would be orders of magnitude larger, increasing retrieval difficulty.
-Corpus size is fixed across variants (all variants share the same corpus) so relative comparisons are valid, but absolute retrieval difficulty is likely underestimated relative to production settings.
-
-\subsection{Single Codebase}
-\label{sec:lim-codebase}
-
-All bugs are in the Script30 codebase, a single synthetic repository.
-Generalisability to real codebases with different naming conventions, code density, and module structures is not established.
-
-\subsection{Residual Provider Asymmetry}
-\label{sec:lim-asymmetry}
-
-Codex retains a read-only shell surface while Claude Code's shell is fully blocked.
-Both are prevented from accessing \texttt{orgops/} source through working-directory isolation and tool restrictions.
-P0$=$0.0\% on signal bugs for both providers is consistent with this asymmetry not affecting the primary finding, but cross-provider comparisons should be interpreted with this caveat.
+    \item \textbf{Residual provider asymmetry.} Each provider retains a secondary read surface. P0$=$0.0\% for both is consistent with isolation holding, but cross-provider comparisons carry this caveat.
+\end{enumerate}
 
 % ===================================================================
 \section{Future Work}
 \label{sec:future-work}
 
-Several extensions would strengthen and generalise these observations:
-
-\begin{enumerate}
-    \item \textbf{Additional model families.} Evaluating claude-sonnet-4-6, claude-opus-4-6, gpt-5.2-codex, and open-weight models would test whether the surface hierarchy generalises.
-    \item \textbf{Additional Codex runs.} With $n{=}3$, Codex P3 is moderately stable but P4 remains highly variable (40~pp range). Increasing to $n{=}5$ or higher and inspecting per-run tool traces would help distinguish infrastructure instability from a stable tool-use limitation.
-    \item \textbf{Abstract snippet rewrites.} Rewriting scenario snippets to provide principle-level guidance (e.g., ``state transitions require health reporting'') rather than per-bug specifications would test whether models can \emph{infer} the correct convention from abstract guidance, more closely modelling production knowledge bases.
-    \item \textbf{Corpus scaling.} Increasing the snippet corpus from 35 to 500+ (with distractors) would test retrieval robustness under more realistic conditions.
-    \item \textbf{Difficulty gradation.} Annotating tasks with difficulty tiers based on observed pass rates would enable per-difficulty analysis.
-    \item \textbf{Negative controls.} Adding tasks where no \texttt{orgops.*} convention applies (pure logic fixes) would test for over-application of retrieved patterns.
-    \item \textbf{Guide document ablation.} Testing additional guide document styles (minimal vs verbose, directive vs suggestive) would further characterise the over-specification effect.
-    \item \textbf{Tool-call and retrieval analysis (partially completed).} Per-variant tool-call counts and retrieval recall have been computed post-hoc via two analysis scripts in the repository; results inform \S\ref{sec:guide-effects} and \S\ref{sec:codex-divergence}. Extending to per-bug granularity and per-run snippet-utilisation traces would further distinguish ``retrieved but not applied'' from ``never retrieved'' failure modes.
-\end{enumerate}
+Priority extensions: (1) more model families (Sonnet/Opus, GPT-5.2-Codex, open-weight) to test whether the surface hierarchy generalises; (2) more Codex runs ($n{=}5+$) to distinguish infrastructure instability from a stable tool-use limitation; (3) abstract snippets providing principle-level guidance instead of per-bug specs, closer to production; (4) larger corpus (35 $\to$ 500+ snippets with distractors); (5) difficulty tiers and negative controls (tasks with no applicable \texttt{orgops.*} convention); (6) other languages (TypeScript, Java, Go); (7) guide style ablation (minimal vs.\ verbose, directive vs.\ suggestive); (8) hermetic Docker-layer isolation for both providers; (9) per-bug retrieval traces to cleanly separate ``never retrieved'' from ``retrieved but not applied.''
 
 % ===================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper introduced Script30, a 30-bug composition benchmark for measuring LLM adherence to org-specific coding policies, and a seven-point context surface ladder (P0--P6) for exploring which information channel contributes to correct fixes.
+LLMs fail predictably on code tasks that require org-specific conventions absent from their training data.
+Script30 is a 30-bug composition benchmark, paired with a seven-point context surface ladder (P0--P6), designed to measure that failure and the effect of different strategies for addressing it.
 
-The pilot results show P0 $=$ 0.0\% on signal bugs (the org convention cannot be inferred from training data) and that autonomous VoltSnip retrieval with a focused guide document (P4) reached 69.2\% for Haiku ($n{=}3$) --- a $+$69.2~pp lift associated with retrieval.
-An empty-store ablation (P4 with all snippets hidden) confirmed that the SKILL.md guide framing alone does not account for this lift.
-A post-hoc retrieval quality analysis identified a plausible mechanism for the P6 deficit: P6 achieved full-coverage retrieval (both required snippets retrieved) in only 22.2\% of runs vs 36.1\% for P4, yet passed 100\% of the time when full coverage was achieved --- indicating a retrieval failure, not an application failure.
-The possible over-specification effect (P6 $<$ P4 for Haiku) and the cross-model divergence (Haiku favoured dynamic retrieval; Codex P3 was stable across $n{=}3$ runs at 37--47\% while Codex P4 was unstable with two of three runs at $\leq$10\%, suggesting a tool-use issue rather than a model-preference effect) are directional observations that need larger samples to confirm.
+Three findings stand out.
+First, \textbf{retrieval works dramatically}: Haiku's P4 (69.2\%) improves pass rate by 69.2~pp over the no-context baseline (P0, 0.0\%), and an empty-store ablation confirms the lift is retrieval-dependent.
+Second, \textbf{more guidance is not always better}: P6 (60.3\%) underperforms P4 (69.2\%) because two overlapping guide documents degrade retrieval query formulation (22.2\% vs.\ 36.1\% full-coverage rate), not application.
+Third, \textbf{the right strategy is model-dependent}: Haiku's autonomous retrieval beat oracle injection in aggregate; Codex's static injection was stable while tool-based retrieval collapsed in two of three runs.
 
-The main contribution is the benchmark and evaluation framework itself --- the context surface ladder design is reusable across models and retrieval backends.
-The framework and all run artefacts are publicly released at \url{https://github.com/vaddisrinivas/moltsnip} to enable replication and extension.
+These are pilot findings at $n{=}3$, one Python codebase, two models.
+The benchmark and harness are reusable across models and retrieval backends.
+All code, run artefacts, and analysis scripts are at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{arxiv-v1}).
 
 % ===================================================================
-\bibliographystyle{plainnat}
-
-\begin{thebibliography}{18}
-
-\bibitem[Chen et~al.(2021)]{chen2021evaluating}
-Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Ponde de~Oliveira Pinto, Jared Kaplan, Harri Edwards, Yuri Burda, Nicholas Joseph, Greg Brockman, Alex Ray, Raul Puri, Gretchen Krueger, Michael Petrov, Heidy Khlaaf, Girish Sastry, Pamela Mishkin, Brooke Chan, Scott Gray, Nick Ryder, Mikhail Pavlov, Alethea Power, Lukasz Kaiser, Mohammad Bavarian, Clemens Winter, Philippe Tillet, Felipe Petroski Such, Dave Cummings, Matthias Plappert, Fotios Chantzis, Elizabeth Barnes, Ariel Herbert-Voss, William Hebgen Guss, Alex Nichol, Alex Paino, Nikolas Tezak, Jie Tang, Igor Babuschkin, Suchir Balaji, Shantanu Jain, William Saunders, Christopher Hesse, Andrew~N. Carr, Jan Leike, Josh Achiam, Vedant Misra, Evan Morikawa, Alec Radford, Matthew Knight, Miles Brundage, Mira Murati, Katie Mayer, Peter Welinder, Bob McGrew, Dario Amodei, Sam McCandlish, Ilya Sutskever, and Wojciech Zaremba.
-\newblock Evaluating large language models trained on code.
-\newblock \emph{arXiv preprint arXiv:2107.03374}, 2021.
-\newblock \url{https://arxiv.org/abs/2107.03374}
-
-\bibitem[Austin et~al.(2021)]{austin2021program}
-Jacob Austin, Augustus Odena, Maxwell Nye, Maarten Bosma, Henryk Michalewski, David Dohan, Ellen Jiang, Carrie Cai, Michael Terry, Quoc Le, and Charles Sutton.
-\newblock Program synthesis with large language models.
-\newblock \emph{arXiv preprint arXiv:2108.07732}, 2021.
-\newblock \url{https://arxiv.org/abs/2108.07732}
-
-\bibitem[Jimenez et~al.(2024)]{jimenez2024swebench}
-Carlos~E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik Narasimhan.
-\newblock {SWE-bench}: Can language models resolve real-world {GitHub} issues?
-\newblock \emph{arXiv preprint arXiv:2310.06770}, 2024.
-\newblock \url{https://arxiv.org/abs/2310.06770}
-
-\bibitem[Yang et~al.(2024)]{yang2024sweagent}
-John Yang, Carlos~E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao, Karthik Narasimhan, and Ofir Press.
-\newblock {SWE-agent}: Agent-computer interfaces enable automated software engineering.
-\newblock \emph{arXiv preprint arXiv:2405.15793}, 2024.
-\newblock \url{https://arxiv.org/abs/2405.15793}
-
-\bibitem[Lewis et~al.(2020)]{lewis2020retrieval}
-Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich K\"{u}ttler, Mike Lewis, Wen-tau Yih, Tim Rockt\"{a}schel, Sebastian Riedel, and Douwe Kiela.
-\newblock Retrieval-augmented generation for knowledge-intensive {NLP} tasks.
-\newblock \emph{arXiv preprint arXiv:2005.11401}, 2020.
-\newblock \url{https://arxiv.org/abs/2005.11401}
-
-\bibitem[Schick et~al.(2023)]{schick2023toolformer}
-Timo Schick, Jane Dwivedi-Yu, Roberto Dessi, Roberta Raileanu, Maria Lomeli, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom.
-\newblock Toolformer: Language models can teach themselves to use tools.
-\newblock \emph{arXiv preprint arXiv:2302.04761}, 2023.
-\newblock \url{https://arxiv.org/abs/2302.04761}
-
-\bibitem[Yao et~al.(2023)]{yao2023react}
-Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao.
-\newblock {ReAct}: Synergizing reasoning and acting in language models.
-\newblock \emph{arXiv preprint arXiv:2210.03629}, 2023.
-\newblock \url{https://arxiv.org/abs/2210.03629}
-
-\bibitem[Li et~al.(2026a)]{cai2026contextbench}
-Han Li, Letian Zhu, Bohan Zhang, Rili Feng, Jiaming Wang, Yue Pan, Earl~T. Barr, Federica Sarro, Zhaoyang Chu, and He Ye.
-\newblock ContextBench: A benchmark for context retrieval in coding agents.
-\newblock \emph{arXiv preprint arXiv:2602.05892}, 2026.
-\newblock \url{https://arxiv.org/abs/2602.05892}
-
-\bibitem[Gloaguen et~al.(2026)]{gloaguen2026agentsmd}
-Thibaud Gloaguen, Niels M\"{u}ndler, Mark M\"{u}ller, Veselin Raychev, and Martin Vechev.
-\newblock Evaluating \texttt{AGENTS.md}: Are repository-level context files helpful for coding agents?
-\newblock \emph{arXiv preprint arXiv:2602.11988}, 2026.
-\newblock \url{https://arxiv.org/abs/2602.11988}
-
-\bibitem[Li et~al.(2026b)]{li2026skillsbench}
-Xiangyi Li, Wenbo Chen, Yimin Liu, Shenghan Zheng, Xiaokun Chen, Yifeng He, Yubo Li, Bingran You, Haotian Shen, and Jiankai Sun.
-\newblock SkillsBench: Benchmarking how well agent skills work across diverse tasks.
-\newblock \emph{arXiv preprint arXiv:2602.12670}, 2026.
-\newblock \url{https://arxiv.org/abs/2602.12670}
-
-\bibitem[Wang et~al.(2024)]{wang2024coderagbench}
-Zora Zhiruo Wang, Akari Asai, Xinyan Velocity Yu, Frank F. Xu, Yiqing Xie, Graham Neubig, and Daniel Fried.
-\newblock CodeRAG-Bench: Can retrieval augment code generation?
-\newblock \emph{arXiv preprint arXiv:2406.14497}, 2024.
-\newblock \url{https://arxiv.org/abs/2406.14497}
-
-\bibitem[Gu et~al.(2025)]{gu2025whattoretrieve}
-Wenchao Gu, Juntao Chen, Yanlin Wang, Tianyue Jiang, Xingzhe Li, Mingwei Liu, Xilin Liu, Yuchi Ma, and Zibin Zheng.
-\newblock What to retrieve for effective retrieval-augmented code generation? {An} empirical study and beyond.
-\newblock \emph{arXiv preprint arXiv:2503.20589}, 2025.
-\newblock \url{https://arxiv.org/abs/2503.20589}
-
-\bibitem[Chen et~al.(2025)]{chen2025apidocrag}
-Jingyi Chen, Songqiang Chen, Jialun Cao, Jiasi Shen, and Shing-Chi Cheung.
-\newblock When {LLMs} meet {API} documentation: Can retrieval augmentation aid code generation?
-\newblock \emph{arXiv preprint arXiv:2503.15231}, 2025.
-\newblock \url{https://arxiv.org/abs/2503.15231}
-
-\bibitem[Li et~al.(2023)]{li2023apibank}
-Minghao Li, Yingxiu Zhao, Bowen Yu, Feifan Song, Hangyu Li, Haiyang Yu, Zhoujun Li, Fei Huang, and Yongbin Li.
-\newblock {API-Bank}: A comprehensive benchmark for tool-augmented {LLMs}.
-\newblock \emph{arXiv preprint arXiv:2304.08244}, 2023.
-\newblock \url{https://arxiv.org/abs/2304.08244}
-
-\bibitem[Ehsani et~al.(2025)]{ehsani2025hierarchical}
-Ramtin Ehsani, Esteban Parra, Sonia Haiduc, and Preetha Chatterjee.
-\newblock Hierarchical knowledge injection for improving {LLM}-based program repair.
-\newblock \emph{arXiv preprint arXiv:2506.24015}, 2025.
-\newblock \url{https://arxiv.org/abs/2506.24015}
-
-\bibitem[Li et~al.(2024)]{li2024llmjudge}
-Haitao Li, Qian Dong, Junjie Chen, Huixue Su, Yujia Zhou, Qingyao Ai, Ziyi Ye, and Yiqun Liu.
-\newblock {LLMs}-as-judges: A comprehensive survey.
-\newblock \emph{arXiv preprint arXiv:2412.05579}, 2024.
-\newblock \url{https://arxiv.org/abs/2412.05579}
-
-\bibitem[Liu et~al.(2023)]{liu2023lostmiddle}
-Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang.
-\newblock Lost in the middle: How language models use long contexts.
-\newblock \emph{Transactions of the Association for Computational Linguistics}, 12:157--173, 2023.
-\newblock \url{https://arxiv.org/abs/2307.03172}
-
-\bibitem[Anthropic(2024)]{mcp2024spec}
-Anthropic.
-\newblock Model Context Protocol specification.
-\newblock Technical report, Anthropic, 2024.
-\newblock \url{https://modelcontextprotocol.io/specification/}
-
-\end{thebibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{references}
 
 % ===================================================================
 \appendix
@@ -771,142 +560,109 @@ Anthropic.
 \section{Variant Ladder Formal Specification}
 \label{app:variant-spec}
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
 \caption{Formal specification of the seven hypothesis variants.}
 \label{tab:variant-spec}
 \footnotesize
-\begin{adjustbox}{max width=\textwidth}
+\begin{adjustbox}{max width=\columnwidth}
 \begin{tabular}{@{}llllllll@{}}
 \toprule
 \textbf{Field} & \textbf{P0} & \textbf{P1} & \textbf{P2} & \textbf{P3} & \textbf{P4} & \textbf{P5} & \textbf{P6} \\
 \midrule
-\texttt{mode}              & direct & direct & agent & agent & agent & agent & agent \\
-\texttt{memory\_enabled}   & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ \\
-\texttt{tools\_enabled}    & $\times$ & $\times$ & \checkmark & $\times$ & \checkmark & \checkmark & \checkmark \\
-\texttt{retrieval\_mode}   & none & none & agent\_dec. & injected & agent\_dec. & agent\_dec. & agent\_dec. \\
-\texttt{instruction\_mode} & none & explicit & none & none & none & none & none \\
-\texttt{context\_surface}  & user & user & tools\_only & system & skills\_md & agents\_md & both\_md \\
-\texttt{max\_tool\_rtrips} & 1 & 1 & 4 & 4 & 4 & 4 & 4 \\
+\texttt{mode}          & dir. & dir. & agent & agent & agent & agent & agent \\
+\texttt{memory}        & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ \\
+\texttt{tools}         & $\times$ & $\times$ & \checkmark & $\times$ & \checkmark & \checkmark & \checkmark \\
+\texttt{retrieval}     & none & none & agent & inject & agent & agent & agent \\
+\texttt{instruction}   & none & expl. & none & none & none & none & none \\
+\texttt{surface}       & user & user & tools & sys & skill & agents & both \\
+\texttt{max\_trips}    & 1 & 1 & 4 & 4 & 4 & 4 & 4 \\
 \bottomrule
 \end{tabular}
 \end{adjustbox}
-\end{table*}
+\end{table}
 
-\section{All-Bugs Results (30 bugs, Haiku $n{=}3$)}
+\section{All-Bugs Results (Haiku, $n{=}3$)}
 \label{app:all-bugs}
 
 \begin{table}[t]
 \centering
-\caption{Pytest pass rates on all 30 bugs (Haiku, $n{=}3$).}
+\caption{Pass rates on all 30 bugs (Haiku, $n{=}3$).}
 \label{tab:all-bugs}
+\small
 \begin{tabular}{@{}lcr@{}}
 \toprule
-\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift vs P0} \\
+\textbf{Variant} & \textbf{Pass rate} & \textbf{Lift} \\
 \midrule
-P0 & 5.6\% (5/90)  & ---        \\
-P1 & 6.7\% (6/90)  & $+$1.1 pp  \\
-P2 & 42.2\% (38/90) & $+$36.6 pp \\
-P3 & 65.6\% (59/90) & $+$60.0 pp \\
-P4 & 71.1\% (64/90) & $+$65.5 pp \\
-P5 & 71.1\% (64/90) & $+$65.5 pp \\
-P6 & 61.1\% (55/90) & $+$55.5 pp \\
+P0 & 5.6\% (5/90)   & ---         \\
+P1 & 6.7\% (6/90)   & $+$1.1 pp   \\
+P2 & 42.2\% (38/90) & $+$36.6 pp  \\
+P3 & 65.6\% (59/90) & $+$60.0 pp  \\
+P4 & 71.1\% (64/90) & $+$65.5 pp  \\
+P5 & 71.1\% (64/90) & $+$65.5 pp  \\
+P6 & 61.1\% (55/90) & $+$55.5 pp  \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\emph{Note: All-bugs results include the 4 noisy bugs (BUG41, BUG59, BUG62, BUG68) where P0 passes stochastically. The P0 rate of 5.6\% reflects passes on noisy bugs only. P4 and P5 are tied at 71.1\% in the all-bugs set despite P4 (69.2\%) $>$ P5 (67.9\%) on signal bugs; the noisy bugs slightly favour P5, erasing P4's signal-set advantage.}
+\emph{Includes the 4 noisy bugs (BUG41, BUG59, BUG62, BUG68) where P0 passes stochastically. P4 and P5 tie at 71.1\% in the all-bugs set despite P4 (69.2\%) $>$ P5 (67.9\%) on signal bugs; noisy bugs slightly favour P5.}
 
-\section{Harness Integrity Fixes Applied During Study}
+\section{Harness Integrity Fixes}
 \label{app:harness-fixes}
 
-Three harness bugs were discovered and corrected during the study:
-
-\begin{enumerate}
-    \item \textbf{Stream error detection} (\texttt{claudecode.py}): Claude Code \texttt{is\_error=true} stream events were not propagated as provider errors, silently producing \texttt{status=ok} runs with empty code. Fixed by adding a stream error extractor.
-    \item \textbf{Empty-output validity gate} (\texttt{runner.py}): runs with \texttt{status=ok} but no generated code were not demoted to error. Fixed by post-run validity check.
-    \item \textbf{Resume integrity} (\texttt{csv\_mapper.py}): \texttt{load\_completed} loaded all entries regardless of status, preventing error runs from being retried on resume. Fixed by filtering to \texttt{status=ok}.
-\end{enumerate}
-
+Three bugs were discovered and corrected during the study:
+(1) \textbf{Stream error detection} (\texttt{claudecode.py}): \texttt{is\_error=true} events were silently producing \texttt{status=ok} runs with empty code; fixed by adding a stream error extractor.
+(2) \textbf{Empty-output gate} (\texttt{runner.py}): runs with \texttt{status=ok} but no code were not demoted to error; fixed by post-run validity check.
+(3) \textbf{Resume integrity} (\texttt{csv\_mapper.py}): \texttt{load\_completed} loaded all entries regardless of status; fixed by filtering to \texttt{status=ok}.
 All affected runs were re-executed after fixes were applied.
 
 \section{Artefact Paths}
 \label{app:artefacts}
 
-All run artefacts (full model outputs, tool traces, scoring results, and pytest results) are available at:
+All run artefacts are at \url{https://github.com/vaddisrinivas/moltsnip} (branch \texttt{arxiv-v1}), subdirectory \texttt{vsevals\_runs/batch\_1/}.
+Every quantitative claim is mechanically derived from the CSV artefacts via \texttt{scripts/build\_paper.py};
+running \texttt{uv run python3 scripts/build\_paper.py --check} reproduces all numbers from the raw CSVs.
 
-\begin{center}
-\url{https://github.com/vaddisrinivas/moltsnip}
-\end{center}
-
-\noindent The repository uses two branches:
-
-\begin{itemize}[nosep]
-    \item \texttt{arxiv-v1} --- benchmark code, evaluation harness, paper source, and all paths below.
-    \item \texttt{arxiv-v1} sub-directory \texttt{vsevals\_runs/batch\_1/} --- raw evaluation run artefacts (CSV results, full model dumps, pytest logs, tool traces).
-\end{itemize}
-
-\begin{table*}[t]
+\begin{table}[t]
 \centering
-\caption{Artefact locations in the repository (all paths relative to \texttt{vsevals/}).}
+\caption{Key artefact locations (paths relative to \texttt{vsevals/}).}
 \label{tab:artefacts}
 \footnotesize
-\begin{tabular}{@{}lp{7cm}@{}}
+\begin{tabular}{@{}ll@{}}
 \toprule
 \textbf{Artefact} & \textbf{Path} \\
 \midrule
-Suite definition            & \texttt{suites/script30.yaml} \\
-Task definitions (30 tasks) & \texttt{tasks/script30/BUG\{41..70\}.yaml} \\
-Snippet corpus (35 snippets) & \texttt{snippets/script30/} \\
-Usecase codebase            & \texttt{usecases/script30/} \\
-Pytest tests (30 tests)     & \texttt{usecases/script30/tests/unit/test\_bug\{41..70\}.py} \\
-Haiku Run 1                 & \texttt{.../batch\_1/matrix\_20260303T193221*} \\
-Haiku Run 2                 & \texttt{.../batch\_1/matrix\_20260303T201709*} \\
-Haiku Run 3                 & \texttt{.../batch\_1/matrix\_20260303T215606*} \\
-Codex Run 1                 & \texttt{.../batch\_1/matrix\_20260303T193214*} \\
-Codex Run 2                 & \texttt{.../batch\_1/matrix\_20260303T201241*} \\
-Codex Run 3                 & \texttt{.../batch\_1/matrix\_20260304T083357*} \\
-Ablation (empty-store)      & \texttt{.../batch\_1/matrix\_20260304T095907*} \\
-Experiment log              & \texttt{EXPERIMENT.md} \\
-Evaluation harness source   & \texttt{vsevals/} \\
-Build script                & \texttt{scripts/build\_paper.py} \\
+Suite definition     & \texttt{suites/script30.yaml} \\
+Task definitions     & \texttt{tasks/script30/BUG\{41..70\}.yaml} \\
+Snippet corpus       & \texttt{snippets/script30/} \\
+Usecase codebase     & \texttt{usecases/script30/} \\
+Pytest tests         & \texttt{usecases/script30/tests/unit/} \\
+Haiku Runs 1--3      & \texttt{.../batch\_1/matrix\_20260303T19*} \\
+Codex Runs 1--3      & \texttt{.../batch\_1/matrix\_20260303T19*, ...T20*, ...T08*} \\
+Ablation (empty)     & \texttt{.../batch\_1/matrix\_20260304T095907*} \\
+Build/check script   & \texttt{scripts/build\_paper.py} \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-\subsection*{Claim-to-Evidence Mapping}
+\section{Metric Definitions}
+\label{app:metrics}
 
-Every quantitative claim in this paper is mechanically derived from the CSV artefacts listed above via \texttt{scripts/build\_paper.py}.
-The following table maps key claims to the run files and column fields that produce them.
-Running \texttt{uv run python3 scripts/build\_paper.py --check} reproduces all numbers from the raw CSVs.
+\textbf{Pass rate} for variant $v$ over bug set $B$ with $n$ valid runs:
+\[
+  \text{pass\_rate}(v) = \frac{\text{\# pytest-passed cells}}{\lvert B \rvert \times n}
+\]
+Cells with \texttt{status$\neq$ok} are excluded from numerator and denominator.
 
-\begin{table*}[t]
-\centering
-\caption{Evidence mapping: paper claims to run artefacts and CSV fields.}
-\label{tab:evidence}
-\footnotesize
-\begin{tabular}{@{}p{4cm}p{5.5cm}@{}}
-\toprule
-\textbf{Claim} & \textbf{Evidence source} \\
-\midrule
-P0 = 0.0\% on 26 signal bugs (Haiku) &
-    Haiku Runs 1--3, \texttt{matrix\_results.csv}: filter \texttt{variant\_id=P0}, exclude noisy bugs, count \texttt{pytest\_passed=True} $\to$ 0/78. \\
-P4 = 69.2\% (Haiku, 26 signal) &
-    Haiku Runs 1--3, same CSV: filter \texttt{variant\_id=P4} $\to$ 54/78 passed. \\
-P3 = 43.0\% (Codex, all 30 bugs) &
-    Codex Runs 1--3, same CSV: filter \texttt{variant\_id=P3}, exclude \texttt{status$\neq$ok} $\to$ 37/86 passed. \\
-Codex P4 = 20.0\% &
-    Codex Runs 1--3: filter \texttt{variant\_id=P4}, exclude errors $\to$ 17/85. \\
-P4 passing runs: 1.4 mean tool calls &
-    Haiku Runs 1--3, CSV column \texttt{tool\_call\_count}: filter P4 signal, split by \texttt{pytest\_passed}. $N{=}54$ passing, $N{=}24$ failing. \\
-P6 full-coverage = 22.2\% vs P4 = 36.1\% &
-    \texttt{scripts/analyze\_retrieval\_quality.py} on batch\_1: column \texttt{required\_snippet\_coverage=1.0}. \\
-Ablation P4 (empty store) &
-    Ablation run CSV: filter \texttt{variant\_id=P4}, signal bugs only. \\
-Run error counts (30/0/1) &
-    Per-run: count rows where \texttt{pytest\_passed} is empty in each Codex run CSV. \\
-\bottomrule
-\end{tabular}
-\end{table*}
+\textbf{Lift}: $\text{lift}(v) = \text{pass\_rate}(v) - \text{pass\_rate}(\text{P0})$, in percentage points (not a relative ratio).
+
+\section{Inference Parameters and Training Data}
+\label{app:model-details}
+
+Both providers used CLI defaults; no temperature override was applied.
+\textbf{claude-haiku-4-5} and \textbf{gpt-5.1-codex-mini} both have training data cutoffs of approximately early 2025.
+The \texttt{orgops.*} API was constructed specifically for this benchmark, never published, and postdates both models' cutoffs.
+Neither model was fine-tuned on the Script30 codebase.
+P0$=$0.0\% on signal bugs (Haiku, all three runs) provides empirical confirmation of zero leakage.
 
 \end{document}

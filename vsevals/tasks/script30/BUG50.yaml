@@ -44,7 +44,7 @@ tasks:
     - voltsnip/script30/category/db_patterns/guiding_principle/v1
     - voltsnip/script30/hard/bug50/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix the cost formula to apply selectivity once (left_rows * right_rows * selectivity).

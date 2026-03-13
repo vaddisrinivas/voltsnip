@@ -40,7 +40,7 @@ tasks:
     - voltsnip/script30/category/http_resilience/guiding_principle/v1
     - voltsnip/script30/hard/bug43/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix timeout calculation from connect + dns + read to max(connect, dns) + read.

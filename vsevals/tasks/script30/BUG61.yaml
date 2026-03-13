@@ -34,7 +34,7 @@ tasks:
     - voltsnip/script30/category/error_contracts/guiding_principle/v1
     - voltsnip/script30/hard/bug61/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Add success branch that replenishes remaining via min(self.remaining + 1, self.max_budget).

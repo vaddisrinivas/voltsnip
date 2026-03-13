@@ -43,7 +43,7 @@ tasks:
     - voltsnip/script30/category/logging_privacy/guiding_principle/v1
     - voltsnip/script30/hard/bug69/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Use datetime.now(timezone.utc) instead of datetime.now() and set utc=True in the entry.

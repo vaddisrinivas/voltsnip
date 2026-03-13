@@ -112,7 +112,7 @@ class TaskVoltsnipConfig(BaseModel):
 
     required_snippets: list[str] = Field(default_factory=list)
     snippet_context_limit: int = Field(default=6, ge=1, le=50)
-    snippet_context_max_chars: int = Field(default=1200, ge=100, le=20000)
+    snippet_context_max_chars: int = Field(default=8000, ge=100, le=100000)
 
 
 class SuccessIndicators(BaseModel):

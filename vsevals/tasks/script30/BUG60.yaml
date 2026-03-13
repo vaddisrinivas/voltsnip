@@ -37,7 +37,7 @@ tasks:
     - voltsnip/script30/category/error_contracts/guiding_principle/v1
     - voltsnip/script30/hard/bug60/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Collect ALL validation errors by appending to the errors list instead of returning on the first error.

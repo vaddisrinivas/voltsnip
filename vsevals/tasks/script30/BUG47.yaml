@@ -39,7 +39,7 @@ tasks:
     - voltsnip/script30/category/db_patterns/guiding_principle/v1
     - voltsnip/script30/hard/bug47/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix eviction from FIFO (pop(0)) to LRU (find and remove connection with oldest last_used_at).

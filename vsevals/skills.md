@@ -1,3 +1,7 @@
+---
+name: voltsnip-eval
+description: Bug-fix retrieval workflow using VoltSnip MCP tools. Apply when executing code-fix evaluation tasks with MCP-based snippet retrieval.
+---
 # VoltSnip SKILL Guidance (Static, No Prelisted Keys)
 
 This guide defines how to use MCP retrieval effectively during bug-fix tasks.

@@ -59,7 +59,7 @@ tasks:
     - voltsnip/script30/category/http_resilience/guiding_principle/v1
     - voltsnip/script30/hard/bug45/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix the loop range from range(1, len(chain)) to range(len(chain) - 1) so chain[0].issuer == chain[1].subject is checked.

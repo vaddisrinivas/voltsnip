@@ -1,0 +1,1 @@
+Changed from linear backoff to exponential backoff and added max_delay cap

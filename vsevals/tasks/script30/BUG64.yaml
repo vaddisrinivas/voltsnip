@@ -50,7 +50,7 @@ tasks:
     - voltsnip/script30/category/error_contracts/guiding_principle/v1
     - voltsnip/script30/hard/bug64/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix escalation from linear (original_ms * multiplier) to compound (original_ms * (multiplier ** attempt)).

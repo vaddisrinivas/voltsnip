@@ -41,7 +41,7 @@ tasks:
     - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
     - voltsnip/script30/hard/bug57/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Convert interval_seconds to milliseconds (interval_seconds * 1000) before passing to _start_timer.

@@ -1,0 +1,1 @@
+Fixed validate_cert_chain loop to use range(len(chain) - 1) and corrected the chain validation logic to compare issuer of each cert with subject of next cert

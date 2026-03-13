@@ -36,7 +36,7 @@ tasks:
     - voltsnip/script30/category/error_contracts/guiding_principle/v1
     - voltsnip/script30/hard/bug59/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Split classification so 400-499 returns "client_error" and 500-599 returns "server_error".

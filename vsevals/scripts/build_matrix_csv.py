@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Build matrix_results.csv from completed.jsonl + full_dump.json artifacts.
 
-Run this after a matrix run (or partial run) to produce / refresh the CSV:
-
+Single rep:
     python vsevals/scripts/build_matrix_csv.py --matrix-dir ./vsevals_runs/matrix_20250101T000000Z
+
+Multi-rep aggregation (adds a 'rep' column):
+    python vsevals/scripts/build_matrix_csv.py \\
+        --dirs ./vsevals_runs/study_<ts>/rep_1 ./vsevals_runs/study_<ts>/rep_2 ./vsevals_runs/study_<ts>/rep_3 \\
+        --output ./vsevals_runs/study_<ts>/study_results.csv
 
 The script reads completed.jsonl, loads each run's full_dump.json, calls
 row_from_dump(), and writes matrix_results.csv.  It never touches the LLM
@@ -29,27 +33,21 @@ LOGGER = logging.getLogger(__name__)
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Build matrix_results.csv from run artifacts.")
-    p.add_argument("--matrix-dir", required=True, help="Path to a matrix run directory.")
-    p.add_argument("--output", default=None, help="Output CSV path (default: <matrix-dir>/matrix_results.csv).")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--matrix-dir", help="Single matrix run directory.")
+    g.add_argument("--dirs", nargs="+", metavar="DIR",
+                   help="Multiple rep directories to aggregate (adds a 'rep' column numbered 1..N).")
+    p.add_argument("--output", default=None, help="Output CSV path.")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
     return p
 
 
-def main() -> None:
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
-    )
-
-    matrix_dir = Path(args.matrix_dir).expanduser().resolve()
-    if not matrix_dir.is_dir():
-        sys.exit(f"matrix-dir not found: {matrix_dir}")
-
+def _load_dir(matrix_dir: Path, rep: int | None) -> tuple[list[dict], int]:
+    """Load all rows from one matrix directory. Returns (rows, error_count)."""
     completed_path = matrix_dir / "completed.jsonl"
     if not completed_path.exists():
-        sys.exit(f"completed.jsonl not found in {matrix_dir}")
+        LOGGER.warning("completed.jsonl not found in %s — skipping", matrix_dir)
+        return [], 0
 
     entries = []
     with completed_path.open(encoding="utf-8") as f:
@@ -62,12 +60,11 @@ def main() -> None:
             except json.JSONDecodeError as exc:
                 LOGGER.warning("line %d: invalid JSON — skipping (%s)", lineno, exc)
 
-    LOGGER.info("loaded %d completed entries from completed.jsonl", len(entries))
+    LOGGER.info("dir=%s: loaded %d entries%s", matrix_dir, len(entries),
+                f" (rep={rep})" if rep is not None else "")
 
-    output_path = Path(args.output) if args.output else matrix_dir / "matrix_results.csv"
     rows: list[dict] = []
     errors = 0
-
     for entry in entries:
         run_dir = entry.get("run_dir", "")
         dump_path = Path(run_dir) / "full_dump.json" if run_dir else None
@@ -75,35 +72,70 @@ def main() -> None:
         if dump_path and dump_path.exists():
             try:
                 row = row_from_dump(dump_path)
-                # Carry forward metadata that isn't in full_dump.json
                 for key in ("task_spec_hash", "variant_spec_hash"):
                     if key in entry and key not in row:
                         row[key] = entry[key]
+                if rep is not None:
+                    row["rep"] = rep
                 rows.append(row)
                 continue
             except Exception as exc:
-                LOGGER.warning(
-                    "could not parse %s: %s — falling back to minimal entry", dump_path, exc
-                )
+                LOGGER.warning("could not parse %s: %s — falling back", dump_path, exc)
                 errors += 1
         else:
             if run_dir:
                 LOGGER.warning("full_dump.json missing for run_dir=%s", run_dir)
             errors += 1
 
-        # Fallback: minimal row so the cell is still counted
-        rows.append({
+        fallback: dict = {
             "task_id": entry.get("task_id", ""),
             "variant_id": entry.get("variant_id", ""),
             "model_name": entry.get("model_name", ""),
             "status": entry.get("status", "error"),
             "task_spec_hash": entry.get("task_spec_hash"),
             "variant_spec_hash": entry.get("variant_spec_hash"),
-        })
+        }
+        if rep is not None:
+            fallback["rep"] = rep
+        rows.append(fallback)
 
-    _write_csv(output_path, rows)
+    return rows, errors
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    all_rows: list[dict] = []
+    total_errors = 0
+
+    if args.dirs:
+        # Multi-rep mode: aggregate across N directories, label each with rep=1..N
+        dirs = [Path(d).expanduser().resolve() for d in args.dirs]
+        for rep, d in enumerate(dirs, 1):
+            if not d.is_dir():
+                LOGGER.warning("dir not found, skipping: %s", d)
+                continue
+            rows, errors = _load_dir(d, rep=rep)
+            all_rows.extend(rows)
+            total_errors += errors
+        output_path = Path(args.output) if args.output else dirs[0].parent / "study_results.csv"
+    else:
+        matrix_dir = Path(args.matrix_dir).expanduser().resolve()
+        if not matrix_dir.is_dir():
+            sys.exit(f"matrix-dir not found: {matrix_dir}")
+        rows, errors = _load_dir(matrix_dir, rep=None)
+        all_rows.extend(rows)
+        total_errors += errors
+        output_path = Path(args.output) if args.output else matrix_dir / "matrix_results.csv"
+
+    _write_csv(output_path, all_rows)
     LOGGER.info(
-        "wrote %d rows to %s (%d fallback/error entries)", len(rows), output_path, errors
+        "wrote %d rows to %s (%d fallback/error entries)", len(all_rows), output_path, total_errors
     )
 
 

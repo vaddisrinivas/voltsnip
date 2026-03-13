@@ -37,7 +37,7 @@ tasks:
     - voltsnip/script30/category/concurrency_cache/guiding_principle/v1
     - voltsnip/script30/hard/bug56/scenario_context/v1
     snippet_context_limit: 4
-    snippet_context_max_chars: 1200
+    snippet_context_max_chars: 8000
   oracle:
     hidden_requirements:
     - Fix scoring from raw access_count to time-decayed access_count / (1 + age_hours).
