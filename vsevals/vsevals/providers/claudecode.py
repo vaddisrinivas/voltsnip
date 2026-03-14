@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,8 +16,6 @@ from . import _parse_payload, _int_or_none
 
 LOGGER = logging.getLogger(__name__)
 
-
-# ── Pure stream parser ──────────────────────────────────────────────────────
 
 def _extract_snippet_count(result_str: str) -> int | None:
     """Try to parse a snippet count from a tool result string."""
@@ -68,15 +65,28 @@ def _extract_stream_error(stdout: str) -> str | None:
 
 def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int | None, str | None, list[ToolTrace]]:
     final_output = ""
-    sys_prompt_tokens = 0
-    sys_comp_tokens = 0
-    sys_cached_tokens = 0
+    sys_prompt_tokens = sys_comp_tokens = sys_cached_tokens = 0
     sys_thinking_tokens: int | None = None
     session_id = None
     tool_traces: list[ToolTrace] = []
-
-    # active_calls: call_id → {id, name, input, started_at, t0}
     active_calls: dict[str, dict] = {}
+
+    def _close_call(call: dict, rc: object, error_msg: object) -> None:
+        result_str = ""
+        if isinstance(rc, list):
+            result_str = "".join(str(b.get("text", "")) for b in rc if isinstance(b, dict) and b.get("type") == "text")
+        elif isinstance(rc, str):
+            result_str = rc
+        sc = None if error_msg else _extract_snippet_count(result_str)
+        tool_traces.append(ToolTrace(
+            roundtrip=len(tool_traces) + 1, tool_name=call["name"], tool_call_id=call.get("id"),
+            tool_args=call["input"],
+            tool_result={"retrieved": sc} if sc is not None else {"raw": result_str[:200]},
+            error=str(error_msg) if error_msg else None,
+            started_at=call.get("started_at", datetime.now(timezone.utc)),
+            finished_at=datetime.now(timezone.utc),
+            duration_ms=int((time.perf_counter() - call["t0"]) * 1000),
+        ))
     seen_msg_ids: set[str] = set()
 
     for line in stdout.splitlines():
@@ -91,17 +101,13 @@ def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int 
 
         etype = evt.get("type")
 
-        # ── New stream format: tool calls inside assistant/user message events ──
-
         if etype == "system" and evt.get("subtype") == "init":
-            # Session ID is in the init event
             if not session_id:
                 session_id = evt.get("session_id") or evt.get("sessionId")
 
         elif etype == "assistant":
             msg = evt.get("message", {})
             msg_id = msg.get("id", "")
-            # Only count tokens once per unique message ID (streaming sends multiple events per message)
             if msg_id not in seen_msg_ids:
                 seen_msg_ids.add(msg_id)
                 usage = msg.get("usage", {})
@@ -126,41 +132,16 @@ def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int 
                             "t0": time.perf_counter(),
                         }
                 elif btype == "text":
-                    text = block.get("text", "")
-                    if text.strip():
-                        final_output = text  # keep the last non-empty text block
+                    if text := block.get("text", ""):
+                        if text.strip():
+                            final_output = text
 
         elif etype == "user":
             msg = evt.get("message", {})
             for block in msg.get("content", []):
                 if block.get("type") == "tool_result":
-                    tid = block.get("tool_use_id", "")
-                    call = active_calls.pop(tid, None)
-                    if call:
-                        error_msg = block.get("error")
-                        rc = block.get("content", "")
-                        result_str = ""
-                        if isinstance(rc, list):
-                            for b in rc:
-                                if isinstance(b, dict) and b.get("type") == "text":
-                                    result_str += str(b.get("text", ""))
-                        elif isinstance(rc, str):
-                            result_str = rc
-                        snippet_count = None if error_msg else _extract_snippet_count(result_str)
-                        duration = int((time.perf_counter() - call["t0"]) * 1000)
-                        tool_traces.append(ToolTrace(
-                            roundtrip=len(tool_traces) + 1,
-                            tool_name=call["name"],
-                            tool_call_id=call["id"],
-                            tool_args=call["input"],
-                            tool_result={"retrieved": snippet_count} if snippet_count is not None else {"raw": result_str[:200]},
-                            error=str(error_msg) if error_msg else None,
-                            started_at=call["started_at"],
-                            finished_at=datetime.now(timezone.utc),
-                            duration_ms=duration,
-                        ))
-
-        # ── Legacy stream format (backward compat) ────────────────────────────
+                    if call := active_calls.pop(block.get("tool_use_id", ""), None):
+                        _close_call(call, block.get("content", ""), block.get("error"))
 
         elif etype == "messageStart":
             usage = evt.get("message", {}).get("usage", {})
@@ -184,29 +165,8 @@ def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int 
                 }
 
         elif etype == "toolResult":
-            tid = evt.get("toolUseId", "")
-            call = active_calls.pop(tid, None)
-            if call:
-                error_msg = evt.get("error")
-                rc = evt.get("content", [])
-                result_str = ""
-                if isinstance(rc, list):
-                    for b in rc:
-                        if isinstance(b, dict) and b.get("type") == "text":
-                            result_str += str(b.get("text", ""))
-                snippet_count = None if error_msg else _extract_snippet_count(result_str)
-                duration = int((time.perf_counter() - call["t0"]) * 1000)
-                tool_traces.append(ToolTrace(
-                    roundtrip=len(tool_traces) + 1,
-                    tool_name=call["name"],
-                    tool_call_id=call["id"],
-                    tool_args=call["input"],
-                    tool_result={"retrieved": snippet_count} if snippet_count is not None else {"raw": result_str[:200]},
-                    error=str(error_msg) if error_msg else None,
-                    started_at=call["started_at"],
-                    finished_at=datetime.now(timezone.utc),
-                    duration_ms=duration,
-                ))
+            if call := active_calls.pop(evt.get("toolUseId", ""), None):
+                _close_call(call, evt.get("content", []), evt.get("error"))
 
         elif etype == "messageEnd":
             msg = evt.get("message", {})
@@ -220,309 +180,17 @@ def _parse_claudecode_stream_json(stdout: str) -> tuple[str, int, int, int, int 
             final_output += evt.get("text", "")
 
         elif etype == "result" and evt.get("subtype") == "success":
-            # Primary output in stream-json mode — the full assistant reply.
             if not final_output:
                 final_output = evt.get("result", "")
 
         if not session_id:
             session_id = evt.get("session_id") or evt.get("sessionId")
 
-    # Abandon any unclosed active calls
     for call in active_calls.values():
-        tool_traces.append(ToolTrace(
-            roundtrip=len(tool_traces) + 1,
-            tool_name=call["name"],
-            tool_call_id=call.get("id"),
-            tool_args=call["input"],
-            tool_result=None,
-            error="no tool result received",
-            started_at=call.get("started_at", datetime.now(timezone.utc)),
-            finished_at=datetime.now(timezone.utc),
-            duration_ms=None,
-        ))
+        _close_call(call, [], "no tool result received")
 
     return final_output, sys_prompt_tokens, sys_comp_tokens, sys_cached_tokens, sys_thinking_tokens, session_id, tool_traces
 
-
-# ── Pipeline stage outputs ──────────────────────────────────────────────────
-
-@dataclass
-class ClaudeCodeInvocation:
-    """Stage 1 — everything needed to launch the claudecode subprocess."""
-    cmd: list[str]
-    env: dict[str, str]
-    cwd: str | None
-    timeout: float
-    # temp resources created during build; released by cleanup()
-    _mcp_config_path: str = field(default="", repr=False)
-    _sidecar_dir: str = field(default="", repr=False)
-    _debug_file_path: str = field(default="", repr=False)
-
-    def cleanup(self) -> None:
-        for path in (self._mcp_config_path, self._debug_file_path):
-            if path:
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
-        if self._sidecar_dir:
-            shutil.rmtree(self._sidecar_dir, ignore_errors=True)
-
-
-@dataclass
-class ClaudeCodeRawOutput:
-    """Stage 2 — subprocess result; stdout/stderr persisted to disk."""
-    returncode: int
-    stdout_path: Path   # on-disk JSONL event stream
-    stderr_path: Path   # on-disk stderr text
-    started_at: datetime
-    finished_at: datetime
-
-
-@dataclass
-class ClaudeCodeParsed:
-    """Stage 3 — structured data extracted from the on-disk JSONL."""
-    raw_text: str
-    prompt_tokens: int
-    completion_tokens: int
-    cached_tokens: int
-    thinking_tokens: int | None
-    session_id: str | None
-    tool_traces: list[ToolTrace]
-
-
-# ── Stage 1: Build invocation ───────────────────────────────────────────────
-
-def _build_claudecode_invocation(
-    *,
-    model_id: str,
-    combined_prompt: str,
-    cfg: RunConfig,
-    tool_schemas: list[dict] | None,
-    sidecar_files: dict[str, str] | None,
-    timeout: float,
-    repo_root: str | None = None,
-) -> ClaudeCodeInvocation:
-    """Assemble cmd, env, and temp resources; nothing is executed here."""
-    # Tool allowlist — the intersection of --allowedTools and --disallowedTools
-    # controls which tools the model can invoke.
-    #
-    # --dangerously-skip-permissions bypasses *permission prompts*, not tool
-    # availability, but empirically the Claude CLI ignores --allowedTools when
-    # --dangerously-skip-permissions is set.  We therefore enforce the boundary
-    # with BOTH an allowlist AND a disallow list:
-    #   --allowedTools  = voltsnip MCP read tools only
-    #   --disallowedTools = mutating / exec tools we never want in eval runs
-    #
-    # Allowed VoltSnip MCP tools: search/read only — no create/vote/feed.
-    _VOLTSNIP_TOOLS = [
-        "mcp__voltsnip__search_memory",
-        "mcp__voltsnip__get_snippet_by_canonical_key",
-        "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
-        "mcp__voltsnip__search_api_v1_search",
-        "mcp__voltsnip__read_snippet_api_v1_snippets",
-        "mcp__voltsnip__read_snippet_by_canonical_key_api_v1_snippets_by_key",
-        "mcp__voltsnip__view_snippet_api_v1_snippets",
-    ]
-    # Disallowed tools — mutating, executing, or otherwise unsafe for eval.
-    # Read/Glob/Grep are intentionally NOT blocked: Codex gets read_file/glob_files/
-    # grep_files via the harness MCP server (include_fs_tools=True), so both
-    # providers can inspect sidecar files in cwd=tmpdir.  Blocking Read/Glob/Grep
-    # here would break that parity.
-    #
-    # ReadMcpResourceTool and ListMcpResourcesTool are blocked: Codex has no
-    # equivalent MCP resource-access tools, so allowing them would create an
-    # asymmetric read surface.
-    _DISALLOWED_TOOLS = [
-        "Bash",
-        "Edit",
-        "Write",
-        "NotebookEdit",
-        "WebFetch",
-        "WebSearch",
-        "TodoWrite",
-        "Task",
-        "TaskOutput",
-        "TaskStop",
-        "AskUserQuestion",
-        "Skill",
-        "EnterPlanMode",
-        "ExitPlanMode",
-        "EnterWorktree",
-        "ReadMcpResourceTool",
-        "ListMcpResourcesTool",
-    ]
-    # Plugin skill detection: if sidecar contains skills/ entries, load them via --plugin-dir
-    # and allow the Skill tool so Claude can invoke the on-demand skill content.
-    has_plugin_skills = any(
-        k.startswith("skills/") for k in (sidecar_files or {})
-    )
-
-    if tool_schemas:
-        skill_tools = ["Skill"] if has_plugin_skills else []
-        allowed_tools = ",".join(_VOLTSNIP_TOOLS + skill_tools)
-        # Remove Skill from disallow list when plugin skills are active — it must be in allowedTools only.
-        effective_disallowed = [t for t in _DISALLOWED_TOOLS if not (has_plugin_skills and t == "Skill")]
-        disallowed_tools = ",".join(effective_disallowed)
-    else:
-        # No-tools variants: explicitly block native tools too.
-        allowed_tools = ""
-        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
-
-    cmd = [
-        "claude", "-p", combined_prompt,
-        "--dangerously-skip-permissions",
-        "--output-format", "stream-json",
-        "--verbose",
-        "--model", model_id,
-        "--allowedTools", allowed_tools,
-        "--disallowedTools", disallowed_tools,
-    ]
-    # Reasoning effort: maps to --effort <level> (low | medium | high | max).
-    # Parity: Codex uses -c model_reasoning_effort=<value> for the same effect.
-    if cfg.reasoning_effort:
-        cmd.extend(["--effort", cfg.reasoning_effort])
-
-    mcp_config_path = ""
-    if tool_schemas:
-        base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
-        mcp_conf = {
-            "mcpServers": {
-                "voltsnip": {
-                    "type": "http",
-                    "url": f"{base_url}/mcp",
-                }
-            }
-        }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(mcp_conf, f)
-            mcp_config_path = f.name
-        cmd.extend(["--mcp-config", mcp_config_path])
-
-    # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
-    # Using repo_root as cwd was removed because sidecar_files written there would be
-    # shared across concurrent runs, causing contamination.
-    # The prompt already injects target_file_content and context_code directly.
-    # Sidecar files (CLAUDE.md, AGENTS.md, SKILL.md) are written to this tmpdir;
-    # Claude Code auto-loads CLAUDE.md at startup when it is present in cwd.
-    _ = repo_root  # kept in signature for call-site stability
-    _sidecar_dir_cleanup = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")
-    effective_cwd: str | None = _sidecar_dir_cleanup
-    if sidecar_files:
-        for filename, content in sidecar_files.items():
-            dest = Path(_sidecar_dir_cleanup) / filename
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(content, encoding="utf-8")
-
-    # Plugin skill injection: load skills/voltsnip-guide/SKILL.md via --plugin-dir.
-    # --plugin-dir expects {dir}/{skill-name}/SKILL.md, so point at tmpdir/skills/
-    # (not tmpdir root) to match the sidecar path skills/voltsnip-guide/SKILL.md.
-    # Must come after _sidecar_dir_cleanup is created so the path is valid.
-    if has_plugin_skills:
-        plugin_dir = str(Path(_sidecar_dir_cleanup) / "skills")
-        cmd.extend(["--plugin-dir", plugin_dir])
-
-    env = os.environ.copy()
-    env.pop("CLAUDECODE", None)  # prevent "nested session" rejection when launched from within Claude Code
-    env["NO_COLOR"] = "1"
-    if "CLAUDE_MODEL" not in env:
-        env["CLAUDE_MODEL"] = model_id
-
-    debug_file_path = ""
-    if LOGGER.isEnabledFor(logging.DEBUG):
-        sf = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".log", prefix="vsevals_claudecode_debug_", delete=False
-        )
-        sf.close()
-        debug_file_path = sf.name
-        cmd.extend(["--debug-file", debug_file_path])
-
-    LOGGER.debug(
-        "claudecode invocation model=%s sidecar=%s cwd=%s debug=%s",
-        model_id, bool(sidecar_files), effective_cwd, debug_file_path or None,
-    )
-    return ClaudeCodeInvocation(
-        cmd=cmd, env=env,
-        cwd=effective_cwd,
-        timeout=timeout,
-        _mcp_config_path=mcp_config_path,
-        _sidecar_dir=_sidecar_dir_cleanup,
-        _debug_file_path=debug_file_path,
-    )
-
-
-# ── Stage 2: Execute + persist to disk ─────────────────────────────────────
-
-def _execute_claudecode(inv: ClaudeCodeInvocation, run_dir: Path) -> ClaudeCodeRawOutput:
-    """Run subprocess; write stdout/stderr to disk before anything else."""
-    started_at = datetime.now(timezone.utc)
-    proc = subprocess.run(
-        inv.cmd, capture_output=True, text=True,
-        stdin=subprocess.DEVNULL,
-        timeout=inv.timeout, cwd=inv.cwd, env=inv.env,
-    )
-    finished_at = datetime.now(timezone.utc)
-
-    # Persist to disk immediately — before error-checking or parsing.
-    stdout_path = run_dir / "subprocess.stdout.claudecode.jsonl"
-    stderr_path = run_dir / "subprocess.stderr.claudecode.txt"
-    stdout_path.write_text(proc.stdout or "", encoding="utf-8")
-    stderr_path.write_text(proc.stderr or "", encoding="utf-8")
-
-    cmd_path = run_dir / "subprocess.cmd.claudecode.sh"
-    _env_lines = "\n".join(
-        f"export {k}={shlex.quote(v)}"
-        for k, v in (inv.env or {}).items()
-        if k in ("NO_COLOR", "CLAUDE_MODEL", "ANTHROPIC_API_KEY")
-    )
-    cmd_path.write_text(
-        "#!/usr/bin/env bash\n"
-        "# Auto-generated — reproduces the exact claudecode subprocess invocation.\n"
-        f"cd {shlex.quote(inv.cwd or '.')}\n"
-        + (_env_lines + "\n" if _env_lines else "")
-        + "exec " + shlex.join(inv.cmd) + "\n",
-        encoding="utf-8",
-    )
-    cmd_path.chmod(0o755)
-
-    if inv._debug_file_path:
-        try:
-            debug_text = Path(inv._debug_file_path).read_text(encoding="utf-8", errors="replace")
-            if debug_text.strip():
-                LOGGER.debug("claudecode debug log:\n%s", debug_text)
-        except OSError:
-            pass
-
-    if proc.returncode != 0 and not (proc.stdout or "").strip():
-        raise RuntimeError(f"claude failed (exit {proc.returncode}): {proc.stderr}")
-
-    return ClaudeCodeRawOutput(
-        returncode=proc.returncode,
-        stdout_path=stdout_path,
-        stderr_path=stderr_path,
-        started_at=started_at,
-        finished_at=finished_at,
-    )
-
-
-# ── Stage 3: Parse from disk ────────────────────────────────────────────────
-
-def _parse_claudecode_output(raw: ClaudeCodeRawOutput) -> ClaudeCodeParsed:
-    """Read the on-disk JSONL and extract tokens, traces, and final text."""
-    stdout_text = raw.stdout_path.read_text(encoding="utf-8", errors="replace")
-    raw_text, pt, ct, cached, thinking, session_id, tool_traces = _parse_claudecode_stream_json(stdout_text)
-    return ClaudeCodeParsed(
-        raw_text=raw_text,
-        prompt_tokens=pt,
-        completion_tokens=ct,
-        cached_tokens=cached,
-        thinking_tokens=thinking,
-        session_id=session_id,
-        tool_traces=tool_traces,
-    )
-
-
-# ── Orchestrator ────────────────────────────────────────────────────────────
 
 def call_claudecode(
     *,
@@ -540,51 +208,151 @@ def call_claudecode(
     t0 = datetime.now(timezone.utc)
     perf0 = time.perf_counter()
 
-    # Always have a run_dir so the pipeline can write to disk.
     _tmp_run_dir = ""
-    if run_dir:
-        rd = Path(run_dir)
-    else:
-        _tmp_run_dir = tempfile.mkdtemp(prefix="vsevals_claudecode_run_")
-        rd = Path(_tmp_run_dir)
+    rd = Path(run_dir) if run_dir else Path(_tmp_run_dir := tempfile.mkdtemp(prefix="vsevals_claudecode_run_"))
 
     combined_prompt = f"{system_prompt}\n\n{user_prompt}".strip()
-    inv = _build_claudecode_invocation(
-        model_id=model_id, combined_prompt=combined_prompt,
-        cfg=cfg, tool_schemas=tool_schemas,
-        sidecar_files=sidecar_files, timeout=timeout,
-        repo_root=repo_root,
-    )
+
+    _VOLTSNIP_TOOLS = [
+        "mcp__voltsnip__search_memory",
+        "mcp__voltsnip__get_snippet_by_canonical_key",
+        "mcp__voltsnip__semantic_search_api_v1_search_semantic_get",
+        "mcp__voltsnip__search_api_v1_search",
+        "mcp__voltsnip__read_snippet_api_v1_snippets",
+        "mcp__voltsnip__read_snippet_by_canonical_key_api_v1_snippets_by_key",
+        "mcp__voltsnip__view_snippet_api_v1_snippets",
+    ]
+    _DISALLOWED_TOOLS = [
+        "Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "TodoWrite",
+        "Task", "TaskOutput", "TaskStop", "AskUserQuestion", "Skill",
+        "EnterPlanMode", "ExitPlanMode", "EnterWorktree",
+        "ReadMcpResourceTool", "ListMcpResourcesTool",
+    ]
+    has_plugin_skills = any(k.startswith("skills/") for k in (sidecar_files or {}))
+
+    if tool_schemas:
+        skill_tools = ["Skill"] if has_plugin_skills else []
+        allowed_tools = ",".join(_VOLTSNIP_TOOLS + skill_tools)
+        disallowed_tools = ",".join(t for t in _DISALLOWED_TOOLS if not (has_plugin_skills and t == "Skill"))
+    else:
+        allowed_tools = ""
+        disallowed_tools = ",".join(_DISALLOWED_TOOLS)
+
+    cmd = [
+        "claude", "-p", combined_prompt,
+        "--dangerously-skip-permissions",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--model", model_id,
+        "--allowedTools", allowed_tools,
+        "--disallowedTools", disallowed_tools,
+    ]
+    if cfg.reasoning_effort:
+        cmd.extend(["--effort", cfg.reasoning_effort])
+
+    mcp_config_path = ""
+    if tool_schemas:
+        base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
+        mcp_conf = {"mcpServers": {"voltsnip": {"type": "http", "url": f"{base_url}/mcp"}}}
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(mcp_conf, f)
+            mcp_config_path = f.name
+        cmd.extend(["--mcp-config", mcp_config_path])
+
+    _ = repo_root  # kept in signature for call-site stability
+    sidecar_dir = tempfile.mkdtemp(prefix="vsevals_claudecode_wd_")
+    if sidecar_files:
+        for filename, content in sidecar_files.items():
+            dest = Path(sidecar_dir) / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
+    if has_plugin_skills:
+        cmd.extend(["--plugin-dir", str(Path(sidecar_dir) / "skills")])
+
+    env = os.environ.copy()
+    env.pop("CLAUDECODE", None)
+    env["NO_COLOR"] = "1"
+    if "CLAUDE_MODEL" not in env:
+        env["CLAUDE_MODEL"] = model_id
+
+    debug_file_path = ""
+    if LOGGER.isEnabledFor(logging.DEBUG):
+        sf = tempfile.NamedTemporaryFile(mode="w", suffix=".log", prefix="vsevals_claudecode_debug_", delete=False)
+        sf.close()
+        debug_file_path = sf.name
+        cmd.extend(["--debug-file", debug_file_path])
+
+    LOGGER.debug("claudecode invocation model=%s sidecar=%s cwd=%s", model_id, bool(sidecar_files), sidecar_dir)
 
     raw_stdout = raw_stderr = ""
     try:
-        # Stage 2 → Stage 3: execute writes to disk, parse reads from disk.
-        sub = _execute_claudecode(inv, rd)
-        parsed = _parse_claudecode_output(sub)
-        # Read artifact content before any potential cleanup below.
-        raw_stdout = sub.stdout_path.read_text(encoding="utf-8", errors="replace")
-        raw_stderr = sub.stderr_path.read_text(encoding="utf-8", errors="replace")
+        started_at = datetime.now(timezone.utc)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True,
+            stdin=subprocess.DEVNULL, timeout=timeout, cwd=sidecar_dir, env=env,
+        )
+
+        stdout_path = rd / "subprocess.stdout.claudecode.jsonl"
+        stderr_path = rd / "subprocess.stderr.claudecode.txt"
+        stdout_path.write_text(proc.stdout or "", encoding="utf-8")
+        stderr_path.write_text(proc.stderr or "", encoding="utf-8")
+
+        _env_lines = "\n".join(
+            f"export {k}={shlex.quote(v)}" for k, v in env.items()
+            if k in ("NO_COLOR", "CLAUDE_MODEL", "ANTHROPIC_API_KEY")
+        )
+        cmd_path = rd / "subprocess.cmd.claudecode.sh"
+        cmd_path.write_text(
+            "#!/usr/bin/env bash\n# Auto-generated — reproduces the exact claudecode subprocess invocation.\n"
+            f"cd {shlex.quote(sidecar_dir)}\n"
+            + (_env_lines + "\n" if _env_lines else "")
+            + "exec " + shlex.join(cmd) + "\n",
+            encoding="utf-8",
+        )
+        cmd_path.chmod(0o755)
+
+        if debug_file_path:
+            try:
+                debug_text = Path(debug_file_path).read_text(encoding="utf-8", errors="replace")
+                if debug_text.strip():
+                    LOGGER.debug("claudecode debug log:\n%s", debug_text)
+            except OSError:
+                pass
+
+        if proc.returncode != 0 and not (proc.stdout or "").strip():
+            raise RuntimeError(f"claude failed (exit {proc.returncode}): {proc.stderr}")
+
+        raw_stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
+        raw_stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
+
         stream_error = _extract_stream_error(raw_stdout)
         if stream_error:
             raise RuntimeError(f"claudecode stream error: {stream_error}")
+
     finally:
-        inv.cleanup()
+        for path in (mcp_config_path, debug_file_path):
+            if path:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+        shutil.rmtree(sidecar_dir, ignore_errors=True)
         if _tmp_run_dir:
             shutil.rmtree(_tmp_run_dir, ignore_errors=True)
 
-    result_parsed, fallback = _parse_payload(parsed.raw_text, cfg.structured_output)
+    raw_text, pt, ct, cached, thinking, session_id, tool_traces = _parse_claudecode_stream_json(raw_stdout)
+
+    result_parsed, fallback = _parse_payload(raw_text, cfg.structured_output)
     return LLMResult(
-        raw_output=parsed.raw_text,
+        raw_output=raw_text,
         parsed_output=result_parsed,
         token_usage=TokenUsage(
-            prompt_tokens=parsed.prompt_tokens,
-            completion_tokens=parsed.completion_tokens,
-            total_tokens=parsed.prompt_tokens + parsed.completion_tokens,
-            cached_tokens=parsed.cached_tokens,
-            thinking_tokens=parsed.thinking_tokens,
-            cost_usd=compute_cost(
-                model_id, parsed.prompt_tokens, parsed.completion_tokens, parsed.cached_tokens
-            ),
+            prompt_tokens=pt,
+            completion_tokens=ct,
+            total_tokens=pt + ct,
+            cached_tokens=cached,
+            thinking_tokens=thinking,
+            cost_usd=compute_cost(model_id, pt, ct, cached),
         ),
         structured_output_attempted=cfg.structured_output,
         structured_output_succeeded=not fallback if cfg.structured_output else False,
@@ -592,9 +360,9 @@ def call_claudecode(
         request_started_at=t0,
         request_finished_at=datetime.now(timezone.utc),
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
-        request_id=parsed.session_id,
+        request_id=session_id,
         finish_reason="stop",
-        tool_traces=parsed.tool_traces,
+        tool_traces=tool_traces,
         subprocess_stdout=raw_stdout,
         subprocess_stderr=raw_stderr,
     )

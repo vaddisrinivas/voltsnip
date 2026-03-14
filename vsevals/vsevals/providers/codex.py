@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,8 +18,6 @@ from . import _parse_payload, _int_or_none
 
 LOGGER = logging.getLogger(__name__)
 
-
-# ── Pure token/trace parsers ────────────────────────────────────────────────
 
 def _extract_codex_tokens(jsonl_text: str) -> tuple[int, int, int, int | None]:
     total_pt = 0
@@ -218,294 +215,6 @@ def _extract_codex_stream_error(stdout: str) -> str | None:
     return None
 
 
-# ── Pipeline stage outputs ──────────────────────────────────────────────────
-
-@dataclass
-class CodexInvocation:
-    """Stage 1 — everything needed to launch the codex subprocess."""
-    cmd: list[str]
-    cwd: str | None
-    timeout: float
-    output_file: Path   # codex writes its final answer here (-o flag)
-    # temp resources created during build; released by cleanup()
-    _tmp_schema: str = field(default="", repr=False)
-    _sidecar_dir: str = field(default="", repr=False)
-    # Unified harness MCP server (started for tool-enabled variants).
-    _harness_server: "Any" = field(default=None, repr=False)
-
-    def cleanup(self) -> None:
-        if self._harness_server is not None:
-            try:
-                self._harness_server.stop()
-            except Exception:
-                pass
-        if self._tmp_schema:
-            try:
-                Path(self._tmp_schema).unlink(missing_ok=True)
-            except Exception:
-                pass
-        if self._sidecar_dir:
-            shutil.rmtree(self._sidecar_dir, ignore_errors=True)
-
-
-@dataclass
-class CodexRawOutput:
-    """Stage 2 — subprocess result; stdout/stderr persisted to disk."""
-    returncode: int
-    stdout_path: Path   # on-disk JSONL event stream (tokens + traces)
-    stderr_path: Path   # on-disk stderr text
-    output_file: Path   # codex -o target (the final answer text)
-    started_at: datetime
-    finished_at: datetime
-
-
-@dataclass
-class CodexParsed:
-    """Stage 3 — structured data extracted from the on-disk files."""
-    raw_text: str
-    prompt_tokens: int
-    completion_tokens: int
-    cached_tokens: int
-    thinking_tokens: int | None
-    tool_traces: list[ToolTrace]
-
-
-# ── Stage 1: Build invocation ───────────────────────────────────────────────
-
-def _build_codex_invocation(
-    *,
-    model_id: str,
-    combined_prompt: str,
-    cfg: RunConfig,
-    tool_schemas: list[dict] | None,
-    sidecar_files: dict[str, str] | None,
-    timeout: float,
-    run_dir: Path,
-    repo_root: str | None = None,
-) -> CodexInvocation:
-    """Assemble cmd and temp resources; nothing is executed here."""
-    if not shutil.which("codex"):
-        raise RuntimeError("codex binary not found on PATH — install the OpenAI Codex CLI")
-    # Tool policy for codex (codex has no --allowedTools / --disallowedTools flags
-    # like claudecode; control is via sandbox mode and MCP server config):
-    #
-    #   --approval  -a never           non-interactive eval; never pause for human approval
-    #   --sandbox   read-only          ALL variants: shell writes are blocked (reads still
-    #                                  possible via sandbox, but cwd=tmpdir limits scope).
-    #   --disable   unified_exec       Block command_execution events so shell_tool bypass
-    #                                  is impossible even with --sandbox read-only.
-    #   mcp_servers {}                 no-tools: wipe any globally-configured MCP servers
-    #               voltsnip           tool variants: HarnessMCPServer exposes VoltSnip tools
-    #                                  + read_file/glob_files/grep_files (include_fs_tools=True,
-    #                                  fs_root=tmpdir) for parity with Claude Code's
-    #                                  Read/Glob/Grep on sidecar files.
-    #
-    # Parity with claudecode:
-    #   claudecode allows Read/Glob/Grep from cwd=tmpdir.
-    #   codex gets equivalent read_file/glob_files/grep_files via HarnessMCPServer (fs_root=tmpdir).
-    #   Both providers: shell execution blocked; file reads scoped to tmpdir only.
-    _APPROVAL_NEVER = ["-a", "never"]
-    # cwd: always use a clean per-run tmpdir so sidecar files are isolated.
-    # Using repo_root as cwd was removed because:
-    #   (a) script30/AGENTS.md and SKILL.md are permanent fixtures — any variant with
-    #       cwd=repo_root can `cat AGENTS.md` via read-only shell, leaking guidance.
-    #   (b) sidecar_files in repo_root are shared across concurrent runs → contamination.
-    # The prompt already injects target_file_content and context_code directly.
-    _ = repo_root  # kept in signature for call-site stability
-    _sidecar_dir_cleanup = tempfile.mkdtemp(prefix="vsevals_codex_wd_")
-    effective_cwd: str | None = _sidecar_dir_cleanup
-    if sidecar_files:
-        for filename, content in sidecar_files.items():
-            # Map skills/<name>/SKILL.md → .agents/skills/<name>/SKILL.md
-            # Codex auto-discovers .agents/skills/ at startup for on-demand skill invocation.
-            codex_filename = ".agents/" + filename if filename.startswith("skills/") else filename
-            dest = Path(_sidecar_dir_cleanup) / codex_filename
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(content, encoding="utf-8")
-
-    harness_server: HarnessMCPServer | None = None
-    extra_args: list[str] = []
-    if tool_schemas:
-        # Tool variants: VoltSnip-only MCP server, read-only sandbox.
-        # Transport: HTTP URL-based (not curl stdio).
-        # The curl stdio transport (command=curl args=["-sNX","POST",...]) is broken:
-        # codex writes JSON to curl's stdin but curl ignores stdin without --data @-,
-        # so every MCP initialize/tools/list sends an empty POST body and the handshake
-        # fails silently.  The URL-based transport (mcp_servers.voltsnip.url=...) uses
-        # codex's native HTTP MCP client which handles the JSON-RPC session correctly.
-        base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
-        # include_fs_tools=True: expose read_file/glob_files/grep_files via MCP so
-        # Codex can inspect sidecar files (SKILL.md, AGENTS.md) in cwd=tmpdir.
-        # This matches Claude Code's Read/Glob/Grep capability for provider parity.
-        # fs_root=tmpdir ensures file access is scoped to the per-run sidecar dir only.
-        fs_root = Path(effective_cwd)
-        harness_server = HarnessMCPServer(fs_root, base_url, include_fs_tools=True).start()
-        harness_mcp_url = f"http://127.0.0.1:{harness_server.port}/mcp"
-        extra_args.extend([
-            *_APPROVAL_NEVER,
-            "--sandbox", "read-only",
-            "--disable", "unified_exec",   # block command_execution events (shell bypass)
-            "-c", "mcp_servers={}",        # wipe global servers (e.g. debugmate) for isolation
-            "-c", f"mcp_servers.voltsnip.url={harness_mcp_url}",
-        ])
-    else:
-        # No-tools variants: read-only sandbox, no MCP.
-        # Wipe globally-configured MCP servers so they don't leak into eval runs.
-        extra_args.extend([
-            *_APPROVAL_NEVER,
-            "--sandbox", "read-only",
-            "--disable", "unified_exec",   # block command_execution events (shell bypass)
-            "-c", "mcp_servers={}",
-        ])
-
-    # Reasoning effort override — applies to all variants (model-level setting).
-    # Maps to codex -c model_reasoning_effort=<value>, overriding ~/.codex/config.toml.
-    if cfg.reasoning_effort:
-        extra_args.extend(["-c", f"model_reasoning_effort={cfg.reasoning_effort}"])
-
-    # codex writes its final answer to this file (-o flag)
-    output_file = run_dir / "codex_last_message.txt"
-    output_file.touch()
-
-    tmp_schema = ""
-    if cfg.structured_output:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", prefix="vsevals_codex_schema_", delete=False
-        ) as sf:
-            json.dump(
-                {
-                    "type": "object",
-                    "properties": {
-                        "code": {"type": "string"},
-                        "comments": {"type": "string"},
-                    },
-                    "required": ["code", "comments"],
-                    "additionalProperties": False,
-                },
-                sf,
-            )
-            tmp_schema = sf.name
-
-    cmd = ["codex"] + _APPROVAL_NEVER + [
-        "exec",
-        "--model", model_id,
-        "--json",
-        "--ephemeral",
-        "--skip-git-repo-check",
-        "--disable", "shell_tool",
-        "-o", str(output_file),
-    ]
-    if tmp_schema:
-        cmd.extend(["--output-schema", tmp_schema])
-
-    if effective_cwd:
-        cmd.extend(["-C", effective_cwd])
-
-    # Add remaining flags (sandbox, config overrides, etc.)
-    # NOTE: _APPROVAL_NEVER is already in the prefix, so we skip it if present in extra_args
-    for arg in extra_args:
-        if arg not in _APPROVAL_NEVER:
-            cmd.append(arg)
-
-    cmd.append(combined_prompt)
-
-    LOGGER.debug(
-        "codex invocation model=%s sidecar=%s cwd=%s harness_mcp_port=%s",
-        model_id, bool(sidecar_files), effective_cwd,
-        harness_server.port if harness_server else None,
-    )
-    return CodexInvocation(
-        cmd=cmd,
-        cwd=effective_cwd,
-        timeout=timeout,
-        output_file=output_file,
-        _tmp_schema=tmp_schema,
-        _sidecar_dir=_sidecar_dir_cleanup,
-        _harness_server=harness_server,
-    )
-
-
-# ── Stage 2: Execute + persist to disk ─────────────────────────────────────
-
-def _execute_codex(inv: CodexInvocation, run_dir: Path) -> CodexRawOutput:
-    """Run subprocess; write stdout/stderr to disk before anything else."""
-    started_at = datetime.now(timezone.utc)
-    proc = subprocess.run(
-        inv.cmd, capture_output=True, text=True,
-        timeout=inv.timeout, cwd=inv.cwd,
-    )
-    finished_at = datetime.now(timezone.utc)
-
-    # Persist to disk immediately — before error-checking or parsing.
-    stdout_path = run_dir / "subprocess.stdout.codex.jsonl"
-    stderr_path = run_dir / "subprocess.stderr.codex.txt"
-    stdout_path.write_text(proc.stdout or "", encoding="utf-8")
-    stderr_path.write_text(proc.stderr or "", encoding="utf-8")
-
-    cmd_path = run_dir / "subprocess.cmd.codex.sh"
-    cmd_path.write_text(
-        "#!/usr/bin/env bash\n"
-        "# Auto-generated — reproduces the exact codex subprocess invocation.\n"
-        f"cd {shlex.quote(inv.cwd or '.')}\n"
-        "exec " + shlex.join(inv.cmd) + "\n",
-        encoding="utf-8",
-    )
-    cmd_path.chmod(0o755)
-
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"codex subprocess failed (exit {proc.returncode}): {proc.stderr[:400]}"
-        )
-
-    # Detect stream-level errors even when returncode=0.
-    # Codex can report errors in JSONL output (e.g., type=error events)
-    # while still exiting cleanly.  Mirror claudecode's _extract_stream_error
-    # to maintain provider parity.
-    stream_err = _extract_codex_stream_error(proc.stdout or "")
-    if stream_err:
-        raise RuntimeError(f"codex stream error: {stream_err}")
-
-    return CodexRawOutput(
-        returncode=proc.returncode,
-        stdout_path=stdout_path,
-        stderr_path=stderr_path,
-        output_file=inv.output_file,
-        started_at=started_at,
-        finished_at=finished_at,
-    )
-
-
-# ── Stage 3: Parse from disk ────────────────────────────────────────────────
-
-def _parse_codex_output(raw: CodexRawOutput) -> CodexParsed:
-    """Read the on-disk files and extract answer text, tokens, and traces."""
-    stdout_text = raw.stdout_path.read_text(encoding="utf-8", errors="replace")
-
-    # Primary answer: codex -o output file.
-    raw_text = raw.output_file.read_text(encoding="utf-8").strip() if raw.output_file.exists() else ""
-    if not raw_text:
-        # Fallback: last non-JSON line in the stdout stream.
-        lines = [ln.strip() for ln in stdout_text.splitlines() if ln.strip()]
-        for line in reversed(lines):
-            if not line.startswith("{"):
-                raw_text = line
-                break
-
-    prompt_tokens, completion_tokens, cached_tokens, thinking_tokens = _extract_codex_tokens(stdout_text)
-    tool_traces = _extract_codex_tool_traces(stdout_text)
-
-    return CodexParsed(
-        raw_text=raw_text,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        cached_tokens=cached_tokens,
-        thinking_tokens=thinking_tokens,
-        tool_traces=tool_traces,
-    )
-
-
-# ── Orchestrator ────────────────────────────────────────────────────────────
-
 def call_codex(
     *,
     model_id: str,
@@ -518,52 +227,120 @@ def call_codex(
     run_dir: str | None = None,
     repo_root: str | None = None,
 ) -> LLMResult:
+    if not shutil.which("codex"):
+        raise RuntimeError("codex binary not found on PATH — install the OpenAI Codex CLI")
+
     timeout = max(600, cfg.llm_timeout_seconds * 2) if tool_schemas else cfg.llm_timeout_seconds
     t0 = datetime.now(timezone.utc)
     perf0 = time.perf_counter()
 
-    # Always have a run_dir so the pipeline can write to disk.
     _tmp_run_dir = ""
-    if run_dir:
-        rd = Path(run_dir)
-    else:
-        _tmp_run_dir = tempfile.mkdtemp(prefix="vsevals_codex_run_")
-        rd = Path(_tmp_run_dir)
+    rd = Path(run_dir) if run_dir else Path(_tmp_run_dir := tempfile.mkdtemp(prefix="vsevals_codex_run_"))
 
     combined_prompt = system_prompt + "\n\n" + user_prompt
-    inv = _build_codex_invocation(
-        model_id=model_id, combined_prompt=combined_prompt,
-        cfg=cfg, tool_schemas=tool_schemas,
-        sidecar_files=sidecar_files, timeout=timeout,
-        run_dir=rd,
-        repo_root=repo_root,
-    )
+
+    _ = repo_root
+    sidecar_dir = tempfile.mkdtemp(prefix="vsevals_codex_wd_")
+    if sidecar_files:
+        for filename, content in sidecar_files.items():
+            codex_filename = ".agents/" + filename if filename.startswith("skills/") else filename
+            dest = Path(sidecar_dir) / codex_filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
+
+    harness_server: HarnessMCPServer | None = None
+    _APPROVAL_NEVER = ["-a", "never"]
+    extra_args: list[str] = [*_APPROVAL_NEVER, "--sandbox", "read-only", "--disable", "unified_exec", "-c", "mcp_servers={}"]
+
+    if tool_schemas:
+        base_url = (cfg.voltsnip_base_url or "http://localhost:8000").rstrip("/")
+        harness_server = HarnessMCPServer(Path(sidecar_dir), base_url, include_fs_tools=True).start()
+        extra_args.extend(["-c", f"mcp_servers.voltsnip.url=http://127.0.0.1:{harness_server.port}/mcp"])
+
+    if cfg.reasoning_effort:
+        extra_args.extend(["-c", f"model_reasoning_effort={cfg.reasoning_effort}"])
+
+    output_file = rd / "codex_last_message.txt"
+    output_file.touch()
+
+    tmp_schema = ""
+    if cfg.structured_output:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", prefix="vsevals_codex_schema_", delete=False) as sf:
+            json.dump({"type": "object", "properties": {"code": {"type": "string"}, "comments": {"type": "string"}}, "required": ["code", "comments"], "additionalProperties": False}, sf)
+            tmp_schema = sf.name
+
+    cmd = ["codex"] + _APPROVAL_NEVER + [
+        "exec", "--model", model_id, "--json", "--ephemeral",
+        "--skip-git-repo-check", "--disable", "shell_tool", "-o", str(output_file),
+    ]
+    if tmp_schema:
+        cmd.extend(["--output-schema", tmp_schema])
+    cmd.extend(["-C", sidecar_dir])
+    cmd.extend(a for a in extra_args if a not in _APPROVAL_NEVER)
+    cmd.append(combined_prompt)
+
+    LOGGER.debug("codex invocation model=%s sidecar=%s harness_mcp_port=%s",
+                 model_id, bool(sidecar_files), harness_server.port if harness_server else None)
 
     raw_stdout = raw_stderr = ""
     try:
-        # Stage 2 → Stage 3: execute writes to disk, parse reads from disk.
-        sub = _execute_codex(inv, rd)
-        parsed = _parse_codex_output(sub)
-        # Read artifact content before any potential cleanup below.
-        raw_stdout = sub.stdout_path.read_text(encoding="utf-8", errors="replace")
-        raw_stderr = sub.stderr_path.read_text(encoding="utf-8", errors="replace")
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=sidecar_dir)
+
+        stdout_path = rd / "subprocess.stdout.codex.jsonl"
+        stderr_path = rd / "subprocess.stderr.codex.txt"
+        stdout_path.write_text(proc.stdout or "", encoding="utf-8")
+        stderr_path.write_text(proc.stderr or "", encoding="utf-8")
+
+        cmd_path = rd / "subprocess.cmd.codex.sh"
+        cmd_path.write_text(
+            "#!/usr/bin/env bash\n# Auto-generated — reproduces the exact codex subprocess invocation.\n"
+            f"cd {shlex.quote(sidecar_dir)}\nexec " + shlex.join(cmd) + "\n",
+            encoding="utf-8",
+        )
+        cmd_path.chmod(0o755)
+
+        if proc.returncode != 0:
+            raise RuntimeError(f"codex subprocess failed (exit {proc.returncode}): {proc.stderr[:400]}")
+
+        stream_err = _extract_codex_stream_error(proc.stdout or "")
+        if stream_err:
+            raise RuntimeError(f"codex stream error: {stream_err}")
+
+        raw_stdout = stdout_path.read_text(encoding="utf-8", errors="replace")
+        raw_stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
+
     finally:
-        inv.cleanup()
+        if harness_server is not None:
+            try:
+                harness_server.stop()
+            except Exception:
+                pass
+        if tmp_schema:
+            try:
+                Path(tmp_schema).unlink(missing_ok=True)
+            except Exception:
+                pass
+        shutil.rmtree(sidecar_dir, ignore_errors=True)
         if _tmp_run_dir:
             shutil.rmtree(_tmp_run_dir, ignore_errors=True)
 
-    result_parsed, fallback = _parse_payload(parsed.raw_text, cfg.structured_output)
+    raw_text = output_file.read_text(encoding="utf-8").strip() if output_file.exists() else ""
+    if not raw_text:
+        for line in reversed([ln.strip() for ln in raw_stdout.splitlines() if ln.strip()]):
+            if not line.startswith("{"):
+                raw_text = line
+                break
 
-    # Fragment injection guard: if codex returned a body without the `def` header, prepend it.
-    # Codex sometimes emits only the function body, which causes IndentationError when spliced
-    # into the target file at the specified line range.
+    pt, ct, cached, thinking = _extract_codex_tokens(raw_stdout)
+    tool_traces = _extract_codex_tool_traces(raw_stdout)
+
+    result_parsed, fallback = _parse_payload(raw_text, cfg.structured_output)
+
+    # Fragment injection guard: prepend def header if codex omitted it.
     _code = result_parsed.get("code", "") if isinstance(result_parsed, dict) else ""
     _stripped = _code.strip()
     if _stripped and not _stripped.splitlines()[0].lstrip().startswith(("def ", "class ", "async def ")):
-        _sig_match = re.search(
-            r'^((?:async\s+)?def\s+\w+[^:]+:|class\s+\w+[^:]+:)',
-            combined_prompt, re.MULTILINE,
-        )
+        _sig_match = re.search(r'^((?:async\s+)?def\s+\w+[^:]+:|class\s+\w+[^:]+:)', combined_prompt, re.MULTILINE)
         if _sig_match:
             _sig = _sig_match.group(1)
             LOGGER.warning("codex fragment injection detected — prepending signature: %r", _sig)
@@ -571,17 +348,15 @@ def call_codex(
             result_parsed["code"] = _sig + "\n" + _stripped
 
     return LLMResult(
-        raw_output=parsed.raw_text,
+        raw_output=raw_text,
         parsed_output=result_parsed,
         token_usage=TokenUsage(
-            prompt_tokens=parsed.prompt_tokens,
-            completion_tokens=parsed.completion_tokens,
-            total_tokens=parsed.prompt_tokens + parsed.completion_tokens,
-            cached_tokens=parsed.cached_tokens,
-            thinking_tokens=parsed.thinking_tokens,
-            cost_usd=compute_cost(
-                model_id, parsed.prompt_tokens, parsed.completion_tokens, parsed.cached_tokens
-            ),
+            prompt_tokens=pt,
+            completion_tokens=ct,
+            total_tokens=pt + ct,
+            cached_tokens=cached,
+            thinking_tokens=thinking,
+            cost_usd=compute_cost(model_id, pt, ct, cached),
         ),
         structured_output_attempted=cfg.structured_output,
         structured_output_succeeded=not fallback if cfg.structured_output else False,
@@ -591,7 +366,7 @@ def call_codex(
         request_latency_ms=int((time.perf_counter() - perf0) * 1000),
         request_id=None,
         finish_reason="stop",
-        tool_traces=parsed.tool_traces,
+        tool_traces=tool_traces,
         subprocess_stdout=raw_stdout,
         subprocess_stderr=raw_stderr,
     )

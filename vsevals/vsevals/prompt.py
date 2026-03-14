@@ -3,16 +3,14 @@
 Entry point: build_prompt(task, variant, retrieved_snippets, ...)
 Returns a PromptBundle with system_prompt + user_prompt.
 
-Context surface per variant:
-  P0             — "user"                    : raw baseline, no memory, no tools
-  P1             — "user"                    : baseline + explicit instruction
-  P2             — "system"                  : injected memory in system prompt
-  P3             — "tools_only"              : tools only, no sidecar guidance
-  P4             — "skills_md_no_keys"       : inline static SKILL.md guidance + tools
-  P5             — "agents_md_no_keys"       : inline static AGENTS.md guidance + tools
-  P6             — "skills_agents_md_no_keys": inline SKILL.md + AGENTS.md guidance + tools
-
-No-key sidecars are static and intentionally contain no canonical-key hints or key-prefix paths.
+Context surfaces:
+  P0 "user"                     raw baseline, no memory/tools
+  P1 "user"                     baseline + explicit instruction
+  P2 "system"                   injected memory in system prompt
+  P3 "tools_only"               tools only, no sidecar guidance
+  P4 "skills_md_no_keys"        inline static SKILL.md guidance + tools
+  P5 "agents_md_no_keys"        inline static AGENTS.md guidance + tools
+  P6 "skills_agents_md_no_keys" inline SKILL.md + AGENTS.md + tools
 """
 
 from __future__ import annotations
@@ -21,8 +19,6 @@ import re
 from pathlib import Path
 
 from vsevals.models import PromptBundle, RetrievedSnippet, SuiteTask, VariantConfig
-
-# --- Constants ---------------------------------------------------------------
 
 BASE_SYSTEM_PROMPT = """You are a senior software engineer executing a controlled code-fix evaluation.
 
@@ -80,9 +76,6 @@ _SKILLS_MD_PATH = _HARNESS_ROOT / "skills.md"
 _AGENTS_MD_PATH = _HARNESS_ROOT / "agents.md"
 
 
-# --- Public entry point ------------------------------------------------------
-
-
 def build_prompt(
     *,
     task: SuiteTask,
@@ -92,8 +85,7 @@ def build_prompt(
     target_file_content: str | None,
     voltsnip_base_url: str | None = None,
 ) -> PromptBundle:
-    """Assemble system + user prompts for a (task, variant) combination."""
-    _ = voltsnip_base_url  # intentionally unused; kept for stable call signature.
+    _ = voltsnip_base_url  # kept for stable call signature
 
     b = _Builder(
         task_id=task.task.id,
@@ -102,7 +94,6 @@ def build_prompt(
         context_surface=variant.context_surface,
     )
 
-    # --- Task context blocks -------------------------------------------------
     if task.task.description:
         b.add_user_visible("description", "Task Description:", task.task.description.rstrip())
 
@@ -123,17 +114,8 @@ def build_prompt(
         b.add_user_visible("context_code", "Context Code:", "```python", task.task.context_code.rstrip(), "```")
 
     if target_file_content:
-        b.add_user_visible(
-            "target_file_content",
-            "Target File Content (full file):",
-            "```python",
-            target_file_content.rstrip(),
-            "```",
-        )
+        b.add_user_visible("target_file_content", "Target File Content (full file):", "```python", target_file_content.rstrip(), "```")
 
-    # expected_output is withheld from no-retrieval variants (P0/P1) to preserve a
-    # clean baseline.  Injecting it there leaks the org-specific API name
-    # (e.g. "orgops.metrics.emit") and biases the P0 score upward.
     if task.task.expected_output and variant.retrieval_mode != "none":
         b.add_user_visible("expected_output", "Expected Output:", task.task.expected_output.rstrip())
 
@@ -143,14 +125,12 @@ def build_prompt(
             b.add_user_visible("oracle_criteria", "Acceptance Criteria (strict):", *oracle_rows)
             b.add_user("Acceptance Requirement:", "You MUST satisfy the acceptance criteria and avoid the listed failure modes.")
 
-    # --- Snippet + key assembly ----------------------------------------------
     required_keys = _dedup(task.voltsnip.required_snippets) if variant.retrieval_mode != "none" else []
     snippet_keys = _dedup(required_keys + [s.canonical_key or s.id for s in retrieved_snippets])
     snippet_block = _snippet_block(retrieved_snippets)
     key_block = _key_block(snippet_keys)
     policy_block = _policy_block(repo_policy_text)
 
-    # --- Execution mode banner -----------------------------------------------
     if variant.mode == "agent" and variant.tools_enabled:
         mode_line = "Agent mode: decide context/tool usage within constraints."
     else:
@@ -162,9 +142,6 @@ def build_prompt(
     if variant.tools_enabled:
         b.add_user_visible("tool_budget", "Tool Budget:", f"Maximum tool roundtrips: {variant.max_tool_roundtrips}")
 
-    # --- Instruction strength ------------------------------------------------
-    # Surfaces ending with *_no_keys intentionally hide canonical keys from sidecars.
-    # Only emit listed-key guidance when keys are actually visible in prompt/sidecars.
     surface = variant.context_surface
     no_key_hint_surfaces = {"tools_only", "skills_md_no_keys", "agents_md_no_keys", "skills_agents_md_no_keys"}
     keys_visible = bool(snippet_keys) and surface not in no_key_hint_surfaces
@@ -200,7 +177,6 @@ def build_prompt(
         explicit.append("Keep output deterministic and minimal.")
         b.add_user(*explicit)
 
-    # --- Context surface injection -------------------------------------------
     if surface == "system":
         b.inject_system("snippet_context", snippet_block)
         b.inject_system("snippet_keys", key_block)
@@ -212,60 +188,32 @@ def build_prompt(
     elif surface == "tools_only":
         b.system_blocks.append("Tool access is enabled. Fetch memory through tools when useful to solve the task.")
     elif surface == "skills_md_no_keys":
-        # P4: SKILL guide delivered as a plugin skill (on-demand invocation).
-        # Claude Code: --plugin-dir <tmpdir> loads skills/voltsnip-guide/SKILL.md;
-        #   Claude invokes via the Skill tool when it decides context is needed.
-        # Codex: .agents/skills/voltsnip-guide/SKILL.md auto-discovered at startup;
-        #   full content loaded on-demand when the model invokes the skill.
-        # SKILL.md also in cwd root as a directly readable fallback for both providers.
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
         skill_with_frontmatter = (
-            "---\n"
-            "name: voltsnip-guide\n"
-            "description: Use this skill to retrieve relevant VoltSnip code patterns "
-            "and context snippets before implementing a fix.\n"
-            "---\n\n"
-            + skills_doc
+            "---\nname: voltsnip-guide\ndescription: Use this skill to retrieve relevant VoltSnip code patterns "
+            "and context snippets before implementing a fix.\n---\n\n" + skills_doc
         )
-        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter  # plugin dir entry
-        b.sidecar_files["SKILL.md"] = skills_doc                                     # cwd fallback (readable)
+        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter
+        b.sidecar_files["SKILL.md"] = skills_doc
     elif surface == "agents_md_no_keys":
-        # P5: AGENTS guide only.
-        # Claude Code: CLAUDE.md auto-loaded at startup.
-        # Codex: AGENTS.md auto-read at startup.
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
         b.sidecar_files["CLAUDE.md"] = agents_doc
         b.sidecar_files["AGENTS.md"] = agents_doc
     elif surface == "skills_agents_md_no_keys":
-        # P6: repo context (always-visible) + VoltSnip skill (on-demand plugin).
-        # Claude Code: CLAUDE.md auto-loaded at startup (repo context);
-        #   skills/voltsnip-guide/SKILL.md loaded via --plugin-dir (on-demand, same as P4).
-        # Codex: AGENTS.md auto-read at startup; .agents/skills/voltsnip-guide/SKILL.md
-        #   auto-discovered (mapped from skills/ by codex provider).
         skills_doc = _load_static_doc(_SKILLS_MD_PATH, INLINE_SKILL_GUIDE)
         agents_doc = _load_static_doc(_AGENTS_MD_PATH, INLINE_AGENT_GUIDE)
         skill_with_frontmatter = (
-            "---\n"
-            "name: voltsnip-guide\n"
-            "description: Use this skill to retrieve relevant VoltSnip code patterns "
-            "and context snippets before implementing a fix.\n"
-            "---\n\n"
-            + skills_doc
+            "---\nname: voltsnip-guide\ndescription: Use this skill to retrieve relevant VoltSnip code patterns "
+            "and context snippets before implementing a fix.\n---\n\n" + skills_doc
         )
-        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter  # plugin dir entry
-        b.sidecar_files["SKILL.md"] = skills_doc                                     # cwd fallback
+        b.sidecar_files["skills/voltsnip-guide/SKILL.md"] = skill_with_frontmatter
+        b.sidecar_files["SKILL.md"] = skills_doc
         b.sidecar_files["AGENTS.md"] = agents_doc
-        b.sidecar_files["CLAUDE.md"] = agents_doc  # always-visible repo context for Claude Code
+        b.sidecar_files["CLAUDE.md"] = agents_doc
     else:
         raise ValueError(f"unsupported context_surface: {surface!r}")
 
-    return b.build(
-        snippet_keys=snippet_keys,
-        injected_repo_policy=bool(repo_policy_text and repo_policy_text.strip()),
-    )
-
-
-# --- Builder helper ----------------------------------------------------------
+    return b.build(snippet_keys=snippet_keys, injected_repo_policy=bool(repo_policy_text and repo_policy_text.strip()))
 
 
 class _Builder:
@@ -273,12 +221,7 @@ class _Builder:
         self.context_surface = context_surface
         self.visible_sections = ["task_id", "task_name", "user_prompt"]
         self.system_blocks: list[str] = [BASE_SYSTEM_PROMPT]
-        self.user_blocks: list[str] = [
-            f"Task ID: {task_id}",
-            f"Task Name: {task_name}",
-            "Task Objective:",
-            user_prompt.rstrip(),
-        ]
+        self.user_blocks: list[str] = [f"Task ID: {task_id}", f"Task Name: {task_name}", "Task Objective:", user_prompt.rstrip()]
         self.user_ctx: list[str] = []
         self.sidecar_files: dict[str, str] = {}
 
@@ -318,9 +261,6 @@ class _Builder:
         target.extend(lines)
 
 
-# --- Rendering helpers -------------------------------------------------------
-
-
 def _snippet_block(snippets: list[RetrievedSnippet]) -> str:
     if not snippets:
         return ""
@@ -332,9 +272,7 @@ def _snippet_block(snippets: list[RetrievedSnippet]) -> str:
 
 
 def _key_block(keys: list[str]) -> str:
-    if not keys:
-        return ""
-    return "\n".join(["Guiding Snippet Keys:", *[f"- {k}" for k in keys]])
+    return "\n".join(["Guiding Snippet Keys:", *[f"- {k}" for k in keys]]) if keys else ""
 
 
 def _policy_block(repo_policy_text: str | None) -> str:
@@ -344,30 +282,20 @@ def _policy_block(repo_policy_text: str | None) -> str:
 
 def _oracle_rows(task: SuiteTask) -> list[str]:
     rows: list[str] = []
-    hidden = [r.strip() for r in task.oracle.hidden_requirements if r.strip()]
-    success = [r.strip() for r in task.oracle.success_indicators.as_lines() if r.strip()]
-    failures = [r.strip() for r in task.oracle.failure_modes if r.strip()]
-    criteria = [r.strip() for r in task.oracle.evaluation_criteria if r.strip()]
-    if hidden:
-        rows += ["Hidden requirements:"] + [f"- {r}" for r in hidden]
-    if success:
-        rows += ["Success indicators:"] + [f"- {r}" for r in success]
-    if failures:
-        rows += ["Failure modes to avoid:"] + [f"- {r}" for r in failures]
-    if criteria:
-        rows += ["Evaluation criteria:"] + [f"- {r}" for r in criteria]
+    for label, items in [
+        ("Hidden requirements:", task.oracle.hidden_requirements),
+        ("Success indicators:", task.oracle.success_indicators.as_lines()),
+        ("Failure modes to avoid:", task.oracle.failure_modes),
+        ("Evaluation criteria:", task.oracle.evaluation_criteria),
+    ]:
+        if clean := [r.strip() for r in items if r.strip()]:
+            rows += [label] + [f"- {r}" for r in clean]
     return rows
 
 
 def _dedup(keys: list[str | None]) -> list[str]:
     seen: set[str] = set()
-    out: list[str] = []
-    for k in keys:
-        nk = (k or "").strip()
-        if nk and nk not in seen:
-            seen.add(nk)
-            out.append(nk)
-    return out
+    return [nk for k in keys if (nk := (k or "").strip()) and nk not in seen and not seen.add(nk)]  # type: ignore[func-returns-value]
 
 
 def _normalize_prompt(text: str) -> str:

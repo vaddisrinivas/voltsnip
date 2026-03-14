@@ -1,34 +1,4 @@
-"""Core execution engine.
-
-The main entry point is run_one().  Everything else in this file is internal.
-
-Flow
-----
-                        ┌─────────────────────────────────────────────────────┐
-run_one(task, variant)  │ 1. Load task + variant from suite                   │
-                        │ 2. Read target file from repo                       │
-                        │ 3. [memory variants] retrieve seed snippets         │
-                        │ 4. Build prompt via prompt.build_prompt()           │
-                        │ 5. Call LLM via dispatch.call_llm()                 │
-                        │    • direct/no-tools (P0-P1, P2): single call       │
-                        │    • tool-enabled (P3, P4-P6): LLM + tool loop      │
-                        │       (openai: Responses API + remote MCP)          │
-                        │       (anthropic: SDK tool loop, Python-side)       │
-                        │       (claudecode/codex: subprocess MCP tool loop;  │
-                        │        per-turn tool traces are not exposed to this  │
-                        │        Python runner)                                │
-                        │ 6. Parse output (JSON {code, comments})             │
-                        │ 7. Score via scorer.score_one()                     │
-                        │ 8. [cfg.auto_apply_patch] run patch+Docker pytest   │
-                        │      • materialize overlay (copy repo, no .git)     │
-                        │      • write generated code to target file          │
-                        │      • docker run --rm -v overlay:/workspace …      │
-                        │      • cleanup overlay                              │
-                        │ 9. Write artifacts (full_dump.json, summary, etc.)  │
-                        └─────────────────────────────────────────────────────┘
-
-Convenience wrappers: run_p0() … run_p6(), run_hypothesis()
-"""
+"""Core execution engine. Entry point: run_one(). Convenience wrapper: run_hypothesis()."""
 
 from __future__ import annotations
 
@@ -36,121 +6,49 @@ import json
 import logging
 import os
 import re
+import shutil
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
 
 from vsevals.client import VoltSnipClient
-from vsevals.dispatch import (
-    call_llm,
-    voltsnip_tool_schemas,
-)
+from vsevals.dispatch import call_llm, voltsnip_tool_schemas
 from vsevals.loader import load_suite
 from vsevals.models import (
-    GeneratedPayload,
-    MessageTrace,
-    PromptBundle,
-    PytestResult,
-    RetrievedSnippet,
-    RunArtifactPaths,
-    RunConfig,
-    RunError,
-    RunResult,
-    ScoreResult,
-    SuiteTask,
-    SummaryMetrics,
-    TimingInfo,
-    TokenUsage,
-    ToolTrace,
-    VariantConfig,
-    LLMResult
+    GeneratedPayload, MessageTrace, PromptBundle, PytestResult,
+    RetrievedSnippet, RunArtifactPaths, RunConfig, RunError, RunResult,
+    ScoreResult, SuiteTask, SummaryMetrics, TimingInfo, TokenUsage,
+    ToolTrace, VariantConfig, LLMResult,
 )
-import shutil
-import tempfile
-
 from vsevals.patching import apply_line_range_rewrite, apply_rewrite, cleanup_overlay, materialize_overlay
 from vsevals.prompt import DEFAULT_REPO_POLICY, build_prompt
 from vsevals.pytest_runner import run_pytest_in_docker, start_test_container, stop_test_container
 from vsevals.scorer import score_one
 
 LOGGER = logging.getLogger(__name__)
-
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
 DEFAULT_VOLTSNIP_BASE_URL = "http://localhost:8000"
-
 HypothesisVariantId = Literal["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]
 HYPOTHESIS_VARIANTS: tuple[str, ...] = ("P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8")
 
 
-# ---------------------------------------------------------------------------
-# Convenience wrappers: run_p0() … run_p6a()
-# ---------------------------------------------------------------------------
-
-
-def run_hypothesis(
-    *,
-    hypothesis: HypothesisVariantId,
-    task_id: str,
-    model_name: str,
-    suite_path: str,
-    output_dir: str,
-    repo_root: str | None = None,
-    cfg: RunConfig | dict | None = None,
-) -> RunResult:
+def run_hypothesis(*, hypothesis: HypothesisVariantId, task_id: str, model_name: str,
+                   suite_path: str, output_dir: str, repo_root: str | None = None,
+                   cfg: RunConfig | dict | None = None) -> RunResult:
     if hypothesis not in HYPOTHESIS_VARIANTS:
         raise ValueError(f"unknown hypothesis: {hypothesis!r}. Must be one of {HYPOTHESIS_VARIANTS}")
-    return run_one(
-        task_id=task_id,
-        variant_id=hypothesis,
-        model_name=model_name,
-        suite_path=suite_path,
-        output_dir=output_dir,
-        repo_root=repo_root,
-        cfg=cfg,
-    )
+    return run_one(task_id=task_id, variant_id=hypothesis, model_name=model_name,
+                   suite_path=suite_path, output_dir=output_dir, repo_root=repo_root, cfg=cfg)
 
 
-_VARIANT_DOCS: dict[str, str] = {
-    "P0": "Baseline: direct call, no memory, no tools.",
-    "P1": "Baseline + explicit instruction (no memory, no tools).",
-    "P2": "Memory injected into system prompt, no tools (oracle pre-fetch).",
-    "P3": "Tools only — raw tool use, zero guidance (tools_only surface).",
-    "P4": "SKILL.md (no keys) + tools — optional retrieval, skill surface.",
-    "P5": "AGENTS.md (no keys) + tools — optional retrieval, agent surface.",
-    "P6": "SKILL.md + AGENTS.md (no keys) + tools — optional retrieval, full surface.",
-    "P7": "P3 + explicit instruction — explicit framing over unguided tools.",
-    "P8": "P4 + explicit instruction — plugin skill + explicit framing.",
-}
-for _vid, _doc in _VARIANT_DOCS.items():
-    def _f(*, task_id: str, model_name: str, suite_path: str, output_dir: str, _v: str = _vid, **kw: Any) -> RunResult:
-        return run_one(task_id=task_id, variant_id=_v, model_name=model_name, suite_path=suite_path, output_dir=output_dir, **kw)
-    _f.__name__ = f"run_{_vid.lower()}"
-    _f.__doc__ = _doc
-    globals()[f"run_{_vid.lower()}"] = _f
-del _vid, _doc, _f
-
-
-# ---------------------------------------------------------------------------
-# Core: run_one
-# ---------------------------------------------------------------------------
-
-
-def run_one(
-    *,
-    task_id: str,
-    variant_id: str,
-    model_name: str,
-    suite_path: str,
-    output_dir: str,
-    repo_root: str | None = None,
-    cfg: RunConfig | dict | None = None,
-) -> RunResult:
-    """Execute a single (task × variant × model) cell and return a RunResult."""
+def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
+            output_dir: str, repo_root: str | None = None,
+            cfg: RunConfig | dict | None = None) -> RunResult:
     resolved_cfg = cfg if isinstance(cfg, RunConfig) else RunConfig.model_validate(cfg or {})
     suite = load_suite(suite_path)
 
-    # Let usecase.yaml docker settings override RunConfig defaults (not explicit overrides)
     if suite.suite.pytest_docker_image and resolved_cfg.pytest_docker_image == "moltsnip-pytest:latest":
         resolved_cfg = resolved_cfg.model_copy(update={"pytest_docker_image": suite.suite.pytest_docker_image})
     if suite.suite.pytest_docker_workdir and resolved_cfg.pytest_docker_workdir == "/workspace":
@@ -166,12 +64,10 @@ def run_one(
     output_root = output_dir or os.environ.get("VSEVAL_OUTPUT_DIR") or DEFAULT_OUTPUT_ROOT
     artifacts = _make_artifact_paths(output_root=output_root, task_id=task_id, variant_id=variant_id, model_name=model_name)
     run_id = Path(artifacts.run_dir).name
-
     started_at = datetime.now(timezone.utc)
     t0 = time.perf_counter()
     LOGGER.info("run start  run_id=%s  task=%s  variant=%s  model=%s", run_id, task_id, variant_id, model_name)
 
-    # --- Mutable state -------------------------------------------------------
     status = "ok"
     prompt = PromptBundle(system_prompt="", user_prompt="", context_surface=variant.context_surface, visible_sections=[])
     prompt_after_tools: PromptBundle | None = None
@@ -179,176 +75,113 @@ def run_one(
     tool_traces: list[ToolTrace] = []
     llm_result: LLMResult | None = None
     run_error: RunError | None = None
-    provider_keys: dict[str, str] = {}
     voltsnip: VoltSnipClient | None = None
     retrieval_latency_ms: int | None = None
     model_latency_ms: int | None = None
 
     try:
         provider, _ = _parse_provider(model_name)
-
         provider_keys = _load_provider_keys(resolved_cfg)
         voltsnip = _make_client(variant, resolved_cfg)
         repo_root_path = _resolve_repo_root(
-            repo_root or task.task.repo_root or suite.suite.default_repo_root,
-            suite_path=suite_path,
-        )
+            repo_root or task.task.repo_root or suite.suite.default_repo_root, suite_path=suite_path)
         target_file_content = _read_target_file(repo_root=repo_root_path, target_file=task.task.target_file, suite_path=suite_path)
         repo_policy = resolved_cfg.repo_policy_text or DEFAULT_REPO_POLICY
 
-        # Step 3: retrieve seed snippets (memory variants only).
-        # Pre-fetch whenever memory_enabled=true, regardless of retrieval_mode.
-        #   retrieval_mode=injected  → fetch, inject into prompt, no tools (P2)
-        #   retrieval_mode=agent_decides, memory_enabled=false → no pre-fetch;
-        #     agent must use tools to get snippets (P3, P4, P5, P6)
         if variant.memory_enabled:
             t_ret = time.perf_counter()
             retrieved_snippets = _retrieve_snippets(task=task, variant=variant, voltsnip=voltsnip, cfg=resolved_cfg)
             retrieval_latency_ms = int((time.perf_counter() - t_ret) * 1000)
 
-        # Step 4 + 5: build prompt and call model
-        # Guardrail:
-        # - One-shot path for all non-tool variants (P0-P2 semantics).
-        # - Agent/tool loop only when tools are explicitly enabled (P4+).
         t_model = time.perf_counter()
         if variant.mode == "agent" and variant.tools_enabled:
             llm_result, prompt, prompt_after_tools, retrieved_snippets, tool_traces = _run_agent(
-                task=task, variant=variant, model_name=model_name,
-                cfg=resolved_cfg, provider_keys=provider_keys,
-                voltsnip=voltsnip, seed_snippets=retrieved_snippets,
+                task=task, variant=variant, model_name=model_name, cfg=resolved_cfg,
+                provider_keys=provider_keys, voltsnip=voltsnip, seed_snippets=retrieved_snippets,
                 target_file_content=target_file_content, repo_policy=repo_policy,
                 repo_root=repo_root_path, run_dir=artifacts.run_dir,
             )
         else:
-            prompt = build_prompt(
-                task=task, variant=variant, retrieved_snippets=retrieved_snippets,
-                repo_policy_text=repo_policy, target_file_content=target_file_content,
-                voltsnip_base_url=resolved_cfg.voltsnip_base_url,
-            )
-            llm_result = call_llm(
-                model_name=model_name, system_prompt=prompt.system_prompt, user_prompt=prompt.user_prompt,
-                cfg=resolved_cfg, provider_keys=provider_keys,
-                sidecar_files=prompt.sidecar_files or None,
-            )
+            prompt = build_prompt(task=task, variant=variant, retrieved_snippets=retrieved_snippets,
+                                  repo_policy_text=repo_policy, target_file_content=target_file_content,
+                                  voltsnip_base_url=resolved_cfg.voltsnip_base_url)
+            llm_result = call_llm(model_name=model_name, system_prompt=prompt.system_prompt,
+                                  user_prompt=prompt.user_prompt, cfg=resolved_cfg,
+                                  provider_keys=provider_keys, sidecar_files=prompt.sidecar_files or None)
         model_latency_ms = int((time.perf_counter() - t_model) * 1000)
 
     except Exception as exc:
         status = "error"
-        run_error = RunError(
-            type=exc.__class__.__name__,
-            message=str(exc),
-            error_class=_classify_error(exc),
-        )
+        run_error = RunError(type=exc.__class__.__name__, message=str(exc), error_class=_classify_error(exc))
         LOGGER.exception("run failed  run_id=%s  task=%s  variant=%s  model=%s", run_id, task_id, variant_id, model_name)
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
     finished_at = datetime.now(timezone.utc)
     llm_result = llm_result or _empty_llm_result()
 
-    # Validity gate: if the model returned no code on an otherwise-ok run,
-    # demote to error so the run is not silently persisted as a zero-score ok.
     if status == "ok" and not llm_result.parsed_output.code.strip():
         status = "error"
-        run_error = RunError(
-            type="EmptyOutput",
-            message="model returned ok status but produced no code",
-            error_class="provider_empty_output",
-        )
+        run_error = RunError(type="EmptyOutput", message="model returned ok status but produced no code",
+                             error_class="provider_empty_output")
 
     provider, model_id = _parse_provider(model_name)
-
-    # Write raw subprocess / API artifacts immediately — before scoring + pytest —
-    # so they are on disk even when later stages fail.
     _write_raw_llm_artifacts(llm_result=llm_result, run_dir=artifacts.run_dir, provider=provider)
 
     sys_chars = len(prompt.system_prompt)
     usr_chars = len(prompt.user_prompt)
-    snippet_chars = sum(len(s.code) for s in retrieved_snippets)
-    voltsnip_retry_count = voltsnip.retry_count_total if voltsnip else 0
-    voltsnip_rate_limit_count = voltsnip.rate_limit_error_count if voltsnip else 0
-    voltsnip_timeout_count = voltsnip.timeout_error_count if voltsnip else 0
-    voltsnip_error_count = voltsnip.error_count_total if voltsnip else 0
+    vs_tool = lambda t: (t.tool_name or "").startswith("mcp__voltsnip__")
 
     run_result = RunResult(
         run_id=run_id,
         suite_path=str(Path(suite_path).expanduser().resolve()),
         output_root=str(Path(output_root).expanduser().resolve()),
-        task_id=task.task.id,
-        task_name=task.task.name,
-        variant_id=variant.id,
-        model_name=model_name,
-        status=status,
-        # Variant metadata
-        variant_mode=variant.mode,
-        variant_memory_enabled=variant.memory_enabled,
-        variant_tools_enabled=variant.tools_enabled,
-        variant_retrieval_mode=variant.retrieval_mode,
-        variant_instruction_mode=variant.instruction_mode,
-        variant_context_surface=variant.context_surface,
+        task_id=task.task.id, task_name=task.task.name,
+        variant_id=variant.id, model_name=model_name, status=status,
+        variant_mode=variant.mode, variant_memory_enabled=variant.memory_enabled,
+        variant_tools_enabled=variant.tools_enabled, variant_retrieval_mode=variant.retrieval_mode,
+        variant_instruction_mode=variant.instruction_mode, variant_context_surface=variant.context_surface,
         variant_max_tool_roundtrips=variant.max_tool_roundtrips,
-        # Task metadata
-        task_category=task.task.category,
-        task_difficulty=task.task.difficulty,
-        task_line_start=task.task.line_start,
-        task_line_end=task.task.line_end,
+        task_category=task.task.category, task_difficulty=task.task.difficulty,
+        task_line_start=task.task.line_start, task_line_end=task.task.line_end,
         required_snippet_keys=list(task.voltsnip.required_snippets),
-        prompt=prompt,
-        prompt_after_tools=prompt_after_tools,
-        retrieved_snippets=retrieved_snippets,
-        tool_traces=tool_traces,
+        prompt=prompt, prompt_after_tools=prompt_after_tools,
+        retrieved_snippets=retrieved_snippets, tool_traces=tool_traces,
         messages=[
             MessageTrace(role="system", content=prompt.system_prompt),
             MessageTrace(role="user", content=prompt.user_prompt),
             MessageTrace(role="assistant", content=llm_result.raw_output),
         ],
-        raw_model_output=llm_result.raw_output,
-        parsed_output=llm_result.parsed_output,
+        raw_model_output=llm_result.raw_output, parsed_output=llm_result.parsed_output,
         token_usage=llm_result.token_usage,
         timings=TimingInfo(started_at=started_at, finished_at=finished_at, latency_ms=latency_ms),
         summary_metrics=SummaryMetrics(
             latency_ms=latency_ms,
-            prompt_chars=sys_chars + usr_chars,
-            output_chars=len(llm_result.raw_output),
-            prompt_system_chars=sys_chars,
-            prompt_user_chars=usr_chars,
-            snippet_injected_chars=snippet_chars,
-            model_provider=provider,
-            model_id=model_id,
-            snippet_count=len(retrieved_snippets),
-            tool_call_count=len(tool_traces),
-            voltsnip_tool_call_count=sum(
-                1 for t in tool_traces
-                if (t.tool_name or "").startswith("mcp__voltsnip__")
-            ),
-            native_tool_call_count=sum(
-                1 for t in tool_traces
-                if not (t.tool_name or "").startswith("mcp__voltsnip__")
-            ),
+            prompt_chars=sys_chars + usr_chars, output_chars=len(llm_result.raw_output),
+            prompt_system_chars=sys_chars, prompt_user_chars=usr_chars,
+            snippet_injected_chars=sum(len(s.code) for s in retrieved_snippets),
+            model_provider=provider, model_id=model_id,
+            snippet_count=len(retrieved_snippets), tool_call_count=len(tool_traces),
+            voltsnip_tool_call_count=sum(1 for t in tool_traces if vs_tool(t)),
+            native_tool_call_count=sum(1 for t in tool_traces if not vs_tool(t)),
             tool_error_count=sum(1 for t in tool_traces if t.error),
-            used_tools=bool(tool_traces),
-            used_voltsnip_tools=any(
-                (t.tool_name or "").startswith("mcp__voltsnip__") for t in tool_traces
-            ),
+            used_tools=bool(tool_traces), used_voltsnip_tools=any(vs_tool(t) for t in tool_traces),
             structured_output_attempted=llm_result.structured_output_attempted,
             structured_output_succeeded=llm_result.structured_output_succeeded,
             fallback_parser_used=llm_result.fallback_parser_used,
             retrieval_latency_ms=retrieval_latency_ms,
-            voltsnip_retry_count=voltsnip_retry_count,
-            voltsnip_rate_limit_count=voltsnip_rate_limit_count,
-            voltsnip_timeout_count=voltsnip_timeout_count,
-            voltsnip_error_count=voltsnip_error_count,
+            voltsnip_retry_count=voltsnip.retry_count_total if voltsnip else 0,
+            voltsnip_rate_limit_count=voltsnip.rate_limit_error_count if voltsnip else 0,
+            voltsnip_timeout_count=voltsnip.timeout_error_count if voltsnip else 0,
+            voltsnip_error_count=voltsnip.error_count_total if voltsnip else 0,
             model_request_latency_ms=llm_result.request_latency_ms or model_latency_ms,
             model_request_started_at=llm_result.request_started_at,
             model_request_finished_at=llm_result.request_finished_at,
-            model_request_id=llm_result.request_id,
-            model_finish_reason=llm_result.finish_reason,
+            model_request_id=llm_result.request_id, model_finish_reason=llm_result.finish_reason,
             token_usage=llm_result.token_usage,
         ),
-        artifacts=artifacts,
-        error=run_error,
+        artifacts=artifacts, error=run_error,
     )
 
-    # Step 7: score (skipped when cfg.skip_scoring=True; use rescore_scoring.py for Pass 2)
     score: ScoreResult | None = None
     if status == "ok" and not resolved_cfg.skip_scoring:
         t_score = time.perf_counter()
@@ -356,135 +189,85 @@ def run_one(
         run_result.score = score
         run_result.summary_metrics.scoring_latency_ms = int((time.perf_counter() - t_score) * 1000)
 
-    # Step 8: patch + Docker pytest (optional)
     if status == "ok" and resolved_cfg.auto_apply_patch:
-        repo_root_for_patch = _resolve_repo_root(
-            repo_root or task.task.repo_root or suite.suite.default_repo_root, suite_path=suite_path
-        )
         run_result.pytest_result = _run_patch_and_test(
-            run_result=run_result,
-            task=task,
-            repo_root=repo_root_for_patch,
+            run_result=run_result, task=task,
+            repo_root=_resolve_repo_root(repo_root or task.task.repo_root or suite.suite.default_repo_root, suite_path=suite_path),
             cfg=resolved_cfg,
         )
 
-    # Step 9: artifacts
     t_art = time.perf_counter()
     _write_artifacts(run_result=run_result, score=score)
     run_result.summary_metrics.artifact_write_latency_ms = int((time.perf_counter() - t_art) * 1000)
 
-    vs_calls = sum(1 for t in tool_traces if (t.tool_name or "").startswith("mcp__voltsnip__"))
-    native_calls = len(tool_traces) - vs_calls
-    LOGGER.info(
-        "run finish  run_id=%s  status=%s  latency_ms=%d  snippets=%d  vs_tools=%d  native_tools=%d  score=%s",
-        run_id, status, latency_ms, len(retrieved_snippets), vs_calls, native_calls,
-        f"{score.overall_score:.3f}" if score else "n/a",
-    )
+    vs_calls = sum(1 for t in tool_traces if vs_tool(t))
+    LOGGER.info("run finish  run_id=%s  status=%s  latency_ms=%d  snippets=%d  vs_tools=%d  native_tools=%d  score=%s",
+                run_id, status, latency_ms, len(retrieved_snippets), vs_calls, len(tool_traces) - vs_calls,
+                f"{score.overall_score:.3f}" if score else "n/a")
     return run_result
 
 
-# ---------------------------------------------------------------------------
-# Agent mode
-# ---------------------------------------------------------------------------
-
-
-def _run_agent(
-    *,
-    task: SuiteTask,
-    variant: VariantConfig,
-    model_name: str,
-    cfg: RunConfig,
-    provider_keys: dict[str, str],
-    voltsnip: VoltSnipClient | None,
-    seed_snippets: list[RetrievedSnippet],
-    target_file_content: str | None,
-    repo_policy: str,
-    repo_root: "Path | None" = None,
-    run_dir: str | None = None,
-) -> tuple[LLMResult, PromptBundle, PromptBundle, list[RetrievedSnippet], list[ToolTrace]]:
+def _run_agent(*, task: SuiteTask, variant: VariantConfig, model_name: str, cfg: RunConfig,
+               provider_keys: dict[str, str], voltsnip: VoltSnipClient | None,
+               seed_snippets: list[RetrievedSnippet], target_file_content: str | None,
+               repo_policy: str, repo_root: "Path | None" = None,
+               run_dir: str | None = None,
+               ) -> tuple[LLMResult, PromptBundle, PromptBundle, list[RetrievedSnippet], list[ToolTrace]]:
     snippets = _dedup_snippets(seed_snippets)
     tool_traces: list[ToolTrace] = []
     snippet_limit = cfg.snippet_context_limit or task.voltsnip.snippet_context_limit
     max_chars = cfg.snippet_context_max_chars or task.voltsnip.snippet_context_max_chars
     roundtrip_count = {"n": 0}
 
-    prompt_sent = build_prompt(
-        task=task, variant=variant, retrieved_snippets=snippets,
-        repo_policy_text=repo_policy, target_file_content=target_file_content,
-        voltsnip_base_url=cfg.voltsnip_base_url,
-    )
+    def _build_prompt_after():
+        return build_prompt(task=task, variant=variant, retrieved_snippets=snippets,
+                            repo_policy_text=repo_policy, target_file_content=target_file_content,
+                            voltsnip_base_url=cfg.voltsnip_base_url)
 
+    prompt_sent = _build_prompt_after()
     provider, model_id = _parse_provider(model_name)
 
-    # claudecode / codex: subprocess MCP tool loop — tool_traces parsed from stdout JSONL
     if provider in ("claudecode", "codex"):
         from vsevals.providers.claudecode import call_claudecode
         from vsevals.providers.codex import call_codex
         tools = voltsnip_tool_schemas() if variant.tools_enabled else None
-        # Strict guardrail: do not add hidden turn buffers beyond variant budget.
         turns = max(1, variant.max_tool_roundtrips)
         repo_root_str = str(repo_root) if repo_root else None
-        if provider == "claudecode":
-            llm_result = call_claudecode(
-                model_id=model_id, system_prompt=prompt_sent.system_prompt,
-                user_prompt=prompt_sent.user_prompt, cfg=cfg,
-                tool_schemas=tools, max_tool_turns=turns,
-                sidecar_files=prompt_sent.sidecar_files or None,
-                run_dir=run_dir,
-                repo_root=repo_root_str,
-            )
-        else:
-            llm_result = call_codex(
-                model_id=model_id, system_prompt=prompt_sent.system_prompt,
-                user_prompt=prompt_sent.user_prompt, cfg=cfg,
-                tool_schemas=tools, max_tool_turns=turns,
-                sidecar_files=prompt_sent.sidecar_files or None,
-                run_dir=run_dir,
-                repo_root=repo_root_str,
-            )
-        # Merge tool_traces parsed from the subprocess JSONL stdout
-        tool_traces.extend(llm_result.tool_traces)
-        # Back-fill retrieved_snippets from any fetch-by-keys calls in tool_traces
-        _merge_tool_snippets(tool_traces, snippets, voltsnip, cfg, task)
-        prompt_after = build_prompt(
-            task=task, variant=variant, retrieved_snippets=snippets,
-            repo_policy_text=repo_policy, target_file_content=target_file_content,
-            voltsnip_base_url=cfg.voltsnip_base_url,
+        call_fn = call_claudecode if provider == "claudecode" else call_codex
+        llm_result = call_fn(
+            model_id=model_id, system_prompt=prompt_sent.system_prompt,
+            user_prompt=prompt_sent.user_prompt, cfg=cfg,
+            tool_schemas=tools, max_tool_turns=turns,
+            sidecar_files=prompt_sent.sidecar_files or None,
+            run_dir=run_dir, repo_root=repo_root_str,
         )
-        return llm_result, prompt_sent, prompt_after, snippets, tool_traces
+        tool_traces.extend(llm_result.tool_traces)
+        _merge_tool_snippets(tool_traces, snippets, voltsnip, cfg, task)
+        return llm_result, prompt_sent, _build_prompt_after(), snippets, tool_traces
 
-    # openai: Responses API + native MCP (tool loop is server-side, no tool_handlers needed)
     if provider == "openai" and variant.tools_enabled:
         llm_result = call_llm(
-            model_name=model_name,
-            system_prompt=prompt_sent.system_prompt,
-            user_prompt=prompt_sent.user_prompt,
-            cfg=cfg,
-            provider_keys=provider_keys,
-            tool_schemas=voltsnip_tool_schemas(),  # signals MCP path
-            max_tool_turns=max(1, variant.max_tool_roundtrips),
+            model_name=model_name, system_prompt=prompt_sent.system_prompt,
+            user_prompt=prompt_sent.user_prompt, cfg=cfg, provider_keys=provider_keys,
+            tool_schemas=voltsnip_tool_schemas(), max_tool_turns=max(1, variant.max_tool_roundtrips),
             sidecar_files=prompt_sent.sidecar_files or None,
         )
-        prompt_after = build_prompt(task=task, variant=variant, retrieved_snippets=snippets, repo_policy_text=repo_policy, target_file_content=target_file_content, voltsnip_base_url=cfg.voltsnip_base_url)
-        return llm_result, prompt_sent, prompt_after, snippets, tool_traces
+        return llm_result, prompt_sent, _build_prompt_after(), snippets, tool_traces
 
-    # anthropic (and openai without tools): native SDK tool loop with Python-side handlers
     tool_schemas = voltsnip_tool_schemas() if variant.tools_enabled else None
     tool_handlers: dict[str, Callable[[dict], dict]] | None = None
 
     if variant.tools_enabled and voltsnip:
         def _fetch_handler(payload: dict) -> dict:
-            raw_keys = payload.get("canonical_keys") or []
-            keys = [k for k in raw_keys if isinstance(k, str) and k.strip()]
-            single_key = payload.get("key") or payload.get("canonical_key")
-            if isinstance(single_key, str) and single_key.strip():
-                keys.append(single_key)
-            keys = keys[:snippet_limit]
+            keys = [k for k in (payload.get("canonical_keys") or []) if isinstance(k, str) and k.strip()]
+            if single := (payload.get("key") or payload.get("canonical_key")):
+                if isinstance(single, str) and single.strip():
+                    keys.append(single)
             return _invoke_tool(
-                name="voltsnip.get_by_canonical_keys", args={"canonical_keys": keys},
+                name="voltsnip.get_by_canonical_keys", args={"canonical_keys": keys[:snippet_limit]},
                 voltsnip=voltsnip, snippets=snippets, tool_traces=tool_traces,
                 roundtrip_count=roundtrip_count, max_roundtrips=variant.max_tool_roundtrips,
-                fetch=lambda: voltsnip.get_by_canonical_keys(keys, limit=snippet_limit, max_chars=max_chars),
+                fetch=lambda: voltsnip.get_by_canonical_keys(keys[:snippet_limit], limit=snippet_limit, max_chars=max_chars),
             )
 
         def _search_handler(payload: dict) -> dict:
@@ -498,109 +281,65 @@ def _run_agent(
             )
 
         tool_handlers = {
-            "get_snippet_by_canonical_key": _fetch_handler,
-            "get_snippet_by_key": _fetch_handler,
-            "search_memory": _search_handler,
-            "search_snippets": _search_handler,
-            "voltsnip_fetch_by_canonical_keys": _fetch_handler,
-            "voltsnip_semantic_search": _search_handler,
+            "get_snippet_by_canonical_key": _fetch_handler, "get_snippet_by_key": _fetch_handler,
+            "search_memory": _search_handler, "search_snippets": _search_handler,
+            "voltsnip_fetch_by_canonical_keys": _fetch_handler, "voltsnip_semantic_search": _search_handler,
         }
 
     llm_result = call_llm(
-        model_name=model_name,
-        system_prompt=prompt_sent.system_prompt,
-        user_prompt=prompt_sent.user_prompt,
-        cfg=cfg,
-        provider_keys=provider_keys,
-        tool_schemas=tool_schemas,
-        tool_handlers=tool_handlers,
-        max_tool_turns=max(1, variant.max_tool_roundtrips),
-        sidecar_files=prompt_sent.sidecar_files or None,
+        model_name=model_name, system_prompt=prompt_sent.system_prompt,
+        user_prompt=prompt_sent.user_prompt, cfg=cfg, provider_keys=provider_keys,
+        tool_schemas=tool_schemas, tool_handlers=tool_handlers,
+        max_tool_turns=max(1, variant.max_tool_roundtrips), sidecar_files=prompt_sent.sidecar_files or None,
     )
-    prompt_after = build_prompt(task=task, variant=variant, retrieved_snippets=snippets, repo_policy_text=repo_policy, target_file_content=target_file_content, voltsnip_base_url=cfg.voltsnip_base_url)
-    return llm_result, prompt_sent, prompt_after, snippets, tool_traces
+    return llm_result, prompt_sent, _build_prompt_after(), snippets, tool_traces
 
 
-def _merge_tool_snippets(
-    tool_traces: list[ToolTrace],
-    snippets: list[RetrievedSnippet],
-    voltsnip: VoltSnipClient | None,
-    cfg: RunConfig,
-    task: SuiteTask,
-) -> None:
-    """Back-fill retrieved_snippets from tool_traces for claudecode/codex providers.
-
-    When claudecode or codex make MCP tool calls, the Python side never executes
-    the tool handlers — the subprocess does it directly. After the run we parse
-    tool_traces from stdout. This helper looks at the canonical_keys requested
-    in each fetch call and fetches them from VoltSnip so retrieved_snippets is
-    populated correctly for coverage/memory_signal metrics.
-    """
+def _merge_tool_snippets(tool_traces: list[ToolTrace], snippets: list[RetrievedSnippet],
+                         voltsnip: VoltSnipClient | None, cfg: RunConfig, task: SuiteTask) -> None:
     if not voltsnip or not tool_traces:
         return
-
     existing_keys = {s.canonical_key or s.id for s in snippets}
     limit = cfg.snippet_context_limit or task.voltsnip.snippet_context_limit
     max_chars = cfg.snippet_context_max_chars or task.voltsnip.snippet_context_max_chars
-
     keys_to_fetch: list[str] = []
     search_queries: list[str] = []
 
     for trace in tool_traces:
         tool_name = trace.tool_name or ""
         args = trace.tool_args or {}
-        if (
-            "fetch" in tool_name
-            or "canonical" in tool_name
-            or "get_snippet_by_canonical_key" in tool_name
-            or "get_snippet_by_key" in tool_name
-        ):
-            # Fetch-by-key calls: canonical_keys list or single-key args.
-            keys = args.get("canonical_keys") or []
-            if isinstance(args.get("canonical_key"), str):
-                keys = [*keys, args["canonical_key"]]
-            if isinstance(args.get("key"), str):
-                keys = [*keys, args["key"]]
+        if any(t in tool_name for t in ("fetch", "canonical", "get_snippet_by_canonical_key", "get_snippet_by_key")):
+            keys = list(args.get("canonical_keys") or [])
+            if isinstance(args.get("canonical_key"), str): keys.append(args["canonical_key"])
+            if isinstance(args.get("key"), str): keys.append(args["key"])
             for k in keys:
                 if isinstance(k, str) and k.strip() and k not in existing_keys:
                     keys_to_fetch.append(k)
                     existing_keys.add(k)
         elif "search" in tool_name:
-            # Search calls: back-fill via semantic search to populate retrieved_snippets
-            q = args.get("intent") or args.get("query") or ""
-            if q and isinstance(q, str):
-                search_queries.append(q)
+            if q := (args.get("intent") or args.get("query") or ""):
+                if isinstance(q, str):
+                    search_queries.append(q)
 
     if keys_to_fetch:
         try:
-            fetched = voltsnip.get_by_canonical_keys(keys_to_fetch, limit=limit, max_chars=max_chars)
-            snippets.extend(fetched)
+            snippets.extend(voltsnip.get_by_canonical_keys(keys_to_fetch, limit=limit, max_chars=max_chars))
         except Exception as exc:
             LOGGER.debug("_merge_tool_snippets fetch-by-key failed: %s", exc)
 
     for q in search_queries:
         try:
-            fetched = voltsnip.semantic_search(q=q, k=limit, max_chars=max_chars)
-            for s in fetched:
-                key = s.canonical_key or s.id
-                if key not in existing_keys:
+            for s in voltsnip.semantic_search(q=q, k=limit, max_chars=max_chars):
+                if (key := s.canonical_key or s.id) not in existing_keys:
                     snippets.append(s)
                     existing_keys.add(key)
         except Exception as exc:
             LOGGER.debug("_merge_tool_snippets search failed q=%r: %s", q, exc)
 
 
-def _invoke_tool(
-    *,
-    name: str,
-    args: dict,
-    voltsnip: VoltSnipClient,
-    snippets: list[RetrievedSnippet],
-    tool_traces: list[ToolTrace],
-    roundtrip_count: dict,
-    max_roundtrips: int,
-    fetch: Callable[[], list[RetrievedSnippet]],
-) -> dict:
+def _invoke_tool(*, name: str, args: dict, voltsnip: VoltSnipClient, snippets: list[RetrievedSnippet],
+                 tool_traces: list[ToolTrace], roundtrip_count: dict, max_roundtrips: int,
+                 fetch: Callable[[], list[RetrievedSnippet]]) -> dict:
     roundtrip_count["n"] += 1
     started = datetime.now(timezone.utc)
     t0 = time.perf_counter()
@@ -612,108 +351,53 @@ def _invoke_tool(
     else:
         try:
             new_snippets = fetch()
-            # Merge into shared snippets list in-place
             existing_keys = {s.canonical_key or s.id for s in snippets}
             for s in new_snippets:
-                key = s.canonical_key or s.id
-                if key not in existing_keys:
+                if (key := s.canonical_key or s.id) not in existing_keys:
                     snippets.append(s)
                     existing_keys.add(key)
         except Exception as exc:
             error = str(exc)
             LOGGER.debug("tool %s failed: %s", name, exc)
 
-    duration_ms = int((time.perf_counter() - t0) * 1000)
     tool_traces.append(ToolTrace(
-        roundtrip=roundtrip_count["n"],
-        tool_name=name,
-        tool_args=args,
+        roundtrip=roundtrip_count["n"], tool_name=name, tool_args=args,
         tool_result={"retrieved": len(new_snippets)} if not error else None,
-        error=error,
-        started_at=started,
-        finished_at=datetime.now(timezone.utc),
-        duration_ms=duration_ms,
+        error=error, started_at=started, finished_at=datetime.now(timezone.utc),
+        duration_ms=int((time.perf_counter() - t0) * 1000),
     ))
-
-    if error:
-        return {"error": error}
-    return {
-        "snippets": [
-            {"key": s.canonical_key or s.id, "title": s.title, "code": s.code}
-            for s in new_snippets
-        ]
+    return {"error": error} if error else {
+        "snippets": [{"key": s.canonical_key or s.id, "title": s.title, "code": s.code} for s in new_snippets]
     }
 
 
-# ---------------------------------------------------------------------------
-# Snippet retrieval (for P2: injected memory)
-# ---------------------------------------------------------------------------
-
-
-def _retrieve_snippets(
-    *,
-    task: SuiteTask,
-    variant: VariantConfig,
-    voltsnip: VoltSnipClient | None,
-    cfg: RunConfig,
-) -> list[RetrievedSnippet]:
-    """Pre-fetch snippets to inject into the prompt for P2 variants (oracle injection).
-
-    Uses the ground-truth canonical keys from ``task.voltsnip.required_snippets``
-    to fetch exactly the right snippets — this is the *oracle* baseline: "given perfect
-    context, does injecting it help?".
-
-    Semantic retrieval (realistic RAG) is a separate variant so both can be compared
-    in the paper (P2_sem will be added alongside P2 oracle variants).
-    """
-    if not voltsnip:
-        return []
-    keys: list[str] = list(task.voltsnip.required_snippets or [])
-    if not keys:
+def _retrieve_snippets(*, task: SuiteTask, variant: VariantConfig,
+                       voltsnip: VoltSnipClient | None, cfg: RunConfig) -> list[RetrievedSnippet]:
+    if not voltsnip or not (keys := list(task.voltsnip.required_snippets or [])):
         return []
     limit = cfg.snippet_context_limit or task.voltsnip.snippet_context_limit
     max_chars = cfg.snippet_context_max_chars or task.voltsnip.snippet_context_max_chars
     return voltsnip.get_by_canonical_keys(keys, limit=limit, max_chars=max_chars)
 
 
-# ---------------------------------------------------------------------------
-# Client / path helpers
-# ---------------------------------------------------------------------------
-
-
 def _make_client(variant: VariantConfig, cfg: RunConfig) -> VoltSnipClient | None:
     if not (variant.memory_enabled or variant.tools_enabled):
         return None
     base_url = cfg.voltsnip_base_url or os.environ.get("VOLTSNIP_BASE_URL") or DEFAULT_VOLTSNIP_BASE_URL
-    client = VoltSnipClient(
-        base_url=base_url,
-        timeout_seconds=cfg.voltsnip_timeout_seconds,
-        retry_attempts=cfg.voltsnip_retry_attempts,
-    )
+    client = VoltSnipClient(base_url=base_url, timeout_seconds=cfg.voltsnip_timeout_seconds,
+                            retry_attempts=cfg.voltsnip_retry_attempts)
     if not client.preflight_check():
         raise RuntimeError(f"VoltSnip preflight check failed. Cannot reach API at {base_url}")
     return client
 
 
 def _load_provider_keys(cfg: RunConfig) -> dict[str, str]:
-    keys: dict[str, str] = {}
     env_map = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
-    for provider, env_key in env_map.items():
-        val = os.environ.get(env_key)
-        if val:
-            keys[provider] = val
-    # Config-level keys override env vars
+    keys = {p: v for p, k in env_map.items() if (v := os.environ.get(k))}
     if cfg.api_key:
         keys["_override"] = cfg.api_key
     keys.update(cfg.provider_api_keys)
-    # Also load from .env if present
-    keys.update(_load_dotenv_keys())
-    return keys
-
-
-def _load_dotenv_keys() -> dict[str, str]:
-    env_map = {"OPENAI_API_KEY": "openai", "ANTHROPIC_API_KEY": "anthropic"}
-    result: dict[str, str] = {}
+    dotenv_map = {v: k for k, v in env_map.items()}
     for candidate in (Path.cwd() / ".env", Path.cwd() / "vsevals" / ".env"):
         if not candidate.exists():
             continue
@@ -721,12 +405,12 @@ def _load_dotenv_keys() -> dict[str, str]:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
-            key, value = line.split("=", 1)
-            key, value = key.strip(), value.strip().strip("\"'")
-            if key in env_map and value:
-                result[env_map[key]] = value
+            k, v = line.split("=", 1)
+            k, v = k.strip(), v.strip().strip("\"'")
+            if k in dotenv_map and v:
+                keys[dotenv_map[k]] = v
         break
-    return result
+    return keys
 
 
 def _resolve_repo_root(repo_root: str | None, *, suite_path: str) -> Path | None:
@@ -735,12 +419,9 @@ def _resolve_repo_root(repo_root: str | None, *, suite_path: str) -> Path | None
     candidate = Path(repo_root).expanduser()
     if candidate.is_absolute():
         return candidate.resolve()
-    cwd_try = (Path.cwd() / candidate).resolve()
-    if cwd_try.exists():
+    if (cwd_try := (Path.cwd() / candidate).resolve()).exists():
         return cwd_try
-    suite_dir = Path(suite_path).expanduser().resolve().parent
-    suite_try = (suite_dir / candidate).resolve()
-    return suite_try
+    return (Path(suite_path).expanduser().resolve().parent / candidate).resolve()
 
 
 def _read_target_file(*, repo_root: Path | None, target_file: str | None, suite_path: str) -> str | None:
@@ -760,24 +441,11 @@ def _parse_provider(model_name: str) -> tuple[str, str]:
     return provider.strip().lower(), model_id.strip()
 
 
-def _container_file_path(*, workdir: str, target_file: str) -> str:
-    """Compute the absolute container path for the target file.
-
-    workdir is the container working directory (e.g. /workspace).
-    target_file is relative to repo_root (e.g. orgops/http/retry_policy.py).
-    """
-    target = Path(target_file)
-    if target.is_absolute():
-        return str(target)
-    return workdir.rstrip("/") + "/" + str(target)
-
-
 def _dedup_snippets(snippets: list[RetrievedSnippet]) -> list[RetrievedSnippet]:
     seen: set[str] = set()
-    result: list[RetrievedSnippet] = []
+    result = []
     for s in snippets:
-        key = s.canonical_key or s.id
-        if key not in seen:
+        if (key := s.canonical_key or s.id) not in seen:
             seen.add(key)
             result.append(s)
     return result
@@ -786,198 +454,88 @@ def _dedup_snippets(snippets: list[RetrievedSnippet]) -> list[RetrievedSnippet]:
 def _empty_llm_result() -> LLMResult:
     return LLMResult(
         raw_output="", parsed_output=GeneratedPayload(code="", comments=""),
-        token_usage=TokenUsage(),
-        structured_output_attempted=False, structured_output_succeeded=False, fallback_parser_used=False,
-        request_started_at=None, request_finished_at=None, request_latency_ms=None,
-        request_id=None, finish_reason=None,
+        token_usage=TokenUsage(), structured_output_attempted=False,
+        structured_output_succeeded=False, fallback_parser_used=False,
+        request_started_at=None, request_finished_at=None,
+        request_latency_ms=None, request_id=None, finish_reason=None,
     )
 
 
-# ---------------------------------------------------------------------------
-# Patch + Docker pytest
-# ---------------------------------------------------------------------------
-
-
-def _run_patch_and_test(
-    *,
-    run_result: RunResult,
-    task: SuiteTask,
-    repo_root: Path | None,
-    cfg: RunConfig,
-) -> PytestResult:
-    """Overlay the patched file onto a full repo copy, mount it, run pytest, teardown.
-
-    Steps:
-      1. Validate prerequisites.
-      2. Apply line-range rewrite → patched_content (full file).
-      3. materialize_overlay() — copy full repo to temp dir.
-      4. apply_rewrite()       — write patched file into the overlay.
-      5. start_test_container() — docker run -d -v overlay:/workspace image sleep <n>
-      6. run_pytest_in_docker() — docker exec pytest (project + tests already present)
-      7. stop_test_container() + cleanup_overlay() — always in finally
-    """
+def _run_patch_and_test(*, run_result: RunResult, task: SuiteTask,
+                        repo_root: Path | None, cfg: RunConfig) -> PytestResult:
     target_file = task.task.target_file
     test_command = task.task.test_command
-
     if not repo_root:
         return PytestResult(ran=False, error="no repo_root configured for task — cannot run pytest")
     if not target_file:
         return PytestResult(ran=False, error="no target_file configured for task — cannot apply patch")
     if not test_command:
         return PytestResult(ran=False, error="no test_command configured for task — nothing to run")
-
-    code = run_result.parsed_output.code
-    if not code.strip():
+    if not (code := run_result.parsed_output.code).strip():
         return PytestResult(ran=False, error="generated code is empty — skipping pytest")
 
-    original_path = (Path(repo_root) / target_file).resolve()
     try:
         patched_content = apply_line_range_rewrite(
-            code=code,
-            original_path=original_path,
-            line_start=task.task.line_start,
-            line_end=task.task.line_end,
+            code=code, original_path=(Path(repo_root) / target_file).resolve(),
+            line_start=task.task.line_start, line_end=task.task.line_end,
         )
     except Exception as exc:
         return PytestResult(ran=False, error=f"could not produce patched file: {exc}")
 
-    # Also write patched file to run artifacts for inspection.
     patched_host_path = Path(run_result.artifacts.run_dir) / ("patched_" + Path(target_file).name)
     patched_host_path.write_text(patched_content, encoding="utf-8")
-
     LOGGER.info("patch+test  task=%s  target=%s", task.id, target_file)
 
     overlay_root: Path | None = None
     container: str | None = None
     try:
-        # Build isolated overlay: full repo copy + patch applied.
         overlay_root = Path(tempfile.mkdtemp(prefix="vsevals_overlay_"))
         materialize_overlay(repo_root=Path(repo_root), overlay_root=overlay_root)
-        # Copy pre-built .venv into overlay so pytest runs offline inside Docker
-        # (the container has --network none; uv run would try to fetch from PyPI).
-        repo_venv = Path(repo_root) / ".venv"
-        if repo_venv.is_dir():
+        if (repo_venv := Path(repo_root) / ".venv").is_dir():
             shutil.copytree(str(repo_venv), str(overlay_root / ".venv"), symlinks=True)
-        apply_rewrite(
-            code=patched_content,
-            target_file=target_file,
-            repo_root=Path(repo_root),
-            overlay_root=overlay_root,
-        )
-
+        apply_rewrite(code=patched_content, target_file=target_file,
+                      repo_root=Path(repo_root), overlay_root=overlay_root)
         try:
-            container = start_test_container(
-                image=cfg.pytest_docker_image,
-                workdir=cfg.pytest_docker_workdir,
-                timeout_seconds=cfg.pytest_timeout_seconds,
-                host_workdir=str(overlay_root),
-            )
+            container = start_test_container(image=cfg.pytest_docker_image, workdir=cfg.pytest_docker_workdir,
+                                             timeout_seconds=cfg.pytest_timeout_seconds, host_workdir=str(overlay_root))
         except FileNotFoundError:
             return PytestResult(ran=False, error="docker not found — is Docker installed and running?")
         except RuntimeError as exc:
             return PytestResult(ran=False, error=str(exc))
-
-        return run_pytest_in_docker(
-            container_name=container,
-            test_command=test_command,
-            cfg=cfg,
-        )
-
+        return run_pytest_in_docker(container_name=container, test_command=test_command, cfg=cfg)
     except Exception as exc:
         LOGGER.exception("patch+test failed  task=%s", task.id)
         return PytestResult(ran=False, error=str(exc))
-
     finally:
-        if container:
-            stop_test_container(container)
-        if overlay_root:
-            cleanup_overlay(overlay_root)
-
-
-# ---------------------------------------------------------------------------
-# Artifact writing
-# ---------------------------------------------------------------------------
+        if container: stop_test_container(container)
+        if overlay_root: cleanup_overlay(overlay_root)
 
 
 def _classify_error(exc: Exception) -> str:
-    """Map an exception to a coarse error class string for filtering/analysis.
-
-    Classes (ordered by specificity):
-      AUTH_ERROR         — API key missing, 401/403 from provider
-      RATE_LIMIT_ERROR   — 429 / quota exceeded
-      TIMEOUT            — subprocess / request timeout
-      NETWORK_ERROR      — connection refused, DNS, SSL
-      LLM_PARSE_ERROR    — model output could not be parsed
-      RETRIEVAL_ERROR    — VoltSnip client failure
-      SCORING_ERROR      — judge call / scorer failed
-      CONFIG_ERROR       — bad task/variant config (ValueError during setup)
-      EMPTY_OUTPUT       — model returned empty/trivial output
-      UNKNOWN_ERROR      — anything else
-    """
     msg = str(exc).lower()
     name = type(exc).__name__.lower()
-
-    # Auth
-    if any(t in msg for t in ("api key", "apikey", "unauthorized", "invalid api", "authentication", "403", "401")):
-        return "AUTH_ERROR"
-    if "api_key" in name or "autherror" in name:
-        return "AUTH_ERROR"
-
-    # Rate limit
-    if any(t in msg for t in ("rate limit", "ratelimit", "quota", "too many requests", "429")):
-        return "RATE_LIMIT_ERROR"
-
-    # Timeout
-    if "timeout" in name or "timeout" in msg or "timed out" in msg:
-        return "TIMEOUT"
-
-    # Network
-    if any(t in msg for t in ("connection refused", "connection error", "name resolution", "ssl", "network", "unreachable", "eof")):
-        return "NETWORK_ERROR"
-    if any(t in name for t in ("connectionerror", "networkerror", "sslerror")):
-        return "NETWORK_ERROR"
-
-    # Parse
-    if any(t in msg for t in ("non-json output", "failed to parse", "parse", "json")):
-        return "LLM_PARSE_ERROR"
-
-    # Retrieval / VoltSnip
-    if any(t in msg for t in ("voltsnip", "retrieval", "get_by_canonical", "semantic_search")):
-        return "RETRIEVAL_ERROR"
-
-    # Config
-    if any(t in msg for t in ("unknown task", "unknown variant", "unknown model")):
-        return "CONFIG_ERROR"
-    if isinstance(exc, (ValueError, KeyError)) and any(t in msg for t in ("not found", "missing")):
-        return "CONFIG_ERROR"
-
-    # Empty output
-    if any(t in msg for t in ("empty", "no output", "empty code")):
-        return "EMPTY_OUTPUT"
-
+    checks = [
+        ("AUTH_ERROR",        lambda: any(t in msg for t in ("api key", "apikey", "unauthorized", "invalid api", "authentication", "403", "401")) or any(t in name for t in ("api_key", "autherror"))),
+        ("RATE_LIMIT_ERROR",  lambda: any(t in msg for t in ("rate limit", "ratelimit", "quota", "too many requests", "429"))),
+        ("TIMEOUT",           lambda: "timeout" in name or "timeout" in msg or "timed out" in msg),
+        ("NETWORK_ERROR",     lambda: any(t in msg for t in ("connection refused", "connection error", "name resolution", "ssl", "network", "unreachable", "eof")) or any(t in name for t in ("connectionerror", "networkerror", "sslerror"))),
+        ("LLM_PARSE_ERROR",   lambda: any(t in msg for t in ("non-json output", "failed to parse", "parse", "json"))),
+        ("RETRIEVAL_ERROR",   lambda: any(t in msg for t in ("voltsnip", "retrieval", "get_by_canonical", "semantic_search"))),
+        ("CONFIG_ERROR",      lambda: any(t in msg for t in ("unknown task", "unknown variant", "unknown model")) or (isinstance(exc, (ValueError, KeyError)) and any(t in msg for t in ("not found", "missing")))),
+        ("EMPTY_OUTPUT",      lambda: any(t in msg for t in ("empty", "no output", "empty code"))),
+    ]
+    for class_name, check in checks:
+        if check():
+            return class_name
     return "UNKNOWN_ERROR"
 
 
 def _write_raw_llm_artifacts(*, llm_result: LLMResult, run_dir: str, provider: str = "") -> None:
-    """Write raw subprocess / API response artifacts immediately after the LLM call.
-
-    Written before scoring and pytest so these files survive even if later
-    pipeline stages fail.  Files only created when content is non-empty.
-
-    Produced files (provider-dependent):
-      subprocess.stdout.{provider}.jsonl  — full JSONL event stream from claudecode/codex
-      subprocess.stderr.{provider}.txt    — stderr from claudecode/codex subprocess
-      llm_response.{provider}.json        — raw API response JSON from openai/anthropic
-    """
     rd = Path(run_dir)
     p = f".{provider}" if provider else ""
     stdout = getattr(llm_result, "subprocess_stdout", "") or ""
     stderr = getattr(llm_result, "subprocess_stderr", "") or ""
     api_raw = getattr(llm_result, "api_response_raw", "") or ""
-
-    # Skip if already written by the provider immediately after subprocess.run()
-    # to avoid overwriting with identical content (or worse, with empty content
-    # from an _empty_llm_result() on error paths).
     stdout_file = rd / f"subprocess.stdout{p}.jsonl"
     stderr_file = rd / f"subprocess.stderr{p}.txt"
     if stdout and not stdout_file.exists():
@@ -992,16 +550,11 @@ def _make_artifact_paths(*, output_root: str, task_id: str, variant_id: str, mod
     root = Path(output_root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-
-    def sanitize(s: str) -> str:
-        return re.sub(r"[^a-zA-Z0-9._-]+", "_", s.strip().lower()).strip("._") or "item"
-
-    token = "__".join([stamp, sanitize(task_id), sanitize(variant_id), sanitize(model_name)])
-    run_dir = root / token
+    sanitize = lambda s: re.sub(r"[^a-zA-Z0-9._-]+", "_", s.strip().lower()).strip("._") or "item"
+    run_dir = root / "__".join([stamp, sanitize(task_id), sanitize(variant_id), sanitize(model_name)])
     run_dir.mkdir(parents=True, exist_ok=True)
     return RunArtifactPaths(
-        run_dir=str(run_dir),
-        full_dump_json=str(run_dir / "full_dump.json"),
+        run_dir=str(run_dir), full_dump_json=str(run_dir / "full_dump.json"),
         summary_dump_json=str(run_dir / "summary_dump.json"),
         code_output=str(run_dir / "generated_code.txt"),
         comments_output=str(run_dir / "generated_comments.txt"),
@@ -1010,62 +563,39 @@ def _make_artifact_paths(*, output_root: str, task_id: str, variant_id: str, mod
 
 def _write_artifacts(*, run_result: RunResult, score: ScoreResult | None) -> None:
     Path(run_result.artifacts.full_dump_json).write_text(
-        json.dumps(run_result.model_dump(mode="json"), indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+        json.dumps(run_result.model_dump(mode="json"), indent=2, ensure_ascii=False), encoding="utf-8")
     summary = {
-        "run_id": run_result.run_id,
-        "task_id": run_result.task_id,
-        "task_name": run_result.task_name,
-        "variant_id": run_result.variant_id,
-        "model_name": run_result.model_name,
-        "status": run_result.status,
+        "run_id": run_result.run_id, "task_id": run_result.task_id, "task_name": run_result.task_name,
+        "variant_id": run_result.variant_id, "model_name": run_result.model_name, "status": run_result.status,
         "metrics": run_result.summary_metrics.model_dump(mode="json"),
         "score": score.model_dump(mode="json") if score else None,
         "pytest_result": run_result.pytest_result.model_dump(mode="json") if run_result.pytest_result else None,
         "error": run_result.error.model_dump(mode="json") if run_result.error else None,
     }
     Path(run_result.artifacts.summary_dump_json).write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     Path(run_result.artifacts.code_output).write_text(run_result.parsed_output.code, encoding="utf-8")
     Path(run_result.artifacts.comments_output).write_text(run_result.parsed_output.comments, encoding="utf-8")
 
-    # Standalone prompt file — convenient for offline replay / re-scoring without
-    # parsing the full full_dump.json.
     run_dir = Path(run_result.artifacts.run_dir)
-    prompt_data: dict = {
-        "system": run_result.prompt.system_prompt,
-        "user": run_result.prompt.user_prompt,
-        "context_surface": run_result.prompt.context_surface,
-    }
+    prompt_data: dict = {"system": run_result.prompt.system_prompt, "user": run_result.prompt.user_prompt,
+                         "context_surface": run_result.prompt.context_surface}
     if run_result.prompt_after_tools:
         prompt_data["system_after_tools"] = run_result.prompt_after_tools.system_prompt
         prompt_data["user_after_tools"] = run_result.prompt_after_tools.user_prompt
-    (run_dir / "prompt.json").write_text(
-        json.dumps(prompt_data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    (run_dir / "prompt.json").write_text(json.dumps(prompt_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # Standalone score artifact — lets rescore/analysis tools read scores without
-    # parsing the full full_dump.json. Contains the complete ScoreResult.
     if score:
         (run_dir / "score_result.json").write_text(
-            json.dumps(score.model_dump(mode="json"), indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+            json.dumps(score.model_dump(mode="json"), indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # Pytest stdout/stderr as separate files (mirrors old harness layout)
     if run_result.pytest_result and run_result.pytest_result.ran:
         (run_dir / "pytest.stdout.txt").write_text(run_result.pytest_result.stdout, encoding="utf-8")
         (run_dir / "pytest.stderr.txt").write_text(run_result.pytest_result.stderr, encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# CLI entry point (called by `vseval` script)
-# ---------------------------------------------------------------------------
-
-
 def main() -> None:
     import argparse
-
     parser = argparse.ArgumentParser(description="Run a single vsevals cell")
     parser.add_argument("--task", required=True)
     parser.add_argument("--variant", default="P0")
@@ -1074,10 +604,9 @@ def main() -> None:
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--repo-root", default=None)
     parser.add_argument("--judge-model", default="openai:gpt-5-mini")
-    parser.add_argument("--judge-model-claudecode", action="store_true", help="Use claudecode for judge model")
+    parser.add_argument("--judge-model-claudecode", action="store_true")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
     args = parser.parse_args()
-
     logging.basicConfig(level=getattr(logging, args.log_level), format="%(levelname)s %(name)s %(message)s")
 
     judge_model = args.judge_model
@@ -1085,16 +614,9 @@ def main() -> None:
         _, model_id = args.model.split(":", 1) if ":" in args.model else ("openai", args.model)
         judge_model = f"claudecode:{model_id}"
 
-    cfg = RunConfig(scoring_judge_model=judge_model)
-    result = run_one(
-        task_id=args.task,
-        variant_id=args.variant,
-        model_name=args.model,
-        suite_path=args.suite,
-        output_dir=args.output_dir,
-        repo_root=args.repo_root,
-        cfg=cfg,
-    )
+    result = run_one(task_id=args.task, variant_id=args.variant, model_name=args.model,
+                     suite_path=args.suite, output_dir=args.output_dir, repo_root=args.repo_root,
+                     cfg=RunConfig(scoring_judge_model=judge_model))
     print(f"run_id:  {result.run_id}")
     print(f"status:  {result.status}")
     if result.score:

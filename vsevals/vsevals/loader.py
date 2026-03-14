@@ -1,10 +1,4 @@
-"""Suite and task YAML loader.
-
-Usage:
-    suite = load_suite("path/to/suite.yaml")
-    task   = suite.task_map["BUG01"]
-    variant = suite.variant_map["P0"]
-"""
+"""Suite and task YAML loader."""
 
 from __future__ import annotations
 
@@ -13,35 +7,20 @@ from pathlib import Path
 
 import yaml
 
-LOGGER = logging.getLogger(__name__)
-
 from vsevals.models import SuiteConfig
+
+LOGGER = logging.getLogger(__name__)
 
 
 def load_suite(path: str | Path) -> SuiteConfig:
-    """Load and validate a suite YAML file.
-
-    Supports both inline tasks and task_files references.
-    Applies default_repo_root from suite metadata to tasks that don't set one.
-    """
     suite_path = Path(path).expanduser().resolve()
     raw = yaml.safe_load(suite_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError(f"suite YAML must be a mapping: {suite_path}")
-
     combined = _inline_tasks(raw) + _file_tasks(raw, suite_path)
-    combined = _apply_repo_root_default(raw, suite_path, combined)
-    raw["tasks"] = combined
-
-    # Inject pytest docker config from usecase.yaml into suite meta
+    raw["tasks"] = _apply_repo_root_default(raw, suite_path, combined)
     _inject_usecase_docker_config(raw, suite_path)
-
     return SuiteConfig.model_validate(raw)
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _inline_tasks(raw: dict) -> list:
@@ -59,7 +38,6 @@ def _file_tasks(raw: dict, suite_path: Path) -> list:
         return []
     if not isinstance(task_files, list):
         raise ValueError("task_files must be a list")
-
     tasks: list = []
     for entry in task_files:
         if not isinstance(entry, str) or not entry.strip():
@@ -78,11 +56,9 @@ def _file_tasks(raw: dict, suite_path: Path) -> list:
 
 
 def _apply_repo_root_default(raw: dict, suite_path: Path, tasks: list) -> list:
-    """Inject default_repo_root into tasks that don't already set repo_root."""
     default_root = _resolve_default_repo_root(raw, suite_path)
     if default_root is None:
         return tasks
-
     result: list = []
     for item in tasks:
         if isinstance(item, dict) and isinstance(item.get("task"), dict):
@@ -97,22 +73,18 @@ def _resolve_default_repo_root(raw: dict, suite_path: Path) -> str | None:
     suite_meta = raw.get("suite")
     if not isinstance(suite_meta, dict):
         return None
-
     direct = _as_str(suite_meta.get("default_repo_root"))
     if direct:
         return _norm_path(direct, suite_path, suite_path.parent)
-
     manifest_val = _as_str(suite_meta.get("usecase_manifest"))
     if not manifest_val:
         return None
-
     manifest_path = (suite_path.parent / manifest_val).expanduser().resolve()
     if not manifest_path.exists():
         raise ValueError(f"usecase_manifest not found: {manifest_path}")
     payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         return None
-
     usecase = payload.get("usecase")
     if isinstance(usecase, dict):
         repo_root = _as_str(usecase.get("repo_root"))
@@ -152,11 +124,6 @@ def _git_root(start: Path) -> Path | None:
 
 
 def _inject_usecase_docker_config(raw: dict, suite_path: Path) -> None:
-    """Read pytest_docker_image and pytest_docker_workdir from usecase.yaml.
-
-    Writes them into raw["suite"] so SuiteMeta carries them.
-    Only fills in fields not already present in raw["suite"].
-    """
     suite_meta = raw.get("suite")
     if not isinstance(suite_meta, dict):
         return

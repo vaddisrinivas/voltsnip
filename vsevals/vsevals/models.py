@@ -1,24 +1,4 @@
-"""Core data models for the vsevals harness.
-
-Hierarchy (top-down):
-  SuiteConfig           — loaded from suite YAML; contains variants + tasks
-    VariantConfig       — P0-P6 execution strategy
-    SuiteTask
-      TaskVisible       — task prompt, target file, line range
-      TaskVoltsnipConfig — snippet keys, limits
-      TaskOracle        — scoring criteria (constraints, hidden_requirements …)
-
-Execution:
-  RunResult             — full output of a single run_one() call
-    PromptBundle        — assembled system + user prompts
-    RetrievedSnippet    — snippets fetched from VoltSnip
-    ToolTrace           — per-roundtrip tool call record
-    TokenUsage / TimingInfo / RunArtifactPaths
-
-Scoring:
-  ScoreResult           — final score (constraint binary or legacy weighted)
-    ScoreDimension      — per-dimension matched/total/score
-"""
+"""Core data models for the vsevals harness."""
 
 from __future__ import annotations
 
@@ -31,34 +11,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 LOGGER = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Suite configuration
-# ---------------------------------------------------------------------------
-
-
 class SuiteMeta(BaseModel):
     version: str
     description: str | None = None
     usecase_id: str | None = None
     usecase_manifest: str | None = None
     default_repo_root: str | None = None
-    # Populated by loader from usecase.yaml when present
     pytest_docker_image: str | None = None
     pytest_docker_workdir: str | None = None
 
 
 class VariantConfig(BaseModel):
-    """Execution strategy for one hypothesis (P0–P6).
-
-    P0   direct / no memory / no tools                         — baseline
-    P1   direct / no memory / no tools + explicit instruction  — stronger baseline
-    P2   agent  / pre-fetched memory injected in system prompt — no tools
-    P3   agent  / tools_only surface                           — zero-guidance retrieval
-    P4   agent  / skills_md_no_keys + tools                    — workflow guidance, no key hints
-    P5   agent  / agents_md_no_keys + tools                    — agent workflow guidance, no key hints
-    P6   agent  / skills_agents_md_no_keys + tools             — combined guides, no key hints
-    """
-
     model_config = ConfigDict(extra="allow")
 
     id: str = Field(..., min_length=1)
@@ -83,8 +46,6 @@ class VariantConfig(BaseModel):
 
 
 class TaskVisible(BaseModel):
-    """What the model sees about the task."""
-
     model_config = ConfigDict(extra="allow")
 
     id: str = Field(..., min_length=1)
@@ -111,8 +72,6 @@ class TaskVisible(BaseModel):
 
 
 class TaskVoltsnipConfig(BaseModel):
-    """Snippet retrieval settings for a task."""
-
     required_snippets: list[str] = Field(default_factory=list)
     snippet_context_limit: int = Field(default=6, ge=1, le=50)
     snippet_context_max_chars: int = Field(default=8000, ge=100, le=100000)
@@ -126,16 +85,10 @@ class SuccessIndicators(BaseModel):
     memory_usage: list[str] = Field(default_factory=list)
 
     def as_lines(self) -> list[str]:
-        rows: list[str] = []
-        for key, values in self.model_dump(mode="python").items():
-            for value in values:
-                rows.append(f"{key}: {value}")
-        return rows
+        return [f"{k}: {v}" for k, vals in self.model_dump(mode="python").items() for v in vals]
 
 
 class OracleConstraint(BaseModel):
-    """A single binary pass/fail constraint evaluated by LLM judge."""
-
     id: str = Field(..., min_length=1)
     voltsnip_key: str | None = None
     check: str = Field(..., min_length=1)
@@ -163,12 +116,10 @@ class SuiteTask(BaseModel):
 
 
 class SuiteConfig(BaseModel):
-    """Fully parsed suite YAML.  task_map and variant_map are computed properties."""
-
     model_config = ConfigDict(extra="allow")
 
     suite: SuiteMeta
-    models: list[dict]  # kept loose; caller checks names
+    models: list[dict]
     variants: list[VariantConfig]
     tasks: list[SuiteTask] = Field(default_factory=list)
     task_files: list[str] = Field(default_factory=list)
@@ -208,11 +159,6 @@ class SuiteConfig(BaseModel):
         return [str(r.get("name", "")) for r in self.models]
 
 
-# ---------------------------------------------------------------------------
-# Prompt / execution
-# ---------------------------------------------------------------------------
-
-
 class RetrievedSnippet(BaseModel):
     id: str
     canonical_key: str | None = None
@@ -224,17 +170,12 @@ class RetrievedSnippet(BaseModel):
 
 
 class PromptBundle(BaseModel):
-    """Assembled prompt sent to the model."""
-
     system_prompt: str
     user_prompt: str
     context_surface: Literal["system", "user", "tools_only", "skills_md_no_keys", "agents_md_no_keys", "skills_agents_md_no_keys"]
     visible_sections: list[str] = Field(default_factory=list)
     injected_snippet_keys: list[str] = Field(default_factory=list)
     injected_repo_policy: bool = False
-    # Files to write into the subprocess working directory so claudecode / codex can
-    # auto-load them from cwd (CLAUDE.md for claude, AGENTS.md for codex, SKILL.md for skills).
-    # Populated for no-key sidecar surfaces.
     sidecar_files: dict[str, str] = Field(default_factory=dict)
 
 
@@ -242,16 +183,8 @@ class TokenUsage(BaseModel):
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
-    # Server-side prompt cache hits (OpenAI: prompt_tokens_details.cached_tokens;
-    # Anthropic: usage.cache_read_input_tokens). 0 = no cache hit or not supported.
     cached_tokens: int = 0
-    # Reasoning / extended-thinking tokens.
-    # OpenAI o-series / gpt-5 with reasoning: usage.completion_tokens_details.reasoning_tokens.
-    # Anthropic extended thinking: usage.thinking_tokens (if exposed by SDK).
-    # Subprocess providers (claudecode/codex): extracted from JSONL event stream.
     thinking_tokens: int | None = None
-    # Estimated cost in USD computed from the per-model pricing table in dispatch.py.
-    # None = model not in pricing table (unknown cost).
     cost_usd: float | None = None
 
 
@@ -290,25 +223,22 @@ class SummaryMetrics(BaseModel):
     latency_ms: int
     prompt_chars: int
     output_chars: int
-    # Prompt breakdown (populated by runner)
     prompt_system_chars: int = 0
     prompt_user_chars: int = 0
-    # Total chars of all snippets injected into the prompt
     snippet_injected_chars: int = 0
     model_provider: str | None = None
     model_id: str | None = None
     snippet_count: int = 0
-    tool_call_count: int = 0           # all tool calls (VoltSnip MCP + native claudecode)
-    voltsnip_tool_call_count: int = 0  # only mcp__voltsnip__* calls — research signal
-    native_tool_call_count: int = 0    # claudecode built-ins (Read/Glob/Bash) — noise
+    tool_call_count: int = 0
+    voltsnip_tool_call_count: int = 0
+    native_tool_call_count: int = 0
     tool_error_count: int = 0
     used_tools: bool = False
-    used_voltsnip_tools: bool = False  # True iff any mcp__voltsnip__* call was made
+    used_voltsnip_tools: bool = False
     structured_output_attempted: bool = False
     structured_output_succeeded: bool = False
     fallback_parser_used: bool = False
     retrieval_latency_ms: int | None = None
-    # VoltSnip client retry telemetry (per run)
     voltsnip_retry_count: int = 0
     voltsnip_rate_limit_count: int = 0
     voltsnip_timeout_count: int = 0
@@ -332,20 +262,10 @@ class GeneratedPayload(BaseModel):
 class RunError(BaseModel):
     type: str
     message: str
-    # Coarse class for filtering/grouping in analysis
-    # Values: AUTH_ERROR, RATE_LIMIT_ERROR, TIMEOUT, NETWORK_ERROR, LLM_PARSE_ERROR,
-    #         RETRIEVAL_ERROR, SCORING_ERROR, CONFIG_ERROR, EMPTY_OUTPUT, UNKNOWN_ERROR
     error_class: str = "UNKNOWN_ERROR"
 
 
-# ---------------------------------------------------------------------------
-# Pytest execution
-# ---------------------------------------------------------------------------
-
-
 class PytestResult(BaseModel):
-    """Result of running the generated code against the project's test suite."""
-
     ran: bool = False
     returncode: int | None = None
     passed: bool = False
@@ -354,12 +274,7 @@ class PytestResult(BaseModel):
     duration_ms: int | None = None
     error: str | None = None
     docker_image: str | None = None
-    patched_file: str | None = None  # host path to the patched file that was injected
-
-
-# ---------------------------------------------------------------------------
-# Scoring
-# ---------------------------------------------------------------------------
+    patched_file: str | None = None
 
 
 class ScoreDimension(BaseModel):
@@ -382,18 +297,10 @@ class ScoreResult(BaseModel):
     constraint_checks_passed: int | None = None
     constraint_checks_total: int | None = None
     constraint_pass_threshold: float | None = None
-    # Per-constraint detail: [{id, passed, lexical_hit, llm_verdict}]
     constraint_results: list[dict] = Field(default_factory=list)
-    # Audit trail: exact payload sent to judge and raw response received.
-    # Stored so readers can independently verify the prompt that produced each verdict.
-    judge_payload: dict | None = None      # {"instructions": str, "user_json": str}
-    judge_raw_response: str | None = None  # raw text from judge API
+    judge_payload: dict | None = None
+    judge_raw_response: str | None = None
     passed: bool
-
-
-# ---------------------------------------------------------------------------
-# Run result
-# ---------------------------------------------------------------------------
 
 
 class RunResult(BaseModel):
@@ -405,7 +312,6 @@ class RunResult(BaseModel):
     variant_id: str
     model_name: str
     status: Literal["ok", "error"]
-    # Variant metadata — populated at run time for downstream analysis
     variant_mode: str = "direct"
     variant_memory_enabled: bool = False
     variant_tools_enabled: bool = False
@@ -413,12 +319,10 @@ class RunResult(BaseModel):
     variant_instruction_mode: str = "none"
     variant_context_surface: str = "system"
     variant_max_tool_roundtrips: int = 4
-    # Task metadata — for grouping and filtering
     task_category: str | None = None
     task_difficulty: str | None = None
     task_line_start: int | None = None
     task_line_end: int | None = None
-    # Required snippet keys from task definition — for snippet coverage tracking
     required_snippet_keys: list[str] = Field(default_factory=list)
     prompt: PromptBundle
     prompt_after_tools: PromptBundle | None = None
@@ -436,119 +340,67 @@ class RunResult(BaseModel):
     error: RunError | None = None
 
 
-# ---------------------------------------------------------------------------
-# Run-time configuration (overrides passed to run_one)
-# ---------------------------------------------------------------------------
-
-
 class RunConfig(BaseModel):
-    """Everything you can tune per-run without touching the suite YAML."""
-
     model_config = ConfigDict(extra="allow")
 
-    # LLM
     temperature: float = 0.0
     max_tokens: int | None = Field(default=None, ge=1)
     structured_output: bool = True
-    # Reasoning effort — controls reasoning depth across providers:
-    #   openai      → reasoning_effort API param ("low" | "medium" | "high")
-    #   anthropic   → extended thinking budget_tokens (low=1024 / medium=5000 / high=16000)
-    #                 forces temperature=1 as required by the API
-    #   codex CLI   → -c model_reasoning_effort=<value> (overrides ~/.codex/config.toml)
-    #   claudecode  → --effort <value> (low | medium | high | max)
-    # None = use provider default (no override sent).
     reasoning_effort: str | None = None
-    # "native_sdk" uses openai/anthropic SDK directly; claudecode uses subprocess
     llm_runtime: Literal["native_sdk", "auto"] = "native_sdk"
-
-    # Auth — explicit keys take priority; else env vars are used
     api_key: str | None = None
     provider_api_keys: dict[str, str] = Field(default_factory=dict)
-
-    # VoltSnip backend
     voltsnip_base_url: str | None = None
     voltsnip_timeout_seconds: int = Field(default=20, ge=1)
     voltsnip_retry_attempts: int = Field(default=3, ge=1, le=10)
-
-    # Snippet retrieval limits
     snippet_context_limit: int | None = Field(default=None, ge=1, le=50)
     snippet_context_max_chars: int | None = Field(default=None, ge=100, le=20000)
-
-    # Scoring
     scoring_match_mode: Literal["lexical", "hybrid", "llm"] = "hybrid"
     scoring_primary_endpoint: Literal["auto", "constraint_binary", "legacy_weighted"] = "auto"
     auto_constraints_from_legacy_oracle: bool = True
     scoring_judge_model: str = "openai:gpt-5-mini"
     scoring_judge_max_tokens: int = Field(default=800, ge=64, le=8192)
     constraint_pass_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
-    # "verdict-true"      → single {"verdict":true}  example → anchors judge to true
-    # "verdict-false"     → single {"verdict":false} example → anchors judge to false
-    # "none"              → abstract <bool> placeholder, no concrete example
-    # "both"              → both true+false examples (corrected default since 67f6ed0)
-    # "pre-67f6ed0"       → exact old prompt from before fix: single {"verdict":false,"reason":"1-sentence explanation"}
     judge_prompt_variant: Literal["verdict-true", "verdict-false", "none", "both", "pre-67f6ed0"] = "both"
-
-    # Scoring gate
-    skip_scoring: bool = False  # Pass 1 only: skip LLM judge; rescore_scoring.py runs it later
-
-    # Pytest / code execution (Docker only)
+    skip_scoring: bool = False
     auto_apply_patch: bool = False
     pytest_docker_image: str = "moltsnip-pytest:latest"
     pytest_docker_workdir: str = "/workspace"
     pytest_timeout_seconds: int = Field(default=300, ge=1)
-
-    # LLM call limits
-    # max_tokens caps the *output* side (maps to max_completion_tokens / max_tokens per provider).
-    # llm_timeout_seconds is the subprocess/SDK call timeout for single-shot paths;
-    # MCP/tool-loop paths use max(600, llm_timeout_seconds) to allow for multi-turn latency.
     llm_timeout_seconds: int = Field(default=300, ge=10)
-
-    # Misc
     repo_policy_text: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _assert_unique(values: list[str], label: str) -> None:
     seen: set[str] = set()
-    duplicates: set[str] = set()
-    for v in values:
-        key = v.strip().lower()
-        if key in seen:
-            duplicates.add(v)
-        seen.add(key)
-    if duplicates:
-        raise ValueError(f"duplicate {label}: {', '.join(sorted(duplicates))}")
+    dups = {v for v in values if (k := v.strip().lower()) in seen or seen.add(k)}  # type: ignore[func-returns-value]
+    if dups:
+        raise ValueError(f"duplicate {label}: {', '.join(sorted(dups))}")
 
-# ---------------------------------------------------------------------------
-# Provider Output & Cost Definitions
-# ---------------------------------------------------------------------------
 
 _PRICING: dict[str, tuple[float, float]] = {
-    "gpt-5.2":          (15.00,  60.00),
-    "gpt-5":            (15.00,  60.00),
-    "gpt-5.3-codex":    (15.00,  60.00),
-    "gpt-5.2-codex":    (15.00,  60.00),
-    "gpt-5.1-codex":    (15.00,  60.00),
+    "gpt-5.2":            (15.00,  60.00),
+    "gpt-5":              (15.00,  60.00),
+    "gpt-5.3-codex":      (15.00,  60.00),
+    "gpt-5.2-codex":      (15.00,  60.00),
+    "gpt-5.1-codex":      (15.00,  60.00),
     "gpt-5.1-codex-mini": ( 0.40,   1.60),
-    "gpt-5-mini":       ( 0.40,   1.60),
-    "gpt-5-nano":       ( 0.10,   0.40),
-    "gpt-4o":           ( 2.50,  10.00),
-    "gpt-4o-mini":      ( 0.15,   0.60),
-    "o3":               (10.00,  40.00),
-    "o3-mini":          ( 1.10,   4.40),
-    "o1":               (15.00,  60.00),
-    "o1-mini":          ( 3.00,  12.00),
-    "claude-opus-4-6":  (15.00,  75.00),
-    "claude-opus-4-5":  (15.00,  75.00),
-    "claude-sonnet-4-6": (3.00,  15.00),
-    "claude-sonnet-4-5": (3.00,  15.00),
-    "claude-haiku-4-5": ( 0.80,   4.00),
-    "claude-haiku-4-4": ( 0.25,   1.25),
+    "gpt-5-mini":         ( 0.40,   1.60),
+    "gpt-5-nano":         ( 0.10,   0.40),
+    "gpt-4o":             ( 2.50,  10.00),
+    "gpt-4o-mini":        ( 0.15,   0.60),
+    "o3":                 (10.00,  40.00),
+    "o3-mini":            ( 1.10,   4.40),
+    "o1":                 (15.00,  60.00),
+    "o1-mini":            ( 3.00,  12.00),
+    "claude-opus-4-6":    (15.00,  75.00),
+    "claude-opus-4-5":    (15.00,  75.00),
+    "claude-sonnet-4-6":  ( 3.00,  15.00),
+    "claude-sonnet-4-5":  ( 3.00,  15.00),
+    "claude-haiku-4-5":   ( 0.80,   4.00),
+    "claude-haiku-4-4":   ( 0.25,   1.25),
 }
+
 
 def compute_cost(model_id: str, prompt_tokens: int, completion_tokens: int, cached_tokens: int = 0) -> float | None:
     pricing = _PRICING.get(model_id)
@@ -556,19 +408,11 @@ def compute_cost(model_id: str, prompt_tokens: int, completion_tokens: int, cach
         LOGGER.warning("No pricing entry for model %r — cost will be None", model_id)
         return None
     in_rate, out_rate = pricing
-
     if cached_tokens > 0:
-        cache_discount = 0.10 if "claude" in model_id else 0.50
-        cache_rate = in_rate * cache_discount
-        standard_in_tokens = max(0, prompt_tokens - cached_tokens)
-        cost = (
-            (standard_in_tokens * in_rate) +
-            (cached_tokens * cache_rate) +
-            (completion_tokens * out_rate)
-        ) / 1_000_000
+        cache_rate = in_rate * (0.10 if "claude" in model_id else 0.50)
+        cost = (max(0, prompt_tokens - cached_tokens) * in_rate + cached_tokens * cache_rate + completion_tokens * out_rate) / 1_000_000
     else:
         cost = (prompt_tokens * in_rate + completion_tokens * out_rate) / 1_000_000
-
     return round(cost, 8)
 
 
@@ -591,22 +435,17 @@ class LLMResult(BaseModel):
     subprocess_stderr: str = ""
     api_response_raw: str = ""
 
+
 def parse_model(model_name: str) -> tuple[str, str]:
-    if ":" in model_name:
-        provider, model_id = model_name.split(":", 1)
-    else:
-        provider, model_id = "openai", model_name
-    norm = {
-        "openai": "openai", "anthropic": "anthropic",
-        "claudecode": "claudecode", "codex": "codex", "mock": "mock",
-    }.get(provider.strip().lower(), provider.strip().lower())
+    provider, model_id = model_name.split(":", 1) if ":" in model_name else ("openai", model_name)
+    norm = {"openai": "openai", "anthropic": "anthropic", "claudecode": "claudecode", "codex": "codex", "mock": "mock"}.get(
+        provider.strip().lower(), provider.strip().lower()
+    )
     model_id_stripped = model_id.strip()
     if not model_id_stripped:
-        raise ValueError(
-            f"Invalid model name {model_name!r}: model_id portion is empty. "
-            "Expected format: 'provider:model_id' or just 'model_id'."
-        )
+        raise ValueError(f"Invalid model name {model_name!r}: model_id portion is empty. Expected format: 'provider:model_id' or just 'model_id'.")
     return norm, model_id_stripped
+
 
 def resolve_key(provider: str, cfg: RunConfig, provider_keys: dict[str, str]) -> str | None:
     import os
