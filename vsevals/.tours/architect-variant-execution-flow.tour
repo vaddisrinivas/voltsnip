@@ -1,0 +1,108 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Architect: Variant Execution Flow — P0–P8 Harness Design",
+  "description": "Understand how vsevals orchestrates 9 context-surface variants (P0–P8), from matrix invocation through cell execution to scoring.",
+  "ref": "arxiv-v1",
+  "isPrimary": true,
+  "steps": [
+    {
+      "file": "vsevals/models.py",
+      "line": 1,
+      "title": "vsevals: RAG-Augmented Evaluation Harness",
+      "description": "This harness measures whether AI assistants can fix bugs requiring both code logic AND org-private API knowledge from VoltSnip RAG.\n\nTwo-component task design: (1) code/logic fix (guessable), (2) org-specific API call (unguessable without retrieval). Both must be correct to pass."
+    },
+    {
+      "directory": "vsevals",
+      "title": "Harness Architecture",
+      "description": "Key modules: runner.py (cell executor), prompt.py (variant prompts), providers/ (model invocation), scorer.py (LLM judge), models.py (data schemas)."
+    },
+    {
+      "file": "suites/script30.yaml",
+      "line": 19,
+      "title": "The 9 Variants: P0–P8 Context Ladder",
+      "description": "P0–P2: Direct mode (in-process). P0=baseline, P1=+instruction, P2=+injected snippets.\n\nP3–P8: Agent mode (subprocess). P3=tools only, P4–P6=+SKILL/AGENTS guides, P7–P8=+explicit instruction."
+    },
+    {
+      "file": "scripts/run_matrix.py",
+      "line": 81,
+      "title": "Matrix Orchestration",
+      "description": "main() entry point: Load suite → expand cells (task×variant×model) → dispatch workers → aggregate results → optional rescoring → generate report."
+    },
+    {
+      "file": "vsevals/runner.py",
+      "line": 47,
+      "title": "Single Cell Execution: run_one()",
+      "description": "Per-cell entry point: Load task+variant → resolve repo → fetch snippets (if memory_enabled) → branch on variant.mode → invoke model → extract code → run pytest → score → write artifacts."
+    },
+    {
+      "file": "vsevals/runner.py",
+      "line": 92,
+      "title": "Memory-Enabled Retrieval (P2)",
+      "description": "If variant.memory_enabled: pre-fetch snippets from VoltSnip before model call. Injected into system prompt. One-shot retrieval, cheaper than agent roundtrips."
+    },
+    {
+      "file": "vsevals/runner.py",
+      "line": 98,
+      "title": "Agent vs. Direct Mode Fork",
+      "description": "Direct (P0–P2): In-process API call, no file access. Agent (P3–P8): Spawn subprocess in isolated temp dir, tools available, multiple API calls allowed."
+    },
+    {
+      "file": "vsevals/prompt.py",
+      "line": 1,
+      "title": "Prompt Assembly by Variant",
+      "description": "build_prompt() reads variant.context_surface to route content: system (P2), user (P0–P1), tools_only (P3, P7), skills_md (P4, P8), agents_md (P5), both (P6)."
+    },
+    {
+      "file": "vsevals/providers/claudecode.py",
+      "line": 1,
+      "title": "Claudecode Provider: Subprocess Invocation",
+      "description": "For agent variants: create temp dir with repo+sidecars → write sidecar files (SKILL.md, AGENTS.md) → spawn `claude code` subprocess → capture JSONStream output → parse tool traces and code."
+    },
+    {
+      "file": "vsevals/runner.py",
+      "line": 160,
+      "title": "Artifact Generation",
+      "description": "After cell runs: full_dump.json (complete RunResult), generated_code.txt, pytest.stdout.txt, pytest.stderr.txt, prompt.json. All metrics and traces persisted."
+    },
+    {
+      "file": "vsevals/scorer.py",
+      "line": 1,
+      "title": "Scoring Pipeline: Constraint-Binary",
+      "description": "Optional post-hoc LLM judge evaluation. Extract OracleConstraint objects → judge each with LLM → overall_score = passed/total → pass if >= 0.7 threshold."
+    },
+    {
+      "file": "vsevals/models.py",
+      "line": 24,
+      "title": "VariantConfig: Schema Encoding All Variants",
+      "description": "Fields control variant behavior: mode, memory_enabled, tools_enabled, retrieval_mode, instruction_mode, context_surface, max_tool_roundtrips. Validation ensures consistency."
+    },
+    {
+      "file": "vsevals/models.py",
+      "line": 306,
+      "title": "RunResult: Complete Execution Record",
+      "description": "After each cell: RunResult captures task, variant snapshot, retrieved_snippets, tool_traces, pytest_result, score, summary_metrics, artifacts. Ground truth for all analysis."
+    },
+    {
+      "file": "vsevals/models.py",
+      "line": 172,
+      "title": "PromptBundle: Context Surface Routing",
+      "description": "Encodes how variant context reaches the model: system_prompt, user_prompt, context_surface (enum), sidecar_files (for agent mode). Different surface per variant."
+    },
+    {
+      "file": "vsevals/runner.py",
+      "line": 58,
+      "title": "Task Resolution: Two-Component Design",
+      "description": "Task loads task+oracle. TaskVisible: user sees this. TaskOracle: hidden from model, used for scoring. required_snippets indicate what RAG should retrieve."
+    },
+    {
+      "file": "scripts/run_matrix.py",
+      "line": 120,
+      "title": "Matrix Output: Reports & Artifacts",
+      "description": "After all cells: matrix_results.csv (one row per cell), matrix_summary.json (aggregate stats), matrix_report.md (pass/fail grid). For spreadsheet and human analysis."
+    },
+    {
+      "title": "You Now Understand the Harness",
+      "description": "Variant spectrum (P0–P8) as context ladder → matrix orchestration → cell execution branching → prompt assembly per variant → artifact persistence → scoring pipeline.\n\nKey insight: All variant logic flows through config objects. Executor is variant-agnostic.\n\nNext: Read full_dump.json for any cell to see ground truth. Check paper/PAPER_v2.md for hypothesis and results."
+    }
+  ]
+}

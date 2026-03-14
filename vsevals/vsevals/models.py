@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+if TYPE_CHECKING:
+    from vsevals.execution_trace import ExecutionTrace
 
 LOGGER = logging.getLogger(__name__)
 
@@ -332,6 +335,7 @@ class RunResult(BaseModel):
     raw_model_output: str = ""
     parsed_output: GeneratedPayload = Field(default_factory=lambda: GeneratedPayload(code="", comments=""))
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    execution_trace: object | None = Field(default=None, description="ExecutionTrace for dynamic tour generation")
     timings: TimingInfo
     summary_metrics: SummaryMetrics
     artifacts: RunArtifactPaths

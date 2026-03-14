@@ -15,6 +15,7 @@ from typing import Any, Callable, Literal
 
 from vsevals.client import VoltSnipClient
 from vsevals.dispatch import call_llm, voltsnip_tool_schemas
+from vsevals.execution_trace import ExecutionTrace, get_current_trace, set_current_trace, trace_execution
 from vsevals.loader import load_suite
 from vsevals.models import (
     GeneratedPayload, MessageTrace, PromptBundle, PytestResult,
@@ -26,6 +27,7 @@ from vsevals.patching import apply_line_range_rewrite, apply_rewrite, cleanup_ov
 from vsevals.prompt import DEFAULT_REPO_POLICY, build_prompt
 from vsevals.pytest_runner import run_pytest_in_docker, start_test_container, stop_test_container
 from vsevals.scorer import score_one
+from vsevals.tour_generator import generate_debug_tour, should_generate_tour
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_OUTPUT_ROOT = "./vsevals_runs"
@@ -79,6 +81,10 @@ def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
     retrieval_latency_ms: int | None = None
     model_latency_ms: int | None = None
 
+    # Initialize execution trace for this cell
+    execution_trace = ExecutionTrace(task_id=task_id, variant_id=variant_id, model_name=model_name)
+    set_current_trace(execution_trace)
+
     try:
         provider, _ = _parse_provider(model_name)
         provider_keys = _load_provider_keys(resolved_cfg)
@@ -89,11 +95,25 @@ def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
         repo_policy = resolved_cfg.repo_policy_text or DEFAULT_REPO_POLICY
 
         if variant.memory_enabled:
+            execution_trace.record(
+                function_name="_retrieve_snippets",
+                file_path="vsevals/runner.py",
+                line_number=97,  # inline tracking
+                decision_point="retrieval_fork",
+                context={"enabled": variant.memory_enabled, "retrieval_mode": variant.retrieval_mode},
+            )
             t_ret = time.perf_counter()
             retrieved_snippets = _retrieve_snippets(task=task, variant=variant, voltsnip=voltsnip, cfg=resolved_cfg)
             retrieval_latency_ms = int((time.perf_counter() - t_ret) * 1000)
 
         t_model = time.perf_counter()
+        execution_trace.record(
+            function_name="_mode_fork",
+            file_path="vsevals/runner.py",
+            line_number=104,
+            decision_point="mode_fork",
+            context={"mode": variant.mode, "tools_enabled": variant.tools_enabled},
+        )
         if variant.mode == "agent" and variant.tools_enabled:
             llm_result, prompt, prompt_after_tools, retrieved_snippets, tool_traces = _run_agent(
                 task=task, variant=variant, model_name=model_name, cfg=resolved_cfg,
@@ -114,6 +134,8 @@ def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
         status = "error"
         run_error = RunError(type=exc.__class__.__name__, message=str(exc), error_class=_classify_error(exc))
         LOGGER.exception("run failed  run_id=%s  task=%s  variant=%s  model=%s", run_id, task_id, variant_id, model_name)
+    finally:
+        set_current_trace(None)
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
     finished_at = datetime.now(timezone.utc)
@@ -153,6 +175,7 @@ def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
         ],
         raw_model_output=llm_result.raw_output, parsed_output=llm_result.parsed_output,
         token_usage=llm_result.token_usage,
+        execution_trace=execution_trace,
         timings=TimingInfo(started_at=started_at, finished_at=finished_at, latency_ms=latency_ms),
         summary_metrics=SummaryMetrics(
             latency_ms=latency_ms,
@@ -183,12 +206,26 @@ def run_one(*, task_id: str, variant_id: str, model_name: str, suite_path: str,
     )
 
     score: ScoreResult | None = None
+    execution_trace.record(
+        function_name="_scoring_fork",
+        file_path="vsevals/runner.py",
+        line_number=209,
+        decision_point="scoring_fork",
+        context={"skip_scoring": resolved_cfg.skip_scoring, "status": status},
+    )
     if status == "ok" and not resolved_cfg.skip_scoring:
         t_score = time.perf_counter()
         score = score_one(run_result=run_result, oracle=task.oracle, cfg=resolved_cfg, provider_keys=provider_keys)
         run_result.score = score
         run_result.summary_metrics.scoring_latency_ms = int((time.perf_counter() - t_score) * 1000)
 
+    execution_trace.record(
+        function_name="_pytest_fork",
+        file_path="vsevals/runner.py",
+        line_number=215,
+        decision_point="pytest_fork",
+        context={"auto_apply_patch": resolved_cfg.auto_apply_patch, "status": status},
+    )
     if status == "ok" and resolved_cfg.auto_apply_patch:
         run_result.pytest_result = _run_patch_and_test(
             run_result=run_result, task=task,
@@ -226,6 +263,16 @@ def _run_agent(*, task: SuiteTask, variant: VariantConfig, model_name: str, cfg:
 
     prompt_sent = _build_prompt_after()
     provider, model_id = _parse_provider(model_name)
+
+    trace = get_current_trace()
+    if trace:
+        trace.record(
+            function_name="_provider_dispatch",
+            file_path="vsevals/runner.py",
+            line_number=267,
+            decision_point="provider_dispatch",
+            context={"provider": provider, "model_id": model_id},
+        )
 
     if provider in ("claudecode", "codex"):
         from vsevals.providers.claudecode import call_claudecode
@@ -592,6 +639,14 @@ def _write_artifacts(*, run_result: RunResult, score: ScoreResult | None) -> Non
     if run_result.pytest_result and run_result.pytest_result.ran:
         (run_dir / "pytest.stdout.txt").write_text(run_result.pytest_result.stdout, encoding="utf-8")
         (run_dir / "pytest.stderr.txt").write_text(run_result.pytest_result.stderr, encoding="utf-8")
+
+    # Auto-generate debug tour for failures and anomalies
+    try:
+        if should_generate_tour(run_result):
+            tour_path = generate_debug_tour(run_result, run_dir)
+            LOGGER.info("debug tour generated: %s", tour_path)
+    except Exception as exc:
+        LOGGER.warning("failed to generate debug tour: %s", exc)
 
 
 def main() -> None:
