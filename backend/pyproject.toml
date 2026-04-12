@@ -33,7 +33,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest-env>=1.2.0",
-    "ruff>=0.14.14",
+    "ruff>=0.15.10",
     "testcontainers>=4.10.0",
     "faker>=30.0.0",
 ]
