@@ -24,11 +24,11 @@ def main() -> None:
 
     import torch
     from datasets import load_dataset
-    from trl import SFTConfig, SFTTrainer
 
     if args.family == "gemma4":
         from unsloth import FastModel
         from unsloth.chat_templates import get_chat_template, train_on_responses_only
+        from trl import SFTConfig, SFTTrainer
 
         model, tokenizer = FastModel.from_pretrained(
             model_name=args.model,
@@ -55,6 +55,7 @@ def main() -> None:
     else:
         from unsloth import FastVisionModel
         from unsloth.chat_templates import train_on_responses_only
+        from trl import SFTConfig, SFTTrainer
 
         model, tokenizer = FastVisionModel.from_pretrained(
             args.model,

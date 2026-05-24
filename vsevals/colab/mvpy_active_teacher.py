@@ -166,8 +166,12 @@ def command_env_report(_: argparse.Namespace) -> None:
 
 def command_build_verifier(args: argparse.Namespace) -> None:
     root = args.workdir / "mvpy"
+    clone_repo = args.repo
+    token = os.environ.get("GH_TOKEN")
+    if token and args.repo.startswith("https://github.com/"):
+        clone_repo = args.repo.replace("https://github.com/", f"https://x-access-token:{token}@github.com/", 1)
     if not root.exists():
-        run = run_cmd(["git", "clone", args.repo, str(root)], timeout=120)
+        run = run_cmd(["git", "clone", clone_repo, str(root)], timeout=120)
         if run.returncode:
             raise SystemExit(run.stderr)
     if args.commit:
