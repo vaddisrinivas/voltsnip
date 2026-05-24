@@ -1,0 +1,36 @@
+{
+  "dataset_id": "mvpy_ood_holdout_v2_realworld_analytics_500",
+  "created_utc": "20260524T235336Z",
+  "count": 500,
+  "split_plan": {
+    "easy": 100,
+    "medium": 200,
+    "hard": 200
+  },
+  "start_index": 20000,
+  "excluded_program_hashes": 11000,
+  "sha_disjoint_from_excludes": true,
+  "verifier_commit": "671aecf",
+  "verifier_binary": "/tmp/mvpy-v0.1",
+  "verifier_sha256": "38a6d8c5392dc0dbe24322f72f13481b0328c5e46174122f093fc9972ba18d20",
+  "categories_by_band": {
+    "easy": [
+      "agent_cost_snapshot",
+      "api_quota_projection",
+      "incident_sla_snapshot",
+      "subscription_mrr_snapshot"
+    ],
+    "medium": [
+      "collections_counter_status",
+      "lookup_join_revenue",
+      "pandas_groupby_revenue",
+      "rolling_window_metric"
+    ],
+    "hard": [
+      "cc_retrospect_trace_rollup",
+      "mini_dataframe_groupby_join_filter",
+      "rolling_anomaly_dashboard",
+      "stdlib_counter_accumulate"
+    ]
+  }
+}

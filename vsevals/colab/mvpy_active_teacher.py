@@ -86,7 +86,17 @@ def run_mvpy(code: str, mvpy_bin: Path, timeout: int = 5) -> dict[str, Any]:
     }
 
 
-def call_openai(model: str, prompt: str, max_tokens: int) -> str:
+def dump_usage(usage: Any) -> dict[str, Any] | None:
+    if usage is None:
+        return None
+    if hasattr(usage, "model_dump"):
+        return usage.model_dump()
+    if hasattr(usage, "__dict__"):
+        return dict(usage.__dict__)
+    return {"raw": repr(usage)}
+
+
+def call_openai(model: str, prompt: str, max_tokens: int) -> dict[str, Any]:
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -96,10 +106,10 @@ def call_openai(model: str, prompt: str, max_tokens: int) -> str:
         temperature=0,
         max_output_tokens=max_tokens,
     )
-    return response.output_text
+    return {"text": response.output_text, "usage": dump_usage(getattr(response, "usage", None))}
 
 
-def call_anthropic(model: str, prompt: str, max_tokens: int) -> str:
+def call_anthropic(model: str, prompt: str, max_tokens: int) -> dict[str, Any]:
     import anthropic
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -109,10 +119,13 @@ def call_anthropic(model: str, prompt: str, max_tokens: int) -> str:
         temperature=0,
         messages=[{"role": "user", "content": prompt}],
     )
-    return "\n".join(block.text for block in response.content if getattr(block, "type", "") == "text")
+    return {
+        "text": "\n".join(block.text for block in response.content if getattr(block, "type", "") == "text"),
+        "usage": dump_usage(getattr(response, "usage", None)),
+    }
 
 
-def call_teacher(provider: str, model: str, prompt: str, max_tokens: int) -> str:
+def call_teacher(provider: str, model: str, prompt: str, max_tokens: int) -> dict[str, Any]:
     if provider == "openai":
         return call_openai(model, prompt, max_tokens)
     if provider == "anthropic":
@@ -209,10 +222,30 @@ def command_teacher(args: argparse.Namespace) -> None:
         previous = None
         for turn in range(args.repair_turns + 1):
             prompt = build_teacher_prompt(row, previous, oracle=args.oracle)
-            text = call_teacher(args.provider, args.model, prompt, args.max_tokens)
+            provider = args.provider
+            model = args.model
+            try:
+                response = call_teacher(provider, model, prompt, args.max_tokens)
+            except Exception as exc:
+                if not args.fallback_provider or not args.fallback_model:
+                    raise
+                provider = args.fallback_provider
+                model = args.fallback_model
+                response = call_teacher(provider, model, prompt, args.max_tokens)
+                response["fallback_from"] = {"provider": args.provider, "model": args.model, "error": repr(exc)}
+            text = response["text"]
             code = extract_code(text)
             result = run_mvpy(code, args.mvpy_bin, timeout=args.timeout)
-            attempt = {"turn": turn, "text": text, "code": code, "result": result}
+            attempt = {
+                "turn": turn,
+                "provider": provider,
+                "model": model,
+                "usage": response.get("usage"),
+                "fallback_from": response.get("fallback_from"),
+                "text": text,
+                "code": code,
+                "result": result,
+            }
             attempts.append(attempt)
             if result["exit"] == 0 and result["stdout"] == row.get("stdout", ""):
                 append_jsonl(
@@ -227,7 +260,7 @@ def command_teacher(args: argparse.Namespace) -> None:
                         "mvpy": code,
                         "teacher_text": text,
                         "attempts": attempts,
-                        "teacher": {"provider": args.provider, "model": args.model, "oracle": args.oracle},
+                        "teacher": {"provider": provider, "model": model, "oracle": args.oracle},
                         "verifier": {"binary": str(args.mvpy_bin), "exit": result["exit"]},
                     },
                 )
@@ -291,6 +324,8 @@ def build_parser() -> argparse.ArgumentParser:
     teacher.add_argument("--mvpy-bin", type=Path, default=Path("/content/mvpy-v0.1"))
     teacher.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
     teacher.add_argument("--model", default="gpt-5.3-codex")
+    teacher.add_argument("--fallback-provider", choices=["openai", "anthropic"])
+    teacher.add_argument("--fallback-model")
     teacher.add_argument("--limit", type=int)
     teacher.add_argument("--start", type=int, default=0)
     teacher.add_argument("--band")

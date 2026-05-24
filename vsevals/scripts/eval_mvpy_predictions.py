@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--mvpy-bin", type=Path, default=None)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--json-report", type=Path)
+    parser.add_argument("--failures-jsonl", type=Path)
+    parser.add_argument("--taxonomy-json", type=Path)
     parser.add_argument("--limit", type=int)
     args = parser.parse_args()
 
@@ -52,6 +54,13 @@ def main() -> None:
                 stats["empty"] += 1
                 failures.append({"id": row_id, "kind": "empty"})
                 continue
+            static = static_core11_check(code)
+            if static["ok"]:
+                stats["static_core11_ok"] += 1
+            else:
+                stats["static_core11_fail"] += 1
+                for reason in static["reasons"]:
+                    stats[f"static:{reason}"] += 1
             for feature in row.get("features", []):
                 feature_stats.setdefault(feature, Counter())["total"] += 1
             band_stats.setdefault(row.get("difficulty_band", "unknown"), Counter())["total"] += 1
@@ -63,13 +72,13 @@ def main() -> None:
             except subprocess.TimeoutExpired:
                 stats["timeout"] += 1
                 stats["runtime_error"] += 1
-                failures.append({"id": row_id, "kind": "timeout"})
+                failures.append({"id": row_id, "kind": "timeout", "static": static})
                 continue
             if proc.returncode == 0:
                 stats["runtime_ok"] += 1
             else:
                 stats["runtime_error"] += 1
-                failures.append({"id": row_id, "kind": "runtime_error", "stderr": proc.stderr[:500]})
+                failures.append({"id": row_id, "kind": "runtime_error", "stderr": proc.stderr[:500], "static": static})
                 continue
             if proc.stdout == row["stdout"]:
                 stats["exact_ok"] += 1
@@ -84,11 +93,16 @@ def main() -> None:
                     "kind": "stdout_mismatch",
                     "got": proc.stdout,
                     "want": row["stdout"],
+                    "static": static,
                 })
+    taxonomy = build_taxonomy(failures, stats)
     summary = {
         "total": stats["total"],
         "missing": stats["missing"],
         "empty": stats["empty"],
+        "static_core11_ok": stats["static_core11_ok"],
+        "static_core11_fail": stats["static_core11_fail"],
+        "static_core11_rate": rate(stats["static_core11_ok"], stats["total"]),
         "runtime_ok": stats["runtime_ok"],
         "runtime_error": stats["runtime_error"],
         "timeout": stats["timeout"],
@@ -106,6 +120,7 @@ def main() -> None:
         },
         "bands": summarize_group(band_stats),
         "categories": summarize_group(category_stats),
+        "taxonomy": taxonomy,
         "failures_sample": failures[:50],
     }
     if args.json_report:
@@ -115,6 +130,14 @@ def main() -> None:
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(text, encoding="utf-8")
+    if args.failures_jsonl:
+        args.failures_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        with args.failures_jsonl.open("w", encoding="utf-8") as fh:
+            for failure in failures:
+                fh.write(json.dumps(failure, ensure_ascii=False) + "\n")
+    if args.taxonomy_json:
+        args.taxonomy_json.parent.mkdir(parents=True, exist_ok=True)
+        args.taxonomy_json.write_text(json.dumps(taxonomy, indent=2) + "\n", encoding="utf-8")
     print(text)
 
 
@@ -152,6 +175,7 @@ def render_report(summary: dict) -> str:
         "# MVPy Prediction Evaluation",
         "",
         f"- Rows: {summary['total']}",
+        f"- Static core11 pass: {summary['static_core11_rate']:.2%}",
         f"- Runtime pass: {summary['runtime_rate']:.2%}",
         f"- Exact stdout pass: {summary['exact_rate']:.2%}",
         f"- Missing: {summary['missing']}",
@@ -172,6 +196,95 @@ def render_report(summary: dict) -> str:
     for category, vals in summary["categories"].items():
         lines.append(f"| `{category}` | {vals['total']} | {vals['exact_ok']} | {vals['exact_rate']:.2%} |")
     return "\n".join(lines) + "\n"
+
+
+def static_core11_check(code: str) -> dict:
+    reasons: list[str] = []
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return {"ok": False, "reasons": ["syntax_error"]}
+    allowed = (
+        ast.Module,
+        ast.Assign,
+        ast.Expr,
+        ast.FunctionDef,
+        ast.arguments,
+        ast.arg,
+        ast.Nonlocal,
+        ast.Return,
+        ast.Raise,
+        ast.Try,
+        ast.ExceptHandler,
+        ast.While,
+        ast.Yield,
+        ast.Call,
+        ast.Name,
+        ast.Constant,
+        ast.Load,
+        ast.Store,
+    )
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed):
+            reasons.append(type(node).__name__)
+            continue
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if not isinstance(target, ast.Name):
+                    reasons.append("non_name_assignment")
+        elif isinstance(node, ast.FunctionDef):
+            if node.decorator_list:
+                reasons.append("decorator")
+            if node.returns is not None:
+                reasons.append("return_annotation")
+            if node.args.posonlyargs or node.args.kwonlyargs or node.args.kw_defaults or node.args.defaults or node.args.vararg or node.args.kwarg:
+                reasons.append("complex_arguments")
+        elif isinstance(node, ast.Try):
+            if node.orelse or node.finalbody:
+                reasons.append("try_else_finally")
+            for handler in node.handlers:
+                if handler.type is not None or handler.name is not None:
+                    reasons.append("typed_except")
+        elif isinstance(node, ast.Call):
+            if node.keywords:
+                reasons.append("keyword_call")
+            if not isinstance(node.func, ast.Name):
+                reasons.append("non_name_call")
+        elif isinstance(node, ast.Constant):
+            if not (isinstance(node.value, int) or node.value is None):
+                reasons.append(f"constant_{type(node.value).__name__}")
+    unique = sorted(set(reasons))
+    return {"ok": not unique, "reasons": unique}
+
+
+def build_taxonomy(failures: list[dict], stats: Counter) -> dict:
+    by_kind = Counter(failure["kind"] for failure in failures)
+    stderr_classes = Counter()
+    static_reasons = Counter()
+    for failure in failures:
+        stderr = failure.get("stderr", "")
+        if "parse error" in stderr:
+            stderr_classes["parse_error"] += 1
+        elif "undefined name" in stderr:
+            stderr_classes["undefined_name"] += 1
+        elif "expects int" in stderr:
+            stderr_classes["type_error_expects_int"] += 1
+        elif "not callable" in stderr:
+            stderr_classes["not_callable"] += 1
+        elif stderr:
+            stderr_classes["other_runtime"] += 1
+        for reason in failure.get("static", {}).get("reasons", []):
+            static_reasons[reason] += 1
+    return {
+        "failure_kinds": dict(sorted(by_kind.items())),
+        "stderr_classes": dict(sorted(stderr_classes.items())),
+        "static_reasons": dict(sorted(static_reasons.items())),
+        "static_counter_keys": {
+            key.removeprefix("static:"): value
+            for key, value in sorted(stats.items())
+            if key.startswith("static:")
+        },
+    }
 
 
 def read_jsonl(path: Path):
