@@ -1,0 +1,11 @@
+{
+  "format": "mlx-lm chat jsonl",
+  "prompt_field": "prompt_raw",
+  "target_format": "plan_code",
+  "counts": {
+    "train": 5000,
+    "valid": 500,
+    "test": 5000
+  },
+  "source_dir": "/Users/srinivasvaddi/Projects/moltsnip_mvpy_papers/vsevals/data/mvpy_research_v2_oodmix"
+}

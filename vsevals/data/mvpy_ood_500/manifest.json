@@ -1,0 +1,32 @@
+{
+  "dataset_id": "mvpy_ood_realworld_analytics_500",
+  "count": 500,
+  "split_plan": {
+    "easy": 100,
+    "medium": 200,
+    "hard": 200
+  },
+  "categories_by_band": {
+    "easy": [
+      "agent_cost_snapshot",
+      "api_quota_projection",
+      "incident_sla_snapshot",
+      "subscription_mrr_snapshot"
+    ],
+    "medium": [
+      "collections_counter_status",
+      "lookup_join_revenue",
+      "pandas_groupby_revenue",
+      "rolling_window_metric"
+    ],
+    "hard": [
+      "cc_retrospect_trace_rollup",
+      "mini_dataframe_groupby_join_filter",
+      "rolling_anomaly_dashboard",
+      "stdlib_counter_accumulate"
+    ]
+  },
+  "source_seen_hashes": 10500,
+  "sha_disjoint_from_seen": true,
+  "verifier_commit": "671aecf"
+}

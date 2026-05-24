@@ -1,0 +1,20 @@
+{
+  "base_fraction": 0.5,
+  "dataset_id": "mvpy_sft_v2_oodmix",
+  "description": "5k MVPy v0.1 SFT rows mixing v1 syntax tasks and shifted real-world OOD-like analytics tasks.",
+  "ood_offset": 10000,
+  "sha_disjoint_from_heldout_ood": true,
+  "splits": {
+    "analysis": 5000,
+    "train": 5000,
+    "val": 500
+  },
+  "target_language": "MVPy v0.1/core11",
+  "verifier": {
+    "binary": "/private/tmp/mvpy-v0.1",
+    "commit": "671aecf",
+    "exit": 0,
+    "name": "mvpy",
+    "sha256": "38a6d8c5392dc0dbe24322f72f13481b0328c5e46174122f093fc9972ba18d20"
+  }
+}
