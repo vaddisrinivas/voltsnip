@@ -69,6 +69,7 @@ def main() -> None:
     parser.add_argument("--train-steps", type=int, nargs="+", default=[500, 1000])
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--max-seq-length", type=int, default=1024)
+    parser.add_argument("--predict-max-seq-length", type=int)
     parser.add_argument("--model", default="unsloth/gemma-4-E4B-it")
     parser.add_argument("--prompt-modes", nargs="+", default=["gemma_patterns", "plan_code"])
     parser.add_argument("--max-tokens", type=int, default=384)
@@ -252,7 +253,7 @@ def main() -> None:
                             "--prompt-mode",
                             mode,
                             "--max-seq-length",
-                            str(args.max_seq_length),
+                            str(args.predict_max_seq_length or args.max_seq_length),
                             "--max-tokens",
                             str(args.max_tokens),
                             "--resume",

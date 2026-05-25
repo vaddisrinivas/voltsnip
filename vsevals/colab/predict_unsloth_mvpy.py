@@ -176,7 +176,15 @@ def load_model(args: argparse.Namespace):
 def generate_one(model: Any, tokenizer: Any, prompt: str, args: argparse.Namespace) -> str:
     import torch
 
-    inputs = tokenizer(prompt, return_tensors="pt")
+    previous_side = getattr(tokenizer, "truncation_side", "right")
+    tokenizer.truncation_side = args.truncation_side
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=args.max_seq_length,
+    )
+    tokenizer.truncation_side = previous_side
     if torch.cuda.is_available():
         inputs = {key: value.to("cuda") for key, value in inputs.items()}
     kwargs = {
@@ -203,6 +211,7 @@ def main() -> None:
     parser.add_argument("--prompt-mode", choices=["gemma_patterns", "plan_code", "strict_code"], default="gemma_patterns")
     parser.add_argument("--max-seq-length", type=int, default=1024)
     parser.add_argument("--max-tokens", type=int, default=384)
+    parser.add_argument("--truncation-side", choices=["left", "right"], default="left")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--limit", type=int)
