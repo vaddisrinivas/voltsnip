@@ -179,7 +179,7 @@ def generate_one(model: Any, tokenizer: Any, prompt: str, args: argparse.Namespa
     previous_side = getattr(tokenizer, "truncation_side", "right")
     tokenizer.truncation_side = args.truncation_side
     inputs = tokenizer(
-        prompt,
+        text=prompt,
         return_tensors="pt",
         truncation=True,
         max_length=args.max_seq_length,
